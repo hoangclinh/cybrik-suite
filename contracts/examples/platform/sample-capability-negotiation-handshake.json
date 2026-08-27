@@ -120,11 +120,27 @@
         ]
       },
       {
-        "capability_name": "cap-store",
+        "capability_name": "s3_crud_17_ops_with_worm",
         "slot_id": "storage",
         "is_mandatory": true,
         "supported_features": [
-          "s3_crud_14_ops",
+          "PutObject",
+          "GetObject",
+          "HeadObject",
+          "DeleteObject",
+          "DeleteObjects",
+          "ListObjectsV2",
+          "HeadBucket",
+          "CreateBucket",
+          "PutObjectRetention",
+          "GetObjectRetention",
+          "PutObjectLegalHold",
+          "GetObjectLegalHold",
+          "CreateMultipartUpload",
+          "UploadPart",
+          "CompleteMultipartUpload",
+          "AbortMultipartUpload",
+          "ListParts",
           "sig_v4",
           "path_style"
         ],
@@ -134,7 +150,8 @@
           "degradation_notes": "Object Lock retention disabled; client SHA-256 integrity active"
         },
         "evidence_references": [
-          "ev-store-01"
+          "ev-store-01",
+          "ev-store-object-lock-01"
         ]
       },
       {
@@ -298,6 +315,11 @@
         "test_identifier": "ev-store-01",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-01.json"
+      },
+      {
+        "test_identifier": "ev-store-object-lock-01",
+        "verification_method": "AUTOMATED_TEST",
+        "report_uri": "https://reports.cybrik.example/evidence/ev-store-object-lock-01.json"
       },
       {
         "test_identifier": "ev-db-01",

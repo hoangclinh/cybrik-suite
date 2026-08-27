@@ -44,6 +44,26 @@ const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
 
+const S3_17_MANDATORY_OPS = [
+  'PutObject',
+  'GetObject',
+  'HeadObject',
+  'DeleteObject',
+  'DeleteObjects',
+  'ListObjectsV2',
+  'HeadBucket',
+  'CreateBucket',
+  'PutObjectRetention',
+  'GetObjectRetention',
+  'PutObjectLegalHold',
+  'GetObjectLegalHold',
+  'CreateMultipartUpload',
+  'UploadPart',
+  'CompleteMultipartUpload',
+  'AbortMultipartUpload',
+  'ListParts'
+];
+
 function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
@@ -67,6 +87,54 @@ function validatePlatformSemantics(data, schemaId) {
     const targetProfileId = data.target_profile_id;
     const targetProfileDigest = data.target_profile_digest;
     const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+
+    if (data.agreed_capability_lease) {
+      const lease = data.agreed_capability_lease;
+      if (lease.issued_at && lease.valid_until) {
+        const issued_at_ms = Date.parse(lease.issued_at);
+        const valid_until_ms = Date.parse(lease.valid_until);
+        if (Number.isNaN(issued_at_ms) || Number.isNaN(valid_until_ms)) {
+          throw new Error(`Semantic error: invalid timestamp format in lease`);
+        }
+        if (!(valid_until_ms > issued_at_ms)) {
+          throw new Error(`Semantic error: lease valid_until_ms (${valid_until_ms}) must be strictly greater than issued_at_ms (${issued_at_ms})`);
+        }
+        if (typeof lease.ttl_seconds === 'number') {
+          const expected_ttl = Math.floor((valid_until_ms - issued_at_ms) / 1000);
+          if (lease.ttl_seconds !== expected_ttl) {
+            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ttl}s)`);
+          }
+        }
+      }
+    }
+
+    if (isNegotiation && adv.advertised_capabilities) {
+      const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
+      if (storageCap) {
+        if (storageCap.supported_features) {
+          const featureSet = new Set(storageCap.supported_features);
+          for (const op of S3_17_MANDATORY_OPS) {
+            if (!featureSet.has(op)) {
+              throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline`);
+            }
+          }
+        }
+        const storageRefs = new Set(storageCap.evidence_references || []);
+        const hasObjectLockEvidence = (adv.conformance_evidence || []).some(
+          e => storageRefs.has(e.test_identifier) && (
+            e.test_identifier.toLowerCase().includes('object-lock') ||
+            e.test_identifier.toLowerCase().includes('retention') ||
+            e.test_identifier.toLowerCase().includes('worm') ||
+            e.report_uri.toLowerCase().includes('object-lock') ||
+            e.report_uri.toLowerCase().includes('retention') ||
+            e.report_uri.toLowerCase().includes('worm')
+          )
+        );
+        if (!hasObjectLockEvidence) {
+          throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
+        }
+      }
+    }
 
     if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
       const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
@@ -845,6 +913,65 @@ try {
 } catch (e) {
   H('25', e.message.includes('mandatory profile slot'), 'mandatory slot fulfillment check must catch missing advertised capability for required slot');
 }
+
+// 26. in-memory validation: reject capability negotiation with inverted timestamps (valid_until <= issued_at)
+const pcnInvertedTime = JSON.parse(JSON.stringify(pcnSample));
+pcnInvertedTime.agreed_capability_lease.issued_at = "2026-08-27T14:00:00Z";
+pcnInvertedTime.agreed_capability_lease.valid_until = "2026-08-27T13:00:00Z";
+try {
+  validatePlatformSemantics(pcnInvertedTime, pcnSchemaId);
+  fail('inverted timestamps: expected validatePlatformSemantics to throw on valid_until <= issued_at');
+} catch (e) {
+  H('26', e.message.includes('strictly greater than issued_at_ms'), 'temporal consistency check must catch inverted timestamps');
+}
+
+// 27. in-memory validation: reject capability negotiation with mismatched ttl_seconds
+const pcnBadTtl = JSON.parse(JSON.stringify(pcnSample));
+pcnBadTtl.agreed_capability_lease.ttl_seconds = 1800; // actual delta is 3600
+try {
+  validatePlatformSemantics(pcnBadTtl, pcnSchemaId);
+  fail('mismatched TTL: expected validatePlatformSemantics to throw when ttl_seconds does not match timestamp delta');
+} catch (e) {
+  H('27', e.message.includes('does not match timestamp duration'), 'temporal consistency check must catch mismatched ttl_seconds');
+}
+
+// 28a. in-memory validation: reject AGREED_LEASE_GRANTED paired with ACTIVE_DEGRADED
+const pcnIllegalPair1 = JSON.parse(JSON.stringify(pcnSample));
+pcnIllegalPair1.negotiation_status = "AGREED_LEASE_GRANTED";
+pcnIllegalPair1.agreed_capability_lease.lease_status = "ACTIVE_DEGRADED";
+const pcnIllegalPair1Valid = ajv.validate(pcnSchemaId, pcnIllegalPair1);
+H('28a', !pcnIllegalPair1Valid, 'Capability negotiation schema must reject AGREED_LEASE_GRANTED with ACTIVE_DEGRADED lease status');
+
+// 28b. in-memory validation: reject DEGRADED_LEASE_GRANTED paired with ACTIVE_OPTIMAL
+const pcnIllegalPair2 = JSON.parse(JSON.stringify(pcnSample));
+pcnIllegalPair2.negotiation_status = "DEGRADED_LEASE_GRANTED";
+pcnIllegalPair2.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+const pcnIllegalPair2Valid = ajv.validate(pcnSchemaId, pcnIllegalPair2);
+H('28b', !pcnIllegalPair2Valid, 'Capability negotiation schema must reject DEGRADED_LEASE_GRANTED with ACTIVE_OPTIMAL lease status');
+
+// 29a. in-memory validation: reject storage capability missing 17-op baseline operations
+const pcnStorageMissingOp = JSON.parse(JSON.stringify(pcnSample));
+const storeCap = pcnStorageMissingOp.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+storeCap.supported_features = storeCap.supported_features.filter(f => f !== 'PutObjectRetention');
+try {
+  validatePlatformSemantics(pcnStorageMissingOp, pcnSchemaId);
+  fail('storage 17-op baseline: expected validatePlatformSemantics to throw when S3 operation is missing');
+} catch (e) {
+  H('29a', e.message.includes('missing required S3 operation'), 'storage 17-op baseline check must catch missing operations');
+}
+
+// 29b. in-memory validation: reject storage capability missing Object Lock retention evidence
+const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
+const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+storeCap2.evidence_references = ["ev-store-01"];
+pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01');
+try {
+  validatePlatformSemantics(pcnStorageMissingLockEv, pcnSchemaId);
+  fail('storage Object Lock evidence: expected validatePlatformSemantics to throw when Object Lock evidence is missing');
+} catch (e) {
+  H('29b', e.message.includes('lacks Object Lock retention evidence'), 'storage Object Lock evidence check must catch missing retention evidence');
+}
+
 
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');

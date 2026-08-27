@@ -502,12 +502,6 @@
           },
           "agreed_capability_lease": {
             "properties": {
-              "lease_status": {
-                "enum": [
-                  "ACTIVE_OPTIMAL",
-                  "ACTIVE_DEGRADED"
-                ]
-              },
               "fail_closed_violations": {
                 "maxItems": 0
               },
@@ -570,6 +564,86 @@
       "if": {
         "properties": {
           "negotiation_status": {
+            "const": "AGREED_LEASE_GRANTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "const": "DEGRADED_LEASE_GRANTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "AGREED_LEASE_GRANTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "DEGRADED_LEASE_GRANTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
             "const": "TERMINAL_REJECTED"
           }
         }
@@ -585,6 +659,26 @@
                 "minItems": 1
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "REJECTED_FAIL_CLOSED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "TERMINAL_REJECTED"
           }
         }
       }
