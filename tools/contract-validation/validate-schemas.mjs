@@ -477,6 +477,22 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         reason: 'PART_TOO_LARGE',
       };
     }
+    if (
+      norm === 'InvalidPartOrder' ||
+      norm === 'INVALID_PART_ORDER' ||
+      norm === 'DUPLICATE_PART' ||
+      norm === 'DUPLICATE_PART_NUMBER' ||
+      norm === 'PART_OUT_OF_ORDER' ||
+      norm === 'PARTS_NOT_ASCENDING'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPartOrder',
+        status: 400,
+        code: 'InvalidPartOrder',
+        reason: norm === 'DUPLICATE_PART' ? 'DUPLICATE_PART' : (norm === 'PART_OUT_OF_ORDER' ? 'PART_OUT_OF_ORDER' : (norm === 'DUPLICATE_PART_NUMBER' ? 'DUPLICATE_PART_NUMBER' : (norm === 'PARTS_NOT_ASCENDING' ? 'PARTS_NOT_ASCENDING' : 'INVALID_PART_ORDER'))),
+      };
+    }
     if (isMalformedBase64Md5(norm)) {
       return {
         http_status: 400,
@@ -537,6 +553,23 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'EntityTooLarge',
         reason: reason || 'PART_TOO_LARGE',
+      };
+    }
+    if (
+      code === 'InvalidPartOrder' ||
+      reason === 'InvalidPartOrder' ||
+      reason === 'INVALID_PART_ORDER' ||
+      reason === 'DUPLICATE_PART' ||
+      reason === 'DUPLICATE_PART_NUMBER' ||
+      reason === 'PART_OUT_OF_ORDER' ||
+      reason === 'PARTS_NOT_ASCENDING'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPartOrder',
+        status: 400,
+        code: 'InvalidPartOrder',
+        reason: reason || 'INVALID_PART_ORDER',
       };
     }
   }
@@ -681,30 +714,23 @@ export function validateS3MultipartSemantics(manifest) {
   }
 
   let totalSize = 0;
-  const seenPartNumbers = new Set();
-  let lastPartNumber = 0;
+  const seenParts = new Set();
+  let prevPartNumber = 0;
 
   const MIN_NON_FINAL_PART_SIZE = 5 * 1024 * 1024; // 5 MiB = 5,242,880 bytes
   const MAX_PART_SIZE = 5 * 1024 * 1024 * 1024; // 5 GiB = 5,368,709,120 bytes
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    const pNum = part.part_number;
 
-    if (typeof pNum === 'number') {
-      if (seenPartNumbers.has(pNum)) {
+    if (typeof part.part_number === 'number') {
+      if (seenParts.has(part.part_number) || part.part_number <= prevPartNumber) {
         throw new Error(
-          `Semantic error: multipart upload manifest contains duplicate part_number ${pNum}`
+          `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${part.part_number} after ${prevPartNumber || part.part_number}) (InvalidPartOrder)`
         );
       }
-      seenPartNumbers.add(pNum);
-
-      if (pNum <= lastPartNumber) {
-        throw new Error(
-          `Semantic error: multipart upload manifest parts are not in strictly ascending order (InvalidPartOrder): part_number ${pNum} <= ${lastPartNumber}`
-        );
-      }
-      lastPartNumber = pNum;
+      seenParts.add(part.part_number);
+      prevPartNumber = part.part_number;
     }
 
     if (typeof part.size_bytes === 'number') {

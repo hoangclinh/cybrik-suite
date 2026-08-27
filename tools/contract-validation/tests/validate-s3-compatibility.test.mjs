@@ -817,7 +817,7 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
     'Valid multipart manifest must pass validateS3MultipartSemantics'
   );
 
-  // 2. Negative: duplicate part numbers (same ETag) throws /duplicate part_number/
+  // 2. Negative: duplicate part numbers (same ETag) rejected by schema and semantic validation with InvalidPartOrder (Finding R17-01 / OPEN-2)
   const dupPartSameEtag = JSON.parse(JSON.stringify(validManifest));
   dupPartSameEtag.parts.push({
     part_number: 2,
@@ -827,13 +827,32 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
   });
   dupPartSameEtag.total_parts = 4;
   dupPartSameEtag.total_size_bytes = 20971520;
+
+  // Schema validation rejects duplicate part entries (uniqueItems constraint)
+  assert.ok(!ajv.validate(MULTIPART_DEF_ID, dupPartSameEtag), 'Duplicate part with same ETag must fail Ajv validation');
+  // Semantic validation rejects with InvalidPartOrder
   assert.throws(
     () => validateS3MultipartSemantics(dupPartSameEtag),
-    /duplicate part_number/,
-    'Duplicate part_number with same ETag must throw /duplicate part_number/'
+    /strictly ascending order by part_number with no duplicates.*\(InvalidPartOrder\)/,
+    'Duplicate part_number with same ETag must throw InvalidPartOrder'
   );
+  assert.throws(
+    () => validatePlatformSemantics(dupPartSameEtag, MULTIPART_DEF_ID),
+    /InvalidPartOrder/,
+    'Duplicate part_number with same ETag must fail validatePlatformSemantics with /InvalidPartOrder/'
+  );
+  // Error dispatch mapping for same-ETag duplicate part
+  const dispatchDupSame = dispatchS3Error('InvalidPartOrder');
+  assert.equal(dispatchDupSame.http_status, 400);
+  assert.equal(dispatchDupSame.error_code, 'InvalidPartOrder');
+  const dispatchDupSameCondition = dispatchS3Error('DUPLICATE_PART_NUMBER');
+  assert.equal(dispatchDupSameCondition.http_status, 400);
+  assert.equal(dispatchDupSameCondition.error_code, 'InvalidPartOrder');
+  const dispatchDupSameObj = dispatchS3Error({ error_code: 'InvalidPartOrder' });
+  assert.equal(dispatchDupSameObj.http_status, 400);
+  assert.equal(dispatchDupSameObj.error_code, 'InvalidPartOrder');
 
-  // 2b. Negative: duplicate part numbers (different ETags) throws /duplicate part_number/
+  // 2b. Negative: duplicate part numbers (different ETags) rejected with InvalidPartOrder (Finding R17-01 / OPEN-2)
   const dupPartDiffEtag = JSON.parse(JSON.stringify(validManifest));
   dupPartDiffEtag.parts.push({
     part_number: 1,
@@ -843,13 +862,30 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
   });
   dupPartDiffEtag.total_parts = 4;
   dupPartDiffEtag.total_size_bytes = 20971520;
+
+  // Semantic validation rejects with InvalidPartOrder
   assert.throws(
     () => validateS3MultipartSemantics(dupPartDiffEtag),
-    /duplicate part_number/,
-    'Duplicate part_number with different ETag must throw /duplicate part_number/'
+    /strictly ascending order by part_number with no duplicates.*\(InvalidPartOrder\)/,
+    'Duplicate part_number with different ETag must throw InvalidPartOrder'
   );
+  assert.throws(
+    () => validatePlatformSemantics(dupPartDiffEtag, MULTIPART_DEF_ID),
+    /InvalidPartOrder/,
+    'Duplicate part_number with different ETag must fail validatePlatformSemantics with /InvalidPartOrder/'
+  );
+  // Error dispatch mapping for different-ETag duplicate part
+  const dispatchDupDiff = dispatchS3Error('InvalidPartOrder');
+  assert.equal(dispatchDupDiff.http_status, 400);
+  assert.equal(dispatchDupDiff.error_code, 'InvalidPartOrder');
+  const dispatchDupDiffCondition = dispatchS3Error({ error_condition: 'DUPLICATE_PART' });
+  assert.equal(dispatchDupDiffCondition.http_status, 400);
+  assert.equal(dispatchDupDiffCondition.error_code, 'InvalidPartOrder');
+  const dispatchDupDiffReason = dispatchS3Error({ reason: 'INVALID_PART_ORDER' });
+  assert.equal(dispatchDupDiffReason.http_status, 400);
+  assert.equal(dispatchDupDiffReason.error_code, 'InvalidPartOrder');
 
-  // 3. Negative: descending part numbers throws /strictly ascending order \(InvalidPartOrder\)/
+  // 3. Negative: descending part numbers throws InvalidPartOrder
   const descendingParts = JSON.parse(JSON.stringify(validManifest));
   descendingParts.parts = [
     validManifest.parts[2], // part 3
@@ -858,11 +894,11 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
   ];
   assert.throws(
     () => validateS3MultipartSemantics(descendingParts),
-    /strictly ascending order \(InvalidPartOrder\)/,
-    'Descending part numbers must throw /strictly ascending order (InvalidPartOrder)/'
+    /strictly ascending order by part_number with no duplicates.*\(InvalidPartOrder\)/,
+    'Descending part numbers must throw InvalidPartOrder'
   );
 
-  // 3b. Negative: unordered / out-of-order part numbers throws /strictly ascending order \(InvalidPartOrder\)/
+  // 3b. Negative: unordered / out-of-order part numbers throws InvalidPartOrder
   const unorderedParts = JSON.parse(JSON.stringify(validManifest));
   unorderedParts.parts = [
     validManifest.parts[0], // part 1
@@ -871,8 +907,8 @@ test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OP
   ];
   assert.throws(
     () => validateS3MultipartSemantics(unorderedParts),
-    /strictly ascending order \(InvalidPartOrder\)/,
-    'Unordered part numbers must throw /strictly ascending order (InvalidPartOrder)/'
+    /strictly ascending order by part_number with no duplicates.*\(InvalidPartOrder\)/,
+    'Unordered part numbers must throw InvalidPartOrder'
   );
 
   // 4. Negative: empty or missing parts array
@@ -1292,4 +1328,67 @@ test('storage conformance profile omitting EntityTooSmall or any canonical code 
       `Profile omitting '${omittedCode}' must throw semantic error explicitly naming '${omittedCode}'`
     );
   }
+});
+
+test('InvalidPartOrder dispatch mapping and validateS3MultipartSemantics duplicate/descending part classification (Finding R17-01 / OPEN-2)', () => {
+  // 1. Dispatch mapping: string triggers
+  for (const trigger of ['InvalidPartOrder', 'DUPLICATE_PART', 'INVALID_PART_ORDER', 'PART_OUT_OF_ORDER']) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, 400, `Trigger '${trigger}' must map to http_status 400`);
+    assert.equal(res.error_code, 'InvalidPartOrder', `Trigger '${trigger}' must map to error_code 'InvalidPartOrder'`);
+    assert.equal(res.status, 400, `Trigger '${trigger}' must map to status 400`);
+    assert.equal(res.code, 'InvalidPartOrder', `Trigger '${trigger}' must map to code 'InvalidPartOrder'`);
+  }
+
+  // 2. Dispatch mapping: object triggers
+  const objTriggers = [
+    { error_code: 'InvalidPartOrder' },
+    { code: 'InvalidPartOrder' },
+    { error_condition: 'DUPLICATE_PART' },
+    { error_condition: 'INVALID_PART_ORDER' },
+    { error_condition: 'PART_OUT_OF_ORDER' },
+    { reason: 'DUPLICATE_PART' },
+    { reason: 'INVALID_PART_ORDER' },
+    { reason: 'PART_OUT_OF_ORDER' },
+    { reason: 'InvalidPartOrder' },
+  ];
+  for (const obj of objTriggers) {
+    const res = dispatchS3Error(obj);
+    assert.equal(res.http_status, 400, `Object ${JSON.stringify(obj)} must map to http_status 400`);
+    assert.equal(res.error_code, 'InvalidPartOrder', `Object ${JSON.stringify(obj)} must map to error_code 'InvalidPartOrder'`);
+    assert.equal(res.status, 400, `Object ${JSON.stringify(obj)} must map to status 400`);
+    assert.equal(res.code, 'InvalidPartOrder', `Object ${JSON.stringify(obj)} must map to code 'InvalidPartOrder'`);
+  }
+
+  // 3. Semantic validation: duplicate and descending parts classification under InvalidPartOrder
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  const validManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // Duplicate part at same position
+  const dupManifest = JSON.parse(JSON.stringify(validManifest));
+  dupManifest.parts = [
+    { part_number: 1, etag: '"a"', sha256: 'a'.repeat(64), size_bytes: 5242880 },
+    { part_number: 1, etag: '"b"', sha256: 'b'.repeat(64), size_bytes: 5242880 },
+  ];
+  dupManifest.total_parts = 2;
+  dupManifest.total_size_bytes = 10485760;
+  assert.throws(
+    () => validateS3MultipartSemantics(dupManifest),
+    /Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates \(found part 1 after 1\) \(InvalidPartOrder\)/,
+    'Duplicate part numbers must throw exact InvalidPartOrder semantic error'
+  );
+
+  // Descending part
+  const descManifest = JSON.parse(JSON.stringify(validManifest));
+  descManifest.parts = [
+    { part_number: 2, etag: '"a"', sha256: 'a'.repeat(64), size_bytes: 5242880 },
+    { part_number: 1, etag: '"b"', sha256: 'b'.repeat(64), size_bytes: 5242880 },
+  ];
+  descManifest.total_parts = 2;
+  descManifest.total_size_bytes = 10485760;
+  assert.throws(
+    () => validateS3MultipartSemantics(descManifest),
+    /Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates \(found part 1 after 2\) \(InvalidPartOrder\)/,
+    'Descending part numbers must throw exact InvalidPartOrder semantic error'
+  );
 });

@@ -1671,6 +1671,10 @@ test('canonical S3 dispatch helpers: dispatchS3Error, computePayloadMd5, isMalfo
   assert.equal(dispatchS3Error('InvalidDigest').error_code, 'InvalidDigest');
   assert.equal(dispatchS3Error('MALFORMED_DIGEST_HEADER').error_code, 'InvalidDigest');
   assert.equal(dispatchS3Error('MALFORMED_HEADER_SYNTAX').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('InvalidPartOrder').error_code, 'InvalidPartOrder');
+  assert.equal(dispatchS3Error('DUPLICATE_PART').error_code, 'InvalidPartOrder');
+  assert.equal(dispatchS3Error('INVALID_PART_ORDER').error_code, 'InvalidPartOrder');
+  assert.equal(dispatchS3Error('PART_OUT_OF_ORDER').error_code, 'InvalidPartOrder');
 
   // 5. dispatchS3Error with two arguments (payloadBytes, contentMd5Header)
   const twoArgValid = dispatchS3Error(buf, expectedMd5);
