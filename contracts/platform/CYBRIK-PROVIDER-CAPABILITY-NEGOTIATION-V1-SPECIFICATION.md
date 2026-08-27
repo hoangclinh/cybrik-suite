@@ -3,7 +3,7 @@
 **Status:** PROPOSED (Open-Item OPEN-5 Elaboration) — NOT ACCEPTED
 **Authoring Phase:** v0.1.0-proposed (Architecture contract proposal; no implementation or deployment authority)
 **Decider:** FOUNDER
-**Reference Target Schema:** [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open5-negotiation-spec/contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json)
+**Reference Target Schema:** [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](../json-schema/cybrik.provider-capability-negotiation.v1.schema.json)
 **Normative Governance Authority:** `cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md` §8.2, §8.3, §8.4; `contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md` §6
 
 ---
@@ -216,7 +216,7 @@ Any attempt to negotiate a degradation on a mandatory baseline (such as permitti
 
 ## 5. Message Schema Formalization
 
-The negotiation handshake document structure is formalized in JSON Schema 2020-12 at [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open5-negotiation-spec/contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json).
+The negotiation handshake document structure is formalized in JSON Schema 2020-12 at [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](../json-schema/cybrik.provider-capability-negotiation.v1.schema.json).
 
 ### 5.1 Document Root Structure
 A capability negotiation handshake document captures the complete tripartite interaction:

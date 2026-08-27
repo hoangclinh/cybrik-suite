@@ -13,5 +13,6 @@ Status: `SCAFFOLD`.
 | `releases/` | Release notes, coordination docs, release manifests, and blocking release decisions | `RELEASE-BLOCKERS.md` register: **RB-001 `RESOLVED`** (2026-08-20, Founder sign-off — verified intake `security@cybrik.ai`), **no blocker open**. One release **candidate** manifest exists: `v1.0.0-rc1` at `releases/manifests/release-candidate-v1.0.0-rc1.manifest.json`, spec `releases/RELEASE-CANDIDATE-V1.0.0-RC1.md` — `CANDIDATE_READY_FOR_STAGING_QUALIFICATION`, staging qualification `PENDING_HUMAN_PR_MERGE`, no `v1.0.0-rc1` tag in any repository, all four pins unmerged. No release notes — **no release exists** |
 | `uat/` | UAT gate standards for suite UI waves | `UAT-GATE-STANDARD.md`: persona matrix + bilingual/accessibility/responsive/evidence rules — `ACCEPTED` suite process standard (W2-C1); certifies no UI, no UAT claimed executed |
 | `migration/` | Records of migrations between repositories: import manifest, source map, and the executed multi-repo bootstrap runbook | populated by bootstrap — see `migration/README.md` |
+| `contracts/` | Cross-product contract documentation and specification indexes | `contracts/README.md`: specification index covering accepted contract packets and open-item elaboration specifications (`OPEN-1`, `OPEN-2`, `OPEN-5`) |
 
 Product-specific documentation lives in each product repository, not here.

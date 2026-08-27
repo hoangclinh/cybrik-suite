@@ -45,16 +45,17 @@ const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
 
 function validatePlatformSemantics(data, schemaId) {
-  if (schemaId.includes('provider-capability-advertisement')) {
-    if (data.advertised_capabilities && data.conformance_evidence) {
+  if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
+    const adv = data.advertisement_response || data;
+    if (adv.advertised_capabilities && adv.conformance_evidence) {
       const validTests = new Set();
-      for (const e of data.conformance_evidence) {
+      for (const e of adv.conformance_evidence) {
         if (validTests.has(e.test_identifier)) {
           throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
         }
         validTests.add(e.test_identifier);
       }
-      for (const cap of data.advertised_capabilities) {
+      for (const cap of adv.advertised_capabilities) {
         for (const ref of (cap.evidence_references || [])) {
           if (!validTests.has(ref)) {
             throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
@@ -62,14 +63,17 @@ function validatePlatformSemantics(data, schemaId) {
         }
       }
     }
-    if (data.claim_type === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && data.target_profile_id && data.target_profile_digest) {
-      const profilePath = join(CONTRACTS, 'examples/platform', `${data.target_profile_id}.profile.json`);
+    const claimType = adv.claim_type || data.claim_type;
+    const targetProfileId = data.target_profile_id;
+    const targetProfileDigest = data.target_profile_digest;
+    if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && targetProfileId && targetProfileDigest) {
+      const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
       if (!existsSync(profilePath)) {
-        throw new Error(`Semantic error: target profile fixture '${data.target_profile_id}.profile.json' not found`);
+        throw new Error(`Semantic error: target profile fixture '${targetProfileId}.profile.json' not found`);
       }
       const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
-      if (actualDigest !== data.target_profile_digest) {
-        throw new Error(`Semantic error: target_profile_digest '${data.target_profile_digest}' does not match actual digest '${actualDigest}'`);
+      if (actualDigest !== targetProfileDigest) {
+        throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match actual digest '${actualDigest}'`);
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
@@ -134,6 +138,7 @@ const PROPOSED_SCHEMA_FILES = [
   'cybrik.deployment-profile.v1.schema.json',
   'cybrik.platform-contract.v1.schema.json',
   'cybrik.provider-capability-advertisement.v1.schema.json',
+  'cybrik.provider-capability-negotiation.v1.schema.json',
   'cybrik.offline-install-update-manifest.v1.schema.json',
   'cybrik.storage-s3-compatibility-subset.v1.schema.json'
 ];
@@ -252,6 +257,7 @@ const platformPositives = [
   'private-cloud-v1.profile.json',
   'sample-platform-contract.json',
   'sample-provider-capability-advertisement.json',
+  'sample-capability-negotiation-handshake.json',
   'sample-offline-bundle-manifest.json',
   'sample-storage-s3-subset.json',
   'sample-full-profile-conformance-declaration.json'
@@ -264,6 +270,7 @@ for (const file of platformPositives) {
   let schemaName;
   if (file.includes('.profile.json')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
   else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+  else if (file.includes('negotiation') || file.includes('handshake')) schemaName = 'cybrik.provider-capability-negotiation.v1.schema.json';
   else if (file.includes('offline-bundle-manifest')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
   else if (file.includes('platform-contract')) schemaName = 'cybrik.platform-contract.v1.schema.json';
   else if (file.includes('storage-s3-subset')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
@@ -306,6 +313,7 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     let schemaName;
     if (file.includes('profile') || file.includes('semver')) schemaName = 'cybrik.deployment-profile.v1.schema.json';
     else if (file.includes('advertisement') || file.includes('declaration')) schemaName = 'cybrik.provider-capability-advertisement.v1.schema.json';
+    else if (file.includes('negotiation') || file.includes('handshake')) schemaName = 'cybrik.provider-capability-negotiation.v1.schema.json';
     else if (file.includes('offline-manifest') || file.includes('malformed-sha256') || file.includes('trust-root')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform')) schemaName = 'cybrik.platform-contract.v1.schema.json';
     else if (file.includes('s3')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
@@ -720,6 +728,20 @@ const platformContract = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPL
 platformContract.slots.oci_container_runtime.conformance_profile = "TIER_0";
 const platformValid = ajv.validate(platformContractSchemaId, platformContract);
 H('17', !platformValid && ajv.errors.length === 1 && ajv.errors[0].instancePath === '/slots/oci_container_runtime/conformance_profile' && ajv.errors[0].keyword === 'pattern', 'Platform contract with bare "TIER_0" conformance_profile must be rejected');
+
+// 21. in-memory validation: reject capability negotiation with unverified evidence binding when active lease granted
+const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+const pcnSample = readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'));
+const pcnUnverified = JSON.parse(JSON.stringify(pcnSample));
+pcnUnverified.evidence_binding_verified = false;
+const pcnUnverifiedValid = ajv.validate(pcnSchemaId, pcnUnverified);
+H('21', !pcnUnverifiedValid && ajv.errors.some(e => e.instancePath === '/evidence_binding_verified' && e.keyword === 'const'), 'Capability negotiation with unverified evidence binding when lease granted must be rejected');
+
+// 22. in-memory validation: reject capability negotiation with missing mandatory slots in lease
+const pcnMissingMandatory = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingMandatory.agreed_capability_lease.mandatory_slots_satisfied = pcnMissingMandatory.agreed_capability_lease.mandatory_slots_satisfied.filter(s => s !== 'oci_container_runtime');
+const pcnMissingValid = ajv.validate(pcnSchemaId, pcnMissingMandatory);
+H('22', !pcnMissingValid && ajv.errors.some(e => e.keyword === 'contains'), 'Capability negotiation lease missing mandatory oci_container_runtime slot must be rejected via contains');
 
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');
