@@ -1111,10 +1111,17 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   assert.ok(validFalse, 'Valid profile with immutable_storage_required: false should pass: ' + ajv.errorsText());
 
   // Non-boolean immutable_storage_required is rejected
-  const data2 = JSON.parse(JSON.stringify(sample));
-  data2.slots.storage.specification.immutable_storage_required = "true";
-  const valid2 = ajv.validate(schemaId, data2);
-  assert.ok(!valid2, 'Non-boolean immutable_storage_required must be rejected');
+  const data2String = JSON.parse(JSON.stringify(sample));
+  data2String.slots.storage.specification.immutable_storage_required = "true";
+  assert.ok(!ajv.validate(schemaId, data2String), 'String immutable_storage_required must be rejected');
+
+  const data2Num = JSON.parse(JSON.stringify(sample));
+  data2Num.slots.storage.specification.immutable_storage_required = 1;
+  assert.ok(!ajv.validate(schemaId, data2Num), 'Numeric immutable_storage_required must be rejected');
+
+  const data2Null = JSON.parse(JSON.stringify(sample));
+  data2Null.slots.storage.specification.immutable_storage_required = null;
+  assert.ok(!ajv.validate(schemaId, data2Null), 'Null immutable_storage_required must be rejected');
 
   // Omitting immutable_storage_required when storage specification is defined is rejected
   const data3 = JSON.parse(JSON.stringify(sample));
@@ -1131,11 +1138,11 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   assert.ok(valid4, 'Explicit boolean false immutable_storage_required should be valid in schema: ' + ajv.errorsText());
 });
 
-test('in-memory validation: reject capability negotiation with degraded storage when profile requires immutable storage (Finding 3 / OPEN-5)', () => {
+test('in-memory validation: reject capability negotiation with degraded storage when profile requires immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // Degraded storage_object_lock against onprem-standard-v1 (immutable_storage_required: true)
+  // 1. Degraded storage_object_lock by capability_name against onprem-standard-v1 (immutable_storage_required: true)
   const data1 = JSON.parse(JSON.stringify(sample));
   const storageCap1 = data1.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
   if (storageCap1) {
@@ -1148,7 +1155,7 @@ test('in-memory validation: reject capability negotiation with degraded storage 
     /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
   );
 
-  // Degraded storage slot_id against onprem-standard-v1 (immutable_storage_required: true)
+  // 2. Degraded storage slot by slot_id against onprem-standard-v1 (immutable_storage_required: true)
   const data2 = JSON.parse(JSON.stringify(sample));
   data2.agreed_capability_lease.negotiated_optional_capabilities = [
     {
@@ -1164,21 +1171,39 @@ test('in-memory validation: reject capability negotiation with degraded storage 
     () => validatePlatformSemantics(data2, schemaId),
     /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
   );
+
+  // 3. Degraded storage capability with both capability_name and slot_id against onprem-standard-v1
+  const data3 = JSON.parse(JSON.stringify(sample));
+  data3.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_DEGRADED",
+      active_mode: "standard_retention_fallback",
+      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+    }
+  ];
+  assert.ok(ajv.validate(schemaId, data3), 'Structurally valid schema: ' + ajv.errorsText());
+  assert.throws(
+    () => validatePlatformSemantics(data3, schemaId),
+    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
+  );
 });
 
-test('in-memory validation: permit degraded storage when profile does not require immutable storage (Finding 3 / OPEN-5)', () => {
+test('in-memory validation: permit degraded storage when profile does not require immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
   const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
   const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
 
-  // Degraded storage_object_lock against private-cloud-v1 (no immutable storage required)
+  // 1. Degraded storage_object_lock against private-cloud-v1 (immutable_storage_required: false / not mandated)
   const data1 = JSON.parse(JSON.stringify(sample));
   data1.target_profile_id = 'private-cloud-v1';
   data1.target_profile_digest = privateCloudDigest;
   data1.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data1.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  data1.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
   data1.agreed_capability_lease.negotiated_optional_capabilities = [
     {
       capability_name: "storage_object_lock",
@@ -1195,12 +1220,13 @@ test('in-memory validation: permit degraded storage when profile does not requir
     'Should pass semantic validation when profile does not require immutable storage'
   );
 
-  // Degraded storage slot_id against private-cloud-v1 (no immutable storage required)
+  // 2. Degraded storage slot_id against private-cloud-v1 (immutable_storage_required: false / not mandated)
   const data2 = JSON.parse(JSON.stringify(sample));
   data2.target_profile_id = 'private-cloud-v1';
   data2.target_profile_digest = privateCloudDigest;
   data2.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data2.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  data2.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
   data2.agreed_capability_lease.negotiated_optional_capabilities = [
     {
       capability_name: "storage_custom_perf",
@@ -1215,6 +1241,14 @@ test('in-memory validation: permit degraded storage when profile does not requir
   assert.doesNotThrow(
     () => validatePlatformSemantics(data2, schemaId),
     'Should pass semantic validation when profile does not require immutable storage'
+  );
+
+  // 3. Degraded storage with fallback_applied: "NONE" under ACTIVE_DEGRADED must be rejected by lease invariants
+  const data3 = JSON.parse(JSON.stringify(data1));
+  data3.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = "NONE";
+  assert.throws(
+    () => validatePlatformSemantics(data3, schemaId),
+    /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
   );
 });
 
