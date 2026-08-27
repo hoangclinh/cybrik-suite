@@ -66,7 +66,9 @@ function validatePlatformSemantics(data, schemaId) {
     const claimType = adv.claim_type || data.claim_type;
     const targetProfileId = data.target_profile_id;
     const targetProfileDigest = data.target_profile_digest;
-    if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && targetProfileId && targetProfileDigest) {
+    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+
+    if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
       const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
       if (!existsSync(profilePath)) {
         throw new Error(`Semantic error: target profile fixture '${targetProfileId}.profile.json' not found`);
@@ -74,6 +76,62 @@ function validatePlatformSemantics(data, schemaId) {
       const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
       if (actualDigest !== targetProfileDigest) {
         throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match actual digest '${actualDigest}'`);
+      }
+      if (data.agreed_capability_lease) {
+        const lease = data.agreed_capability_lease;
+        if (lease.target_profile_digest && lease.target_profile_digest !== actualDigest) {
+          throw new Error(`Semantic error: lease target_profile_digest '${lease.target_profile_digest}' does not match actual digest '${actualDigest}'`);
+        }
+        if (lease.target_profile_id && lease.target_profile_id !== targetProfileId) {
+          throw new Error(`Semantic error: lease target_profile_id '${lease.target_profile_id}' does not match document target_profile_id '${targetProfileId}'`);
+        }
+      }
+    }
+
+    if (isNegotiation && targetProfileId && (data.negotiation_status === 'AGREED_LEASE_GRANTED' || data.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (data.agreed_capability_lease && data.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
+      const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
+      if (existsSync(profilePath)) {
+        const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+        const mandatorySlots = [];
+        if (profile.strength) {
+          for (const [slot, str] of Object.entries(profile.strength)) {
+            if (str === 'MANDATORY') mandatorySlots.push(slot);
+          }
+        }
+        if (profile.slots) {
+          for (const [slot, spec] of Object.entries(profile.slots)) {
+            if (spec.specification?.required === true && !mandatorySlots.includes(slot)) {
+              mandatorySlots.push(slot);
+            }
+          }
+        }
+
+        const lease = data.agreed_capability_lease || {};
+        const satisfiedSlots = new Set(lease.mandatory_slots_satisfied || []);
+        const advertisedMap = new Map();
+        for (const cap of (adv.advertised_capabilities || [])) {
+          advertisedMap.set(cap.slot_id, cap);
+        }
+        const evidenceSet = new Set((adv.conformance_evidence || []).map(e => e.test_identifier));
+
+        for (const slot of mandatorySlots) {
+          if (!satisfiedSlots.has(slot)) {
+            throw new Error(`Semantic error: mandatory profile slot '${slot}' not present in lease mandatory_slots_satisfied`);
+          }
+          const advertised = advertisedMap.get(slot);
+          if (!advertised) {
+            throw new Error(`Semantic error: mandatory profile slot '${slot}' not found in advertised capabilities`);
+          }
+          const refs = advertised.evidence_references || [];
+          if (refs.length === 0) {
+            throw new Error(`Semantic error: mandatory profile slot '${slot}' lacks evidence references`);
+          }
+          for (const ref of refs) {
+            if (!evidenceSet.has(ref)) {
+              throw new Error(`Semantic error: mandatory profile slot '${slot}' evidence reference '${ref}' not found in conformance evidence`);
+            }
+          }
+        }
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
@@ -760,6 +818,33 @@ const pcnMissingMandatory = JSON.parse(JSON.stringify(pcnSample));
 pcnMissingMandatory.agreed_capability_lease.mandatory_slots_satisfied = pcnMissingMandatory.agreed_capability_lease.mandatory_slots_satisfied.filter(s => s !== 'oci_container_runtime');
 const pcnMissingValid = ajv.validate(pcnSchemaId, pcnMissingMandatory);
 H('22', !pcnMissingValid && ajv.errors.some(e => e.keyword === 'contains'), 'Capability negotiation lease missing mandatory oci_container_runtime slot must be rejected via contains');
+
+// 23. in-memory validation: reject ACTIVE_DEGRADED when FAIL_CLOSED_STRICT is set
+const pcnStrictDegraded = JSON.parse(JSON.stringify(pcnSample));
+pcnStrictDegraded.negotiation_request.degradation_policy = "FAIL_CLOSED_STRICT";
+pcnStrictDegraded.agreed_capability_lease.lease_status = "ACTIVE_DEGRADED";
+const pcnStrictDegradedValid = ajv.validate(pcnSchemaId, pcnStrictDegraded);
+H('23', !pcnStrictDegradedValid, 'Capability negotiation with FAIL_CLOSED_STRICT must reject ACTIVE_DEGRADED lease status');
+
+// 24. in-memory validation: reject lease with mismatched target_profile_digest in semantic validation
+const pcnBadLeaseDigest = JSON.parse(JSON.stringify(pcnSample));
+pcnBadLeaseDigest.agreed_capability_lease.target_profile_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+try {
+  validatePlatformSemantics(pcnBadLeaseDigest, pcnSchemaId);
+  fail('lease digest binding: expected validatePlatformSemantics to throw on mismatched lease digest');
+} catch (e) {
+  H('24', e.message.includes('does not match actual digest'), 'lease digest binding check must catch mismatched target profile digest on lease');
+}
+
+// 25. in-memory validation: reject lease missing advertised evidence for mandatory slot
+const pcnMissingEvidence = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingEvidence.advertisement_response.advertised_capabilities = pcnMissingEvidence.advertisement_response.advertised_capabilities.filter(c => c.slot_id !== 'storage');
+try {
+  validatePlatformSemantics(pcnMissingEvidence, pcnSchemaId);
+  fail('mandatory slot fulfillment: expected validatePlatformSemantics to throw when mandatory slot is missing from advertised capabilities');
+} catch (e) {
+  H('25', e.message.includes('mandatory profile slot'), 'mandatory slot fulfillment check must catch missing advertised capability for required slot');
+}
 
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');
