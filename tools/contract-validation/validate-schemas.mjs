@@ -612,6 +612,60 @@ export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader) {
   };
 }
 
+export function validateS3MultipartSemantics(manifest) {
+  if (!manifest || typeof manifest !== 'object') {
+    throw new Error('Semantic error: multipart manifest must be an object');
+  }
+
+  const parts = manifest.parts;
+  if (!Array.isArray(parts) || parts.length === 0) {
+    throw new Error('Semantic error: multipart upload manifest parts array must be non-empty');
+  }
+
+  if (typeof manifest.total_parts === 'number' && manifest.total_parts !== parts.length) {
+    throw new Error(
+      `Semantic error: multipart upload manifest total_parts (${manifest.total_parts}) does not match parts array length (${parts.length})`
+    );
+  }
+
+  let totalSize = 0;
+  const seenPartNumbers = new Set();
+  let lastPartNumber = 0;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const pNum = part.part_number;
+
+    if (typeof pNum === 'number') {
+      if (seenPartNumbers.has(pNum)) {
+        throw new Error(
+          `Semantic error: multipart upload manifest contains duplicate part_number ${pNum}`
+        );
+      }
+      seenPartNumbers.add(pNum);
+
+      if (pNum <= lastPartNumber) {
+        throw new Error(
+          `Semantic error: multipart upload manifest parts are not in strictly ascending order (InvalidPartOrder): part_number ${pNum} <= ${lastPartNumber}`
+        );
+      }
+      lastPartNumber = pNum;
+    }
+
+    if (typeof part.size_bytes === 'number') {
+      totalSize += part.size_bytes;
+    }
+  }
+
+  if (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes !== totalSize) {
+    throw new Error(
+      `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes}) does not match sum of part sizes (${totalSize})`
+    );
+  }
+
+  return true;
+}
+
 const S3_17_MANDATORY_OPS = [
   'PutObject',
   'GetObject',
@@ -755,23 +809,55 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    // F-03: Requested-to-lease composite key and cardinality closure
-    if (data.negotiation_request && data.negotiation_request.requested_optional_capabilities && data.agreed_capability_lease) {
-      const remainingLeaseCaps = [...(data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [])];
-      for (const req of data.negotiation_request.requested_optional_capabilities) {
-        const idx = remainingLeaseCaps.findIndex(c => {
-          if (c.capability_name !== req.capability_name) return false;
-          if (req.slot_id && c.slot_id && c.slot_id !== req.slot_id) return false;
-          return true;
-        });
-        if (idx === -1) {
+    // F-03: Requested-to-lease composite key and cardinality closure (strict bidirectional multiset equality)
+    if (data.negotiation_request && data.agreed_capability_lease) {
+      const reqCaps = data.negotiation_request.requested_optional_capabilities || [];
+      const leaseCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [];
+
+      // Multiset counts keyed by composite identity (capability_name, slot_id)
+      const reqCountMap = new Map();
+      for (const req of reqCaps) {
+        const key = `${req.capability_name}::${req.slot_id}`;
+        reqCountMap.set(key, (reqCountMap.get(key) || 0) + 1);
+      }
+
+      const leaseCountMap = new Map();
+      for (const cap of leaseCaps) {
+        const key = `${cap.capability_name}::${cap.slot_id}`;
+        leaseCountMap.set(key, (leaseCountMap.get(key) || 0) + 1);
+      }
+
+      // Assert requested capabilities are satisfied with equal cardinality
+      for (const req of reqCaps) {
+        const key = `${req.capability_name}::${req.slot_id}`;
+        const reqCount = reqCountMap.get(key) || 0;
+        const leaseCount = leaseCountMap.get(key) || 0;
+        if (leaseCount < reqCount) {
           if (req.slot_id) {
             throw new Error(`Semantic error: requested optional capability '${req.capability_name}' for slot '${req.slot_id}' is not resolved in agreed_capability_lease`);
           } else {
             throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is not resolved in agreed_capability_lease`);
           }
         }
-        remainingLeaseCaps.splice(idx, 1);
+      }
+
+      // Assert lease contains no surplus or unrequested capabilities
+      for (const cap of leaseCaps) {
+        const key = `${cap.capability_name}::${cap.slot_id}`;
+        const reqCount = reqCountMap.get(key) || 0;
+        const leaseCount = leaseCountMap.get(key) || 0;
+        if (leaseCount > reqCount) {
+          if (cap.slot_id) {
+            throw new Error(`Semantic error: agreed_capability_lease contains unrequested or surplus optional capability '${cap.capability_name}' for slot '${cap.slot_id}'`);
+          } else {
+            throw new Error(`Semantic error: agreed_capability_lease contains unrequested or surplus optional capability '${cap.capability_name}'`);
+          }
+        }
+      }
+
+      // Assert equal total lengths
+      if (reqCaps.length !== leaseCaps.length) {
+        throw new Error(`Semantic error: requested optional capabilities count (${reqCaps.length}) does not match lease optional capabilities count (${leaseCaps.length})`);
       }
     }
 
@@ -971,6 +1057,10 @@ export function validatePlatformSemantics(data, schemaId) {
         }
         paths.add(norm);
       }
+    }
+  } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest')) {
+    if (data && Array.isArray(data.parts)) {
+      validateS3MultipartSemantics(data);
     }
   }
 }
@@ -1279,6 +1369,9 @@ for (const pos of storagePositives) {
   bump('positive_total');
   if (ok) {
     bump('positive_pass');
+    if (pos.schemaId === S3_MULTIPART_DEF_ID || pos.file === 's3-multipart-upload-manifest.json' || (data && Array.isArray(data.parts))) {
+      validateS3MultipartSemantics(data);
+    }
   } else {
     fail(`storage positive example ${pos.file} FAILED validation against ${pos.schemaId}: ${ajv.errorsText(ajv.errors)}`);
   }

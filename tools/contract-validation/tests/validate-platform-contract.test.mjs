@@ -3492,3 +3492,119 @@ test('in-memory validation: duplicate requested optional capability cardinality 
     'Duplicate requested optional capability with cardinality mismatch must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
   );
 });
+
+test('negotiation handshake fixtures exact 1-to-1 bidirectional multiset equality (Finding R13-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const handshakeFilePath = join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json');
+  assert.ok(existsSync(handshakeFilePath), `Missing handshake fixture: ${handshakeFilePath}`);
+  const data = JSON.parse(readFileSync(handshakeFilePath, 'utf8'));
+
+  const requested = data.negotiation_request?.requested_optional_capabilities || [];
+  const leased = data.agreed_capability_lease?.negotiated_optional_capabilities || [];
+
+  assert.ok(requested.length > 0, 'negotiation_request must have requested_optional_capabilities');
+  assert.ok(leased.length > 0, 'agreed_capability_lease must have negotiated_optional_capabilities');
+
+  // Exact 1-to-1 cardinality
+  assert.equal(
+    requested.length,
+    leased.length,
+    `Exact cardinality match required between requested (${requested.length}) and leased (${leased.length}) optional capabilities`
+  );
+
+  // Exact multiset match by (capability_name, slot_id)
+  const requestedKeys = requested.map(r => `${r.capability_name}::${r.slot_id}`).sort();
+  const leasedKeys = leased.map(l => `${l.capability_name}::${l.slot_id}`).sort();
+
+  assert.deepEqual(
+    requestedKeys,
+    leasedKeys,
+    'Exact 1-to-1 bidirectional multiset equality required between requested and leased optional capabilities'
+  );
+
+  // Negative: lease containing extra unrequested capability must fail validatePlatformSemantics
+  const dataExtraLease = JSON.parse(JSON.stringify(data));
+  dataExtraLease.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: "unrequested_performance_boost",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_FULL",
+    active_mode: "boost_direct",
+    fallback_applied: "NONE"
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataExtraLease, schemaId),
+    /contains unrequested or surplus optional capability 'unrequested_performance_boost' for slot 'ai_model_runtime'/,
+    'Lease with unrequested optional capability must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: bidirectional multiset lease closure rejects surplus and unrequested capabilities (Finding R13-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Positive baseline: valid bidirectional match passes validatePlatformSemantics
+  const dataValid = JSON.parse(JSON.stringify(sample));
+  assert.doesNotThrow(() => validatePlatformSemantics(dataValid, schemaId));
+
+  // 2. Surplus capability in lease (request has 1 storage_object_lock, lease has 2)
+  const dataSurplus = JSON.parse(JSON.stringify(sample));
+  dataSurplus.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    disposition: "GRANTED_FULL",
+    active_mode: "native_s3_object_lock",
+    fallback_applied: "NONE"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataSurplus, schemaId),
+    /Semantic error: agreed_capability_lease contains unrequested or surplus optional capability 'storage_object_lock' for slot 'storage'/
+  );
+
+  // 3. Unrequested capability in lease (request omits custom_acceleration, but lease includes it)
+  const dataUnrequested = JSON.parse(JSON.stringify(sample));
+  dataUnrequested.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: "custom_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_FULL",
+    active_mode: "gpu_direct",
+    fallback_applied: "NONE"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataUnrequested, schemaId),
+    /Semantic error: agreed_capability_lease contains unrequested or surplus optional capability 'custom_acceleration' for slot 'ai_model_runtime'/
+  );
+});
+
+test('in-memory validation: surplus unrequested optional capability in lease passes Ajv but rejected by validatePlatformSemantics (Finding R13-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Four-lease/three-request case: negotiation_request requests 3 optional capabilities:
+  // - ai_tensor_acceleration (slot: ai_model_runtime)
+  // - storage_object_lock (slot: storage)
+  // - cache_cluster_replication (slot: cache)
+  // agreed_capability_lease contains 4 entries (including a surplus unrequested optional capability):
+  const data = JSON.parse(JSON.stringify(sample));
+  data.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: "quantum_entropy_source",
+    slot_id: "crypto",
+    disposition: "GRANTED_FULL",
+    active_mode: "hardware_rng",
+    fallback_applied: "NONE"
+  });
+
+  assert.equal(data.negotiation_request.requested_optional_capabilities.length, 3, 'Request must have 3 capabilities');
+  assert.equal(data.agreed_capability_lease.negotiated_optional_capabilities.length, 4, 'Lease must have 4 capabilities (1 surplus)');
+
+  // 1. Passes Ajv schema validation (Ajv validates structure of array items without cross-checking request cardinality)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Surplus optional capability in lease must pass Ajv schema validation structurally: ' + ajv.errorsText());
+
+  // 2. Rejected by validatePlatformSemantics with /unrequested or surplus|count mismatch/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /unrequested or surplus|count mismatch/,
+    'Four-lease/three-request case (surplus unrequested optional capability in lease) must be rejected by validatePlatformSemantics'
+  );
+});

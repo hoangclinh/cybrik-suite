@@ -13,6 +13,7 @@ import {
   isMalformedBase64Md5,
   verifyDigestErrorDispatch,
   verifyMalformedHeaderDispatch,
+  validateS3MultipartSemantics,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -745,5 +746,171 @@ test('non-tautological cryptographic S3 digest dispatch verification (OPEN-2 Fin
   assert.throws(
     () => verifyMalformedHeaderDispatch(mockEngineReturningAccessDenied(payloadA, 'bad-hdr!@#')),
     /Strict error dispatch violation.*AccessDenied/
+  );
+});
+
+test('S3 multipart upload manifest fixtures strict part ordering and size closure verification (Finding R13-02 / OPEN-2)', () => {
+  const multipartFiles = [
+    join(EXAMPLES_STORAGE_DIR, 'positive', 's3-multipart-upload-manifest.json'),
+    join(EXAMPLES_STORAGE_DIR, 'negative', 'invalid-s3-malformed-digest.json'),
+  ];
+
+  for (const filePath of multipartFiles) {
+    assert.ok(existsSync(filePath), `Multipart fixture missing: ${filePath}`);
+    const data = JSON.parse(readFileSync(filePath, 'utf8'));
+
+    // 1. Array of parts must exist
+    assert.ok(Array.isArray(data.parts), `Fixture ${filePath} must have parts array`);
+    assert.ok(data.parts.length > 0, `Fixture ${filePath} parts array must not be empty`);
+
+    // 2. part_numbers must be unique and strictly ascending (1 <= p_1 < p_2 < ... < p_n)
+    const partNumbers = data.parts.map((p) => p.part_number);
+    const uniquePartNumbers = new Set(partNumbers);
+    assert.equal(
+      uniquePartNumbers.size,
+      partNumbers.length,
+      `Fixture ${filePath} must have unique part_numbers: ${JSON.stringify(partNumbers)}`
+    );
+
+    for (let i = 0; i < partNumbers.length; i++) {
+      assert.ok(
+        Number.isInteger(partNumbers[i]) && partNumbers[i] >= 1,
+        `Part number at index ${i} must be positive integer`
+      );
+      if (i > 0) {
+        assert.ok(
+          partNumbers[i] > partNumbers[i - 1],
+          `Part numbers must be strictly ascending: ${partNumbers[i - 1]} < ${partNumbers[i]}`
+        );
+      }
+    }
+
+    // 3. total_parts === parts.length
+    assert.equal(
+      data.total_parts,
+      data.parts.length,
+      `Fixture ${filePath}: total_parts (${data.total_parts}) must equal parts.length (${data.parts.length})`
+    );
+
+    // 4. total_size_bytes === sum(part.size_bytes)
+    const sumSizeBytes = data.parts.reduce((acc, p) => acc + p.size_bytes, 0);
+    assert.equal(
+      data.total_size_bytes,
+      sumSizeBytes,
+      `Fixture ${filePath}: total_size_bytes (${data.total_size_bytes}) must equal sum(part.size_bytes) (${sumSizeBytes})`
+    );
+  }
+});
+
+test('validateS3MultipartSemantics comprehensive validation (Finding R13-02 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  assert.ok(existsSync(samplePath), `Missing sample multipart manifest: ${samplePath}`);
+  const validManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Positive: valid multipart manifest passes schema and semantic validation
+  assert.ok(ajv.validate(MULTIPART_DEF_ID, validManifest), 'Sample multipart manifest must pass Ajv validation');
+  assert.doesNotThrow(
+    () => validateS3MultipartSemantics(validManifest),
+    'Valid multipart manifest must pass validateS3MultipartSemantics'
+  );
+
+  // 2. Negative: duplicate part numbers (same ETag) throws /duplicate part_number/
+  const dupPartSameEtag = JSON.parse(JSON.stringify(validManifest));
+  dupPartSameEtag.parts.push({
+    part_number: 2,
+    etag: "\"c8f9e2b1d0a3c4e5f6a7b8c9d0e1f2a3\"",
+    sha256: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
+    size_bytes: 5242880,
+  });
+  dupPartSameEtag.total_parts = 4;
+  dupPartSameEtag.total_size_bytes = 20971520;
+  assert.throws(
+    () => validateS3MultipartSemantics(dupPartSameEtag),
+    /duplicate part_number/,
+    'Duplicate part_number with same ETag must throw /duplicate part_number/'
+  );
+
+  // 2b. Negative: duplicate part numbers (different ETags) throws /duplicate part_number/
+  const dupPartDiffEtag = JSON.parse(JSON.stringify(validManifest));
+  dupPartDiffEtag.parts.push({
+    part_number: 1,
+    etag: "\"ffffffffffffffffffffffffffffffff\"",
+    sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    size_bytes: 5242880,
+  });
+  dupPartDiffEtag.total_parts = 4;
+  dupPartDiffEtag.total_size_bytes = 20971520;
+  assert.throws(
+    () => validateS3MultipartSemantics(dupPartDiffEtag),
+    /duplicate part_number/,
+    'Duplicate part_number with different ETag must throw /duplicate part_number/'
+  );
+
+  // 3. Negative: descending part numbers throws /strictly ascending order \(InvalidPartOrder\)/
+  const descendingParts = JSON.parse(JSON.stringify(validManifest));
+  descendingParts.parts = [
+    validManifest.parts[2], // part 3
+    validManifest.parts[1], // part 2
+    validManifest.parts[0], // part 1
+  ];
+  assert.throws(
+    () => validateS3MultipartSemantics(descendingParts),
+    /strictly ascending order \(InvalidPartOrder\)/,
+    'Descending part numbers must throw /strictly ascending order (InvalidPartOrder)/'
+  );
+
+  // 3b. Negative: unordered / out-of-order part numbers throws /strictly ascending order \(InvalidPartOrder\)/
+  const unorderedParts = JSON.parse(JSON.stringify(validManifest));
+  unorderedParts.parts = [
+    validManifest.parts[0], // part 1
+    validManifest.parts[2], // part 3
+    validManifest.parts[1], // part 2
+  ];
+  assert.throws(
+    () => validateS3MultipartSemantics(unorderedParts),
+    /strictly ascending order \(InvalidPartOrder\)/,
+    'Unordered part numbers must throw /strictly ascending order (InvalidPartOrder)/'
+  );
+
+  // 4. Negative: empty or missing parts array
+  const emptyPartsManifest = JSON.parse(JSON.stringify(validManifest));
+  emptyPartsManifest.parts = [];
+  assert.throws(
+    () => validateS3MultipartSemantics(emptyPartsManifest),
+    /Semantic error: multipart upload manifest parts array must be non-empty/
+  );
+
+  // 5. Negative: total_parts mismatch throws /total_parts .* does not match parts array length/
+  const totalPartsMismatchHigh = JSON.parse(JSON.stringify(validManifest));
+  totalPartsMismatchHigh.total_parts = 5; // actual is 3
+  assert.throws(
+    () => validateS3MultipartSemantics(totalPartsMismatchHigh),
+    /total_parts .* does not match parts array length/,
+    'total_parts mismatch (high) must throw /total_parts .* does not match parts array length/'
+  );
+
+  const totalPartsMismatchLow = JSON.parse(JSON.stringify(validManifest));
+  totalPartsMismatchLow.total_parts = 2; // actual is 3
+  assert.throws(
+    () => validateS3MultipartSemantics(totalPartsMismatchLow),
+    /total_parts .* does not match parts array length/,
+    'total_parts mismatch (low) must throw /total_parts .* does not match parts array length/'
+  );
+
+  // 6. Negative: total_size_bytes mismatch throws /total_size_bytes .* does not match sum of part sizes/
+  const totalSizeMismatchHigh = JSON.parse(JSON.stringify(validManifest));
+  totalSizeMismatchHigh.total_size_bytes = 15728641; // off by 1
+  assert.throws(
+    () => validateS3MultipartSemantics(totalSizeMismatchHigh),
+    /total_size_bytes .* does not match sum of part sizes/,
+    'total_size_bytes mismatch (high) must throw /total_size_bytes .* does not match sum of part sizes/'
+  );
+
+  const totalSizeMismatchLow = JSON.parse(JSON.stringify(validManifest));
+  totalSizeMismatchLow.total_size_bytes = 10485760; // actual sum is 15728640
+  assert.throws(
+    () => validateS3MultipartSemantics(totalSizeMismatchLow),
+    /total_size_bytes .* does not match sum of part sizes/,
+    'total_size_bytes mismatch (low) must throw /total_size_bytes .* does not match sum of part sizes/'
   );
 });
