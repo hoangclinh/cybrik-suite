@@ -570,6 +570,32 @@ test('lexical I-JSON validation: duplicate keys, safe integer bounds, float reje
   assert.throws(() => validateIJson(bomRaw, 'bom-raw'), /Byte Order Mark \(BOM\) is prohibited/);
 });
 
+test('lexical I-JSON validation: fatal UTF-8 decoding error on malformed bytes', () => {
+  const samplePath = join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json');
+  const validBuffer = readFileSync(samplePath);
+  const validUint8 = new Uint8Array(validBuffer);
+
+  // Positive: Buffer and Uint8Array pass
+  assert.doesNotThrow(() => validateIJson(validBuffer, 'sample-offline-bundle-manifest.json (Buffer)'));
+  assert.doesNotThrow(() => validateIJson(validUint8, 'sample-offline-bundle-manifest.json (Uint8Array)'));
+
+  // Negative: invalid byte sequence in Buffer (0xff)
+  const invalidUtf8Buf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xff, 0x28, 0x22, 0x7d]);
+  assert.throws(() => validateIJson(invalidUtf8Buf, 'invalid-utf8-buf'), /malformed UTF-8 byte sequence/);
+
+  // Negative: overlong UTF-8 encoding in Uint8Array
+  const overlongUtf8 = new Uint8Array([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xc0, 0xaf, 0x22, 0x7d]);
+  assert.throws(() => validateIJson(overlongUtf8, 'overlong-utf8'), /malformed UTF-8 byte sequence/);
+
+  // Negative: lone surrogate in Buffer
+  const loneSurrogateBuf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xed, 0xa0, 0x80, 0x22, 0x7d]);
+  assert.throws(() => validateIJson(loneSurrogateBuf, 'lone-surrogate-buf'), /malformed UTF-8 byte sequence/);
+
+  // Negative: invalid continuation byte in Buffer
+  const invalidContinuationBuf = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0x80, 0x22, 0x7d]);
+  assert.throws(() => validateIJson(invalidContinuationBuf, 'invalid-continuation-buf'), /malformed UTF-8 byte sequence/);
+});
+
 test('in-memory validation: reject capability negotiation with unverified evidence binding', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
