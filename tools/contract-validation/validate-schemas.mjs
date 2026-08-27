@@ -543,7 +543,7 @@ const CORE_MANDATORY_SLOTS = [
   'artifact_update_mechanism'
 ];
 
-function validatePlatformSemantics(data, schemaId) {
+export function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
     if (adv.advertised_capabilities && adv.conformance_evidence) {
