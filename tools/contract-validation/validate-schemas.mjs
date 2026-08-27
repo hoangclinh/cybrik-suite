@@ -531,6 +531,23 @@ function validatePlatformSemantics(data, schemaId) {
             }
           }
         }
+
+        const immutableStorageMandated =
+          profile.slots?.storage?.specification?.immutable_storage_required === true ||
+          profile.slots?.storage?.specification?.required === true ||
+          mandatorySlots.includes('storage') ||
+          profile.strength?.storage === 'MANDATORY';
+
+        if (immutableStorageMandated) {
+          const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+          for (const cap of leaseCaps) {
+            const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+            const isDegraded = cap.disposition === 'GRANTED_DEGRADED' || cap.status === 'GRANTED_DEGRADED';
+            if (isStorageCap && isDegraded) {
+              throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
+            }
+          }
+        }
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
@@ -1552,6 +1569,20 @@ pcnDegradedWithNoneFallback.agreed_capability_lease.negotiated_optional_capabili
 ];
 const pcnDegradedWithNoneFallbackValid = ajv.validate(pcnSchemaId, pcnDegradedWithNoneFallback);
 H('30d', !pcnDegradedWithNoneFallbackValid, 'ACTIVE_DEGRADED lease with GRANTED_DEGRADED and fallback_applied NONE must be rejected');
+
+// 30e. in-memory validation: reject capability negotiation with degraded immutable storage
+const pcnDegradedStorage = JSON.parse(JSON.stringify(pcnSample));
+const storageOptionalCap = pcnDegradedStorage.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+if (storageOptionalCap) {
+  storageOptionalCap.disposition = "GRANTED_DEGRADED";
+  storageOptionalCap.fallback_applied = "FEATURE_DISABLED_GRACEFUL";
+}
+try {
+  validatePlatformSemantics(pcnDegradedStorage, pcnSchemaId);
+  fail('immutable storage degradation: expected validatePlatformSemantics to throw DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN when storage_object_lock is GRANTED_DEGRADED');
+} catch (e) {
+  H('30e', e.message.includes('DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN'), 'storage Object Lock WORM non-degradability check must catch GRANTED_DEGRADED storage capability');
+}
 
 
 // ---------------------------------------------------------------------------
