@@ -859,7 +859,7 @@ test('in-memory validation: reject capability negotiation with mismatched profil
 
   const valid = ajv.validate(schemaId, data);
   assert.ok(valid, 'Structurally valid JSON');
-  assert.throws(() => validatePlatformSemantics(data, schemaId), /does not match actual digest/);
+  assert.throws(() => validatePlatformSemantics(data, schemaId), /does not match (?:disk profile|actual) digest/);
 });
 
 test('in-memory validation: reject capability negotiation lease with mismatched lease target_profile_digest', () => {
@@ -1351,6 +1351,7 @@ test('in-memory validation: permit degraded storage when profile does not requir
   const data1 = JSON.parse(JSON.stringify(sample));
   data1.target_profile_id = 'private-cloud-v1';
   data1.target_profile_digest = privateCloudDigest;
+  if (data1.advertisement_response) data1.advertisement_response.target_profile_digest = privateCloudDigest;
   data1.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data1.agreed_capability_lease.target_profile_digest = privateCloudDigest;
   data1.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
@@ -1371,6 +1372,7 @@ test('in-memory validation: permit degraded storage when profile does not requir
   const data2 = JSON.parse(JSON.stringify(sample));
   data2.target_profile_id = 'private-cloud-v1';
   data2.target_profile_digest = privateCloudDigest;
+  if (data2.advertisement_response) data2.advertisement_response.target_profile_digest = privateCloudDigest;
   data2.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
   data2.agreed_capability_lease.target_profile_digest = privateCloudDigest;
   data2.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
@@ -4126,7 +4128,7 @@ test('in-memory validation: reject advertisement missing target_profile_digest f
   assert.ok(ajv.validate(schemaId, dataMismatchedDigest));
   assert.throws(
     () => validatePlatformSemantics(dataMismatchedDigest, schemaId),
-    /does not match actual digest/
+    /does not match (?:disk profile|actual) digest/
   );
 });
 
@@ -4545,7 +4547,7 @@ test('validatePlatformSemantics comprehensive error branches', () => {
   const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
   const badDigestFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
   badDigestFullDecl.target_profile_digest = 'a'.repeat(64);
-  assert.throws(() => validatePlatformSemantics(badDigestFullDecl, pcaSchemaId), /target_profile_digest .* does not match actual digest/);
+  assert.throws(() => validatePlatformSemantics(badDigestFullDecl, pcaSchemaId), /target_profile_digest .* does not match (?:disk profile|actual) digest/);
 
   // 33. Full profile conformance declaration target profile fixture not found
   const missingProfileFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
@@ -4597,4 +4599,262 @@ test('validatePlatformSemantics comprehensive error branches', () => {
   const noEvRefsDoc = JSON.parse(JSON.stringify(handshakeSample));
   noEvRefsDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'secrets').evidence_references = [];
   assert.throws(() => validatePlatformSemantics(noEvRefsDoc, pcnSchemaId), /mandatory profile slot 'secrets' lacks evidence references/);
+
+  // 41. Standalone advertisement with malformed target_profile_digest
+  const badPartialDigest = JSON.parse(JSON.stringify(adSample));
+  badPartialDigest.claim_type = 'PARTIAL_CAPABILITY_ADVERTISEMENT';
+  badPartialDigest.target_profile_digest = 12345;
+  assert.throws(() => validatePlatformSemantics(badPartialDigest, pcaSchemaId), /target_profile_digest must match/);
+
+  // 42. Non-string RESTORE_DATABASE_SNAPSHOT target
+  const nonStringTargetManifest = JSON.parse(JSON.stringify(manifestSample));
+  nonStringTargetManifest.update_station_workflow.rollback_steps[0].target = 12345;
+  assert.throws(() => validatePlatformSemantics(nonStringTargetManifest, manifestSchemaId), /RESTORE_DATABASE_SNAPSHOT step target must be a string/);
+
+  // 43. RESTORE_DATABASE_SNAPSHOT target with empty segment
+  const emptySegmentManifest = JSON.parse(JSON.stringify(manifestSample));
+  emptySegmentManifest.update_station_workflow.rollback_steps[0].target = '/snapshots/backup.db';
+  assert.throws(() => validatePlatformSemantics(emptySegmentManifest, manifestSchemaId), /contains empty path segment|invalid RESTORE_DATABASE_SNAPSHOT/);
+});
+
+test('in-memory validation: partial standalone advertisement with mismatched profile digest is rejected by validatePlatformSemantics (OPEN-5 / Finding 1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  // 1. Positive baseline: valid partial standalone advertisement passes
+  const validData = JSON.parse(JSON.stringify(sample));
+  assert.ok(ajv.validate(schemaId, validData), 'Baseline partial advertisement passes Ajv schema validation');
+  assert.doesNotThrow(() => validatePlatformSemantics(validData, schemaId), 'Baseline partial advertisement passes validatePlatformSemantics');
+
+  // 2. Mismatched target_profile_digest on partial standalone advertisement passes Ajv schema but fails validatePlatformSemantics
+  const mismatchedData = JSON.parse(JSON.stringify(sample));
+  mismatchedData.target_profile_digest = '0000000000000000000000000000000000000000000000000000000000000000';
+  assert.ok(ajv.validate(schemaId, mismatchedData), 'Mismatched digest passes structural 64-hex schema pattern');
+  assert.throws(
+    () => validatePlatformSemantics(mismatchedData, schemaId),
+    /target_profile_digest .* does not match actual digest/,
+    'Partial standalone advertisement with mismatched profile digest must be rejected by validatePlatformSemantics'
+  );
+
+  // 3. Non-existent target profile ID fails validatePlatformSemantics
+  const badProfileIdData = JSON.parse(JSON.stringify(sample));
+  badProfileIdData.target_profile_id = 'non-existent-profile';
+  assert.throws(
+    () => validatePlatformSemantics(badProfileIdData, schemaId),
+    /target profile fixture 'non-existent-profile\.profile\.json' not found/,
+    'Partial standalone advertisement with non-existent target_profile_id must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: nested advertisement_response.target_profile_digest is required and checked (OPEN-1 / OPEN-5 Finding 2)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Positive baseline passes validatePlatformSemantics
+  assert.doesNotThrow(() => validatePlatformSemantics(sample, pcnSchemaId));
+
+  // 2. Nested advertisement_response with matching target_profile_digest passes
+  const validNestedDigest = JSON.parse(JSON.stringify(sample));
+  validNestedDigest.advertisement_response.target_profile_digest = validNestedDigest.target_profile_digest;
+  assert.doesNotThrow(() => validatePlatformSemantics(validNestedDigest, pcnSchemaId));
+
+  // 3. Nested advertisement_response with mismatched target_profile_digest is rejected
+  const mismatchedNestedDigest = JSON.parse(JSON.stringify(sample));
+  mismatchedNestedDigest.advertisement_response.target_profile_digest = '0000000000000000000000000000000000000000000000000000000000000000';
+  assert.throws(
+    () => validatePlatformSemantics(mismatchedNestedDigest, pcnSchemaId),
+    /advertisement_response\.target_profile_digest .* does not match actual digest/,
+    'Nested advertisement_response.target_profile_digest mismatch must be rejected by validatePlatformSemantics'
+  );
+
+  // 4. Missing top-level and nested target_profile_digest on advertisement_response is rejected
+  const missingAllDigest = JSON.parse(JSON.stringify(sample));
+  delete missingAllDigest.target_profile_digest;
+  delete missingAllDigest.advertisement_response.target_profile_digest;
+  assert.throws(
+    () => validatePlatformSemantics(missingAllDigest, pcnSchemaId),
+    /target_profile_digest is required and must match/,
+    'Missing target_profile_digest on negotiation / advertisement_response must fail validatePlatformSemantics'
+  );
+
+  // 5. Malformed nested target_profile_digest is rejected
+  const malformedNestedDigest = JSON.parse(JSON.stringify(sample));
+  malformedNestedDigest.advertisement_response.target_profile_digest = 'not-a-valid-sha256-hex-digest';
+  assert.throws(
+    () => validatePlatformSemantics(malformedNestedDigest, pcnSchemaId),
+    /advertisement_response\.target_profile_digest must match \^\[a-f0-9\]\{64\}\$/,
+    'Malformed nested advertisement_response.target_profile_digest must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: canonical Object Lock URN urn:cybrik:evidence:storage:s3:conformance:v1:object-lock passes standalone declaration validation (OPEN-2 / OPEN-5 Finding 3)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  // 1. Standalone full profile conformance declaration with canonical Object Lock URN passes
+  const fullDecl = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const storageCap = fullDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storageCap.evidence_references.includes(canonicalLockUrn), 'Sample full profile declaration must use canonical Object Lock URN');
+  assert.ok(ajv.validate(pcaSchemaId, fullDecl), 'Standalone declaration must pass Ajv schema validation');
+  assert.doesNotThrow(() => validatePlatformSemantics(fullDecl, pcaSchemaId), 'Standalone declaration must pass validatePlatformSemantics');
+
+  // 2. Standalone partial advertisement with canonical Object Lock URN passes
+  const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const partialWithLock = JSON.parse(JSON.stringify(partialSample));
+  partialWithLock.advertised_capabilities = [
+    {
+      capability_name: 's3_storage_object_lock',
+      slot_id: 'storage',
+      description: 'Storage slot with canonical Object Lock evidence',
+      is_mandatory: true,
+      supported_features: ['PutObject', 'GetObject', 'PutObjectRetention'],
+      degradation_fallback: 'NONE',
+      evidence_references: [canonicalLockUrn]
+    }
+  ];
+  partialWithLock.conformance_evidence = [
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report-lock'
+    }
+  ];
+  assert.ok(ajv.validate(pcaSchemaId, partialWithLock), 'Partial advertisement with canonical Object Lock URN must pass Ajv schema');
+  assert.doesNotThrow(() => validatePlatformSemantics(partialWithLock, pcaSchemaId), 'Partial advertisement with canonical Object Lock URN must pass validatePlatformSemantics');
+
+  // 3. Negotiation handshake with canonical Object Lock URN passes
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const handshakeWithCanonicalLock = JSON.parse(JSON.stringify(handshakeSample));
+  const handshakeStorageCap = handshakeWithCanonicalLock.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  handshakeStorageCap.evidence_references = [
+    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    canonicalLockUrn
+  ];
+  handshakeWithCanonicalLock.advertisement_response.conformance_evidence = [
+    ...handshakeWithCanonicalLock.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock')),
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/ev-store-object-lock-01.json'
+    }
+  ];
+  assert.doesNotThrow(() => validatePlatformSemantics(handshakeWithCanonicalLock, pcnSchemaId), 'Handshake with canonical Object Lock URN must pass validatePlatformSemantics');
+});
+
+test('in-memory validation: profile mandatory slot coherence rejection when required slot is marked is_mandatory: false (OPEN-5 / Finding 4)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // 1. Full profile conformance declaration: required slot marked is_mandatory: false is rejected
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const badFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const ociCap = badFullDecl.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  ociCap.is_mandatory = false;
+
+  assert.throws(
+    () => validatePlatformSemantics(badFullDecl, pcaSchemaId),
+    /profile mandatory slot 'oci_container_runtime' cannot be marked is_mandatory: false/,
+    'Full profile declaration with mandatory slot marked is_mandatory: false must be rejected'
+  );
+
+  // 2. Storage mandatory slot marked is_mandatory: false is rejected
+  const badStoreDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const storeCap = badStoreDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap.is_mandatory = false;
+
+  assert.throws(
+    () => validatePlatformSemantics(badStoreDecl, pcaSchemaId),
+    /profile mandatory slot 'storage' cannot be marked is_mandatory: false/,
+    'Storage mandatory slot marked is_mandatory: false must be rejected'
+  );
+
+  // 3. Partial standalone advertisement: required slot marked is_mandatory: false is rejected
+  const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const badPartial = JSON.parse(JSON.stringify(partialSample));
+  badPartial.advertised_capabilities[0].is_mandatory = false;
+
+  assert.throws(
+    () => validatePlatformSemantics(badPartial, pcaSchemaId),
+    /profile mandatory slot 'oci_container_runtime' cannot be marked is_mandatory: false/,
+    'Partial standalone advertisement with mandatory slot marked is_mandatory: false must be rejected'
+  );
+
+  // 4. Negotiation handshake: core mandatory slot marked is_mandatory: false is rejected
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const badHandshake = JSON.parse(JSON.stringify(handshakeSample));
+  const handshakeOciCap = badHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  handshakeOciCap.is_mandatory = false;
+
+  assert.throws(
+    () => validatePlatformSemantics(badHandshake, pcnSchemaId),
+    /profile mandatory slot 'oci_container_runtime' cannot be marked is_mandatory: false/,
+    'Negotiation handshake with mandatory slot marked is_mandatory: false must be rejected'
+  );
+});
+
+test('platform semantics: universal profile digest disk equality, Object Lock URN unification, and mandatory slot coherence (Finding 2, 3, 4)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // 1. Target profile digest mismatch throws exact error message
+  const badDigestDoc = JSON.parse(JSON.stringify(handshakeSample));
+  badDigestDoc.target_profile_digest = '0'.repeat(64);
+  assert.throws(
+    () => validatePlatformSemantics(badDigestDoc, schemaId),
+    /Semantic error: target_profile_digest '0{64}' does not match disk profile digest for 'onprem-standard-v1'/
+  );
+
+  const badDigestAdv = JSON.parse(JSON.stringify(fullDeclSample));
+  badDigestAdv.target_profile_digest = '1'.repeat(64);
+  assert.throws(
+    () => validatePlatformSemantics(badDigestAdv, pcaSchemaId),
+    /Semantic error: target_profile_digest '1{64}' does not match disk profile digest for 'onprem-standard-v1'/
+  );
+
+  // 2. Object Lock URN unification: urn:cybrik:evidence:storage:s3:conformance:v1:object-lock passes on standalone and negotiation
+  assert.doesNotThrow(() => validatePlatformSemantics(fullDeclSample, pcaSchemaId));
+
+  const negWithConformLock = JSON.parse(JSON.stringify(handshakeSample));
+  const storeCap = negWithConformLock.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap.evidence_references = [
+    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+  ];
+  negWithConformLock.advertisement_response.conformance_evidence = [
+    ...negWithConformLock.advertisement_response.conformance_evidence.filter(
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1'
+    ),
+    {
+      test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+      status: 'PASS',
+      evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/lock.json',
+    },
+  ];
+  assert.doesNotThrow(() => validatePlatformSemantics(negWithConformLock, schemaId));
+
+  // 3. Mandatory slot coherence: cap.is_mandatory === false for mandatory slot throws
+  const nonMandatorySlotDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const storageAdvCap = nonMandatorySlotDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageAdvCap.is_mandatory = false;
+  assert.throws(
+    () => validatePlatformSemantics(nonMandatorySlotDoc, schemaId),
+    /Semantic error: mandatory profile slot 'storage' capability must have is_mandatory === true \(got false\)/
+  );
+
+  const nonMandatoryFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const dbAdvCap = nonMandatoryFullDecl.advertised_capabilities.find(c => c.slot_id === 'database');
+  dbAdvCap.is_mandatory = false;
+  assert.throws(
+    () => validatePlatformSemantics(nonMandatoryFullDecl, pcaSchemaId),
+    /Semantic error: mandatory profile slot 'database' capability must have is_mandatory === true \(got false\)/
+  );
 });

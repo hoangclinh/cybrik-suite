@@ -467,8 +467,11 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       storedParts = maybeStoredParts;
     } else {
       partsList = manifestOrOptions.parts;
-      storedParts = manifestOrOptions.storedParts;
+      storedParts = manifestOrOptions.storedParts !== undefined ? manifestOrOptions.storedParts : maybeStoredParts;
     }
+  } else {
+    partsList = manifestOrOptions;
+    storedParts = maybeStoredParts;
   }
 
   if (!Array.isArray(partsList) || partsList.length === 0) {
@@ -478,7 +481,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   let prevNum = 0;
   for (let i = 0; i < partsList.length; i++) {
     const p = partsList[i];
-    const pNum = p.part_number ?? p.PartNumber;
+    const pNum = p ? (p.part_number ?? p.PartNumber) : undefined;
     if (typeof pNum !== 'number' || pNum < 1 || !Number.isInteger(pNum)) {
       return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_PART_NUMBER' };
     }
@@ -494,39 +497,44 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     prevNum = pNum;
   }
 
-  if (storedParts) {
-    const storedMap = Array.isArray(storedParts)
-      ? new Map(storedParts.map((p) => [p.part_number ?? p.PartNumber, p]))
-      : (storedParts instanceof Map
-          ? storedParts
-          : new Map(Object.entries(storedParts).map(([k, v]) => [Number(k), v])));
+  if (!storedParts || typeof storedParts !== 'object') {
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartState' };
+  }
 
-    for (let i = 0; i < partsList.length; i++) {
-      const p = partsList[i];
-      const pNum = p.part_number ?? p.PartNumber;
-      const stored = storedMap.get(pNum);
-      if (!stored) {
-        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MISSING_PART' };
+  const storedMap = Array.isArray(storedParts)
+    ? new Map(storedParts.map((p) => [p.part_number ?? p.PartNumber, p]))
+    : (storedParts instanceof Map
+        ? storedParts
+        : new Map(Object.entries(storedParts).map(([k, v]) => [Number(k), v])));
+
+  for (let i = 0; i < partsList.length; i++) {
+    const part = partsList[i];
+    const pNum = part ? (part.part_number ?? part.PartNumber) : undefined;
+
+    const manifestEtag = part ? (part.etag ?? part.ETag ?? part.sha256) : undefined;
+    if (!part || manifestEtag === undefined || manifestEtag === null || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
+    }
+
+    const stored = storedMap.get(pNum);
+    const storedEtag = stored ? (stored.etag ?? stored.ETag ?? stored.sha256) : undefined;
+    if (!stored || storedEtag === undefined || storedEtag === null || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+    }
+
+    const normReq = String(manifestEtag).trim().replace(/^"|"$/g, '');
+    const normStored = String(storedEtag).trim().replace(/^"|"$/g, '');
+    if (normReq === '' || normStored === '' || normReq !== normStored) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
+    }
+
+    const size = stored.size_bytes ?? stored.Size ?? part.size_bytes;
+    if (typeof size === 'number') {
+      if (size > 5368709120) {
+        return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PART_TOO_LARGE' };
       }
-
-      const reqEtag = p.etag ?? p.ETag ?? p.sha256;
-      const storedEtag = stored.etag ?? stored.ETag ?? stored.sha256;
-      if (reqEtag && storedEtag) {
-        const normReq = String(reqEtag).trim().replace(/^"|"$/g, '');
-        const normStored = String(storedEtag).trim().replace(/^"|"$/g, '');
-        if (normReq !== normStored) {
-          return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'PART_ETAG_MISMATCH' };
-        }
-      }
-
-      const size = stored.size_bytes ?? stored.Size ?? p.size_bytes;
-      if (typeof size === 'number') {
-        if (size > 5368709120) {
-          return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PART_TOO_LARGE' };
-        }
-        if (i < partsList.length - 1 && size < 5242880) {
-          return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
-        }
+      if (i < partsList.length - 1 && size < 5242880) {
+        return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
       }
     }
   }
@@ -631,14 +639,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'PartNotFound' ||
       norm === 'ETagMismatch' ||
       norm === 'PART_NOT_FOUND' ||
-      norm === 'ETAG_MISMATCH'
+      norm === 'ETAG_MISMATCH' ||
+      norm === 'MissingStoredPartState' ||
+      norm === 'MissingManifestPartETag' ||
+      norm === 'MissingStoredPartETag'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : 'PartNotFound',
+        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' ? norm : 'PartNotFound'),
       };
     }
     if (
@@ -765,7 +776,10 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'PartNotFound' ||
       reason === 'ETagMismatch' ||
       reason === 'PART_NOT_FOUND' ||
-      reason === 'ETAG_MISMATCH'
+      reason === 'ETAG_MISMATCH' ||
+      reason === 'MissingStoredPartState' ||
+      reason === 'MissingManifestPartETag' ||
+      reason === 'MissingStoredPartETag'
     ) {
       return {
         http_status: 400,
@@ -1153,11 +1167,23 @@ export function validatePlatformSemantics(data, schemaId) {
     }
     const claimType = adv.claim_type || data.claim_type;
     const targetProfileId = data.target_profile_id || adv.target_profile_id;
-    const targetProfileDigest = data.target_profile_digest || adv.target_profile_digest;
+    const targetProfileDigest = data.target_profile_digest;
+    const advProfileDigest = adv.target_profile_digest;
 
-    if (data.advertisement_response || isNegotiation || claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
-      if (!targetProfileDigest || typeof targetProfileDigest !== 'string' || !/^[a-f0-9]{64}$/.test(targetProfileDigest)) {
+    if (isNegotiation) {
+      if (!data.target_profile_digest || typeof data.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(data.target_profile_digest)) {
+        throw new Error(`Semantic error: target_profile_digest is required and must match ^[a-f0-9]{64}$ on negotiation handshake`);
+      }
+      if (data.advertisement_response && (!data.advertisement_response.target_profile_digest || typeof data.advertisement_response.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(data.advertisement_response.target_profile_digest))) {
+        throw new Error(`Semantic error: advertisement_response.target_profile_digest must match ^[a-f0-9]{64}$`);
+      }
+    } else if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || data.advertisement_response) {
+      const effDigest = targetProfileDigest || advProfileDigest;
+      if (!effDigest || typeof effDigest !== 'string' || !/^[a-f0-9]{64}$/.test(effDigest)) {
         throw new Error(`Semantic error: target_profile_digest is required and must match ^[a-f0-9]{64}$ on advertisement_response`);
+      }
+      if (adv.target_profile_digest && (typeof adv.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(adv.target_profile_digest))) {
+        throw new Error(`Semantic error: advertisement_response.target_profile_digest must match ^[a-f0-9]{64}$`);
       }
     } else if (targetProfileDigest !== undefined && targetProfileDigest !== null) {
       if (typeof targetProfileDigest !== 'string' || !/^[a-f0-9]{64}$/.test(targetProfileDigest)) {
@@ -1326,7 +1352,7 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    if (isNegotiation && adv.advertised_capabilities) {
+    if ((isNegotiation || claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') && adv.advertised_capabilities) {
       const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
       if (storageCap) {
         if (storageCap.supported_features) {
@@ -1395,7 +1421,7 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        const OBJECT_LOCK_URN_PATTERN = /^urn:cybrik:evidence:(?:storage:object-lock|storage-object-lock|object-lock)(?::[a-zA-Z0-9_-]+)*$/;
+        const OBJECT_LOCK_URN_PATTERN = /^urn:cybrik:evidence:(?:storage:(?:s3:conformance:v\d+:)?object-lock|storage-object-lock|object-lock)(?::[a-zA-Z0-9_-]+)*$/;
 
         const lockRefs = (storageCap.evidence_references || []).filter(ref => OBJECT_LOCK_URN_PATTERN.test(ref));
         if (lockRefs.length === 0) {
@@ -1408,19 +1434,22 @@ export function validatePlatformSemantics(data, schemaId) {
       throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION requires target_profile_digest`);
     }
 
-    if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
+    if (targetProfileId && targetProfileDigest) {
       const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
       if (!existsSync(profilePath)) {
         throw new Error(`Semantic error: target profile fixture '${targetProfileId}.profile.json' not found`);
       }
       const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
       if (actualDigest !== targetProfileDigest) {
-        throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match actual digest '${actualDigest}'`);
+        throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
+      }
+      if (data.advertisement_response?.target_profile_digest && data.advertisement_response.target_profile_digest !== actualDigest) {
+        throw new Error(`Semantic error: advertisement_response.target_profile_digest '${data.advertisement_response.target_profile_digest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
       }
       if (data.agreed_capability_lease) {
         const lease = data.agreed_capability_lease;
         if (lease.target_profile_digest && lease.target_profile_digest !== actualDigest) {
-          throw new Error(`Semantic error: lease target_profile_digest '${lease.target_profile_digest}' does not match actual digest '${actualDigest}'`);
+          throw new Error(`Semantic error: lease target_profile_digest '${lease.target_profile_digest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
         }
         if (lease.target_profile_id && lease.target_profile_id !== targetProfileId) {
           throw new Error(`Semantic error: lease target_profile_id '${lease.target_profile_id}' does not match document target_profile_id '${targetProfileId}'`);
@@ -1428,67 +1457,79 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    if (isNegotiation && targetProfileId && (data.negotiation_status === 'AGREED_LEASE_GRANTED' || data.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (data.agreed_capability_lease && data.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
+    if (targetProfileId) {
       const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
       if (existsSync(profilePath)) {
         const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
-        const mandatorySlots = [];
+        const mandatorySlots = new Set(CORE_MANDATORY_SLOTS);
         if (profile.strength) {
           for (const [slot, str] of Object.entries(profile.strength)) {
-            if (str === 'MANDATORY') mandatorySlots.push(slot);
+            if (str === 'MANDATORY') mandatorySlots.add(slot);
           }
         }
         if (profile.slots) {
           for (const [slot, spec] of Object.entries(profile.slots)) {
-            if (spec.specification?.required === true && !mandatorySlots.includes(slot)) {
-              mandatorySlots.push(slot);
+            if (spec.specification?.required === true) {
+              mandatorySlots.add(slot);
             }
           }
         }
 
-        const lease = data.agreed_capability_lease || {};
-        const satisfiedSlots = new Set(lease.mandatory_slots_satisfied || []);
-        const advertisedMap = new Map();
-        for (const cap of (adv.advertised_capabilities || [])) {
-          advertisedMap.set(cap.slot_id, cap);
-        }
-        const evidenceMap = new Map((adv.conformance_evidence || []).map(e => [e.test_identifier, e]));
-
-        for (const slot of mandatorySlots) {
-          if (!satisfiedSlots.has(slot)) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' not present in lease mandatory_slots_satisfied`);
-          }
-          const advertised = advertisedMap.get(slot);
-          if (!advertised) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' not found in advertised capabilities`);
-          }
-          const refs = advertised.evidence_references || [];
-          if (refs.length === 0) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' lacks evidence references`);
-          }
-          for (const ref of refs) {
-            const ev = evidenceMap.get(ref);
-            if (!ev) {
-              throw new Error(`Semantic error: mandatory profile slot '${slot}' evidence reference '${ref}' not found in conformance evidence`);
-            }
-            if (ev.status && ev.status !== 'PASS') {
-              throw new Error(`Semantic error: mandatory profile slot '${slot}' conformance evidence '${ref}' has non-passing status '${ev.status}'`);
+        if (adv.advertised_capabilities) {
+          for (const cap of adv.advertised_capabilities) {
+            if (mandatorySlots.has(cap.slot_id)) {
+              if (cap.is_mandatory !== true) {
+                throw new Error(`Semantic error: mandatory profile slot '${cap.slot_id}' capability must have is_mandatory === true (got ${cap.is_mandatory}); profile mandatory slot '${cap.slot_id}' cannot be marked is_mandatory: false`);
+              }
             }
           }
         }
 
-        const immutableStorageMandated =
-          profile.slots?.storage?.specification?.immutable_storage_required === true;
+        if (isNegotiation && (data.negotiation_status === 'AGREED_LEASE_GRANTED' || data.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (data.agreed_capability_lease && data.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
+          const lease = data.agreed_capability_lease || {};
+          const satisfiedSlots = new Set(lease.mandatory_slots_satisfied || []);
+          const advertisedMap = new Map();
+          for (const cap of (adv.advertised_capabilities || [])) {
+            advertisedMap.set(cap.slot_id, cap);
+          }
+          const evidenceMap = new Map((adv.conformance_evidence || []).map(e => [e.test_identifier, e]));
 
-        if (immutableStorageMandated) {
-          const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
-          for (const cap of leaseCaps) {
-            const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
-            if (isStorageCap) {
-              const disposition = cap.disposition || cap.status;
-              const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
-              if (disposition !== 'GRANTED_FULL' || fallback !== 'NONE') {
-                throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease (disposition: ${disposition}, fallback: ${fallback})`);
+          for (const slot of mandatorySlots) {
+            if (!satisfiedSlots.has(slot)) {
+              throw new Error(`Semantic error: mandatory profile slot '${slot}' not present in lease mandatory_slots_satisfied`);
+            }
+            const advertised = advertisedMap.get(slot);
+            if (!advertised) {
+              throw new Error(`Semantic error: mandatory profile slot '${slot}' not found in advertised capabilities`);
+            }
+            const refs = advertised.evidence_references || [];
+            if (refs.length === 0) {
+              throw new Error(`Semantic error: mandatory profile slot '${slot}' lacks evidence references`);
+            }
+            for (const ref of refs) {
+              const ev = evidenceMap.get(ref);
+              if (!ev) {
+                throw new Error(`Semantic error: mandatory profile slot '${slot}' evidence reference '${ref}' not found in conformance evidence`);
+              }
+              if (ev.status && ev.status !== 'PASS') {
+                throw new Error(`Semantic error: mandatory profile slot '${slot}' conformance evidence '${ref}' has non-passing status '${ev.status}'`);
+              }
+            }
+          }
+
+          const immutableStorageMandated =
+            profile.slots?.storage?.specification?.immutable_storage_required === true;
+
+          if (immutableStorageMandated) {
+            const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+            for (const cap of leaseCaps) {
+              const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+              if (isStorageCap) {
+                const disposition = cap.disposition || cap.status;
+                const fallback = cap.fallback_applied || cap.effective_fallback || 'NONE';
+                if (disposition !== 'GRANTED_FULL' || fallback !== 'NONE') {
+                  throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease (disposition: ${disposition}, fallback: ${fallback})`);
+                }
               }
             }
           }
@@ -2272,7 +2313,7 @@ try {
   validatePlatformSemantics(pcaBadDigest, pcaSchemaId);
   fail('digest binding: expected validatePlatformSemantics to throw on mismatched digest');
 } catch (e) {
-  H('18', e.message.includes('does not match actual digest'), 'digest binding check must catch mismatched target profile digest');
+  H('18', e.message.includes('does not match disk profile digest') || e.message.includes('does not match actual digest'), 'digest binding check must catch mismatched target profile digest');
 }
 
 // 18b. in-memory validation: reject advertisement_response / negotiation with missing or malformed target_profile_digest
@@ -2653,6 +2694,9 @@ const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloud
 const pcnDegradedStoragePermitted = JSON.parse(JSON.stringify(pcnSample));
 pcnDegradedStoragePermitted.target_profile_id = 'private-cloud-v1';
 pcnDegradedStoragePermitted.target_profile_digest = privateCloudDigest;
+if (pcnDegradedStoragePermitted.advertisement_response) {
+  pcnDegradedStoragePermitted.advertisement_response.target_profile_digest = privateCloudDigest;
+}
 pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
 pcnDegradedStoragePermitted.agreed_capability_lease.target_profile_digest = privateCloudDigest;
 const storageOptionalPermitted = pcnDegradedStoragePermitted.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
@@ -2923,11 +2967,11 @@ const completeBadEtag = dispatchS3CompleteMultipartUpload(completeManifest, stor
 const s3CompleteValid = completeOk.http_status === 200 &&
                         completeMissing.http_status === 400 &&
                         completeMissing.error_code === 'InvalidPart' &&
-                        completeMissing.reason === 'MISSING_PART' &&
+                        (completeMissing.reason === 'MissingStoredPartETag' || completeMissing.reason === 'MISSING_PART') &&
                         completeBadEtag.http_status === 400 &&
                         completeBadEtag.error_code === 'InvalidPart' &&
-                        completeBadEtag.reason === 'PART_ETAG_MISMATCH';
-H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MISSING_PART or PART_ETAG_MISMATCH');
+                        (completeBadEtag.reason === 'ETagMismatch' || completeBadEtag.reason === 'PART_ETAG_MISMATCH');
+H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MissingStoredPartETag/MISSING_PART or ETagMismatch/PART_ETAG_MISMATCH');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));

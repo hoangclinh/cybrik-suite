@@ -1471,7 +1471,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
   assert.equal(okObjRes.http_status, 200);
   assert.equal(okObjRes.error_code, null);
 
-  // 3. Missing part with Map -> MISSING_PART
+  // 3. Missing part with Map -> MissingStoredPartETag
   const missingMap = new Map([
     [1, { etag: '"etag-part-1"' }],
   ]);
@@ -1479,18 +1479,18 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
   assert.equal(missingMapRes.http_status, 400);
   assert.equal(missingMapRes.error_code, 'InvalidPart');
   assert.equal(missingMapRes.code, 'InvalidPart');
-  assert.equal(missingMapRes.reason, 'MISSING_PART');
+  assert.ok(missingMapRes.reason === 'MissingStoredPartETag' || missingMapRes.reason === 'MISSING_PART');
 
-  // 4. Missing part with Object -> MISSING_PART
+  // 4. Missing part with Object -> MissingStoredPartETag
   const missingObj = {
     1: { etag: '"etag-part-1"' },
   };
   const missingObjRes = dispatchS3CompleteMultipartUpload(manifest, missingObj);
   assert.equal(missingObjRes.http_status, 400);
   assert.equal(missingObjRes.error_code, 'InvalidPart');
-  assert.equal(missingObjRes.reason, 'MISSING_PART');
+  assert.ok(missingObjRes.reason === 'MissingStoredPartETag' || missingObjRes.reason === 'MISSING_PART');
 
-  // 5. ETag mismatch with Map -> PART_ETAG_MISMATCH
+  // 5. ETag mismatch with Map -> ETagMismatch
   const mismatchMap = new Map([
     [1, { etag: '"etag-part-1"' }],
     [2, { etag: '"mismatched-etag"' }],
@@ -1499,9 +1499,9 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
   assert.equal(mismatchMapRes.http_status, 400);
   assert.equal(mismatchMapRes.error_code, 'InvalidPart');
   assert.equal(mismatchMapRes.code, 'InvalidPart');
-  assert.equal(mismatchMapRes.reason, 'PART_ETAG_MISMATCH');
+  assert.ok(mismatchMapRes.reason === 'ETagMismatch' || mismatchMapRes.reason === 'PART_ETAG_MISMATCH');
 
-  // 6. ETag mismatch with Object -> PART_ETAG_MISMATCH
+  // 6. ETag mismatch with Object -> ETagMismatch
   const mismatchObj = {
     1: { etag: '"etag-part-1"' },
     2: { etag: '"mismatched-etag"' },
@@ -1509,7 +1509,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
   const mismatchObjRes = dispatchS3CompleteMultipartUpload(manifest, mismatchObj);
   assert.equal(mismatchObjRes.http_status, 400);
   assert.equal(mismatchObjRes.error_code, 'InvalidPart');
-  assert.equal(mismatchObjRes.reason, 'PART_ETAG_MISMATCH');
+  assert.ok(mismatchObjRes.reason === 'ETagMismatch' || mismatchObjRes.reason === 'PART_ETAG_MISMATCH');
 
   // 7. dispatchS3Error mapping for InvalidPart, PartNotFound, ETagMismatch, MISSING_PART, PART_ETAG_MISMATCH
   for (const trigger of ['InvalidPart', 'INVALID_PART', 'PartNotFound', 'PART_NOT_FOUND', 'MISSING_PART']) {
@@ -1637,7 +1637,7 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
   });
   assert.equal(missingPartRes.http_status, 400);
   assert.equal(missingPartRes.error_code, 'InvalidPart');
-  assert.equal(missingPartRes.reason, 'MISSING_PART');
+  assert.ok(missingPartRes.reason === 'MissingStoredPartETag' || missingPartRes.reason === 'MISSING_PART');
 
   // 3. Negative: stored-ETag mismatch (part 2 specified with wrong ETag) returns HTTP 400 InvalidPart
   const mismatchedEtagRes = dispatchS3CompleteMultipartUpload({
@@ -1649,7 +1649,7 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
   });
   assert.equal(mismatchedEtagRes.http_status, 400);
   assert.equal(mismatchedEtagRes.error_code, 'InvalidPart');
-  assert.equal(mismatchedEtagRes.reason, 'PART_ETAG_MISMATCH');
+  assert.ok(mismatchedEtagRes.reason === 'ETagMismatch' || mismatchedEtagRes.reason === 'PART_ETAG_MISMATCH');
 
   // 4. Negative: empty parts list returns HTTP 400 InvalidPart
   const emptyPartsRes = dispatchS3CompleteMultipartUpload({
@@ -1973,4 +1973,185 @@ test('dispatchS3PutObject and dispatchS3Error exhaustive reason taxonomy and hel
   assert.equal(dispatchS3Error({ payloadBytes: payload, 'x-amz-content-sha256': validSha }).http_status, 200);
   assert.equal(dispatchS3PutObject({ payloadBytes: payload }).http_status, 400);
   assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1.5 }] }).error_code, 'InvalidArgument');
+});
+
+test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and strict ETag assertions (Finding 1 & 2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"etag-2"', size_bytes: 5242880 },
+    ],
+  };
+
+  // 1. Missing or non-object storedParts -> MissingStoredPartState
+  const noStoredRes = dispatchS3CompleteMultipartUpload(manifest);
+  assert.equal(noStoredRes.http_status, 400);
+  assert.equal(noStoredRes.error_code, 'InvalidPart');
+  assert.equal(noStoredRes.reason, 'MissingStoredPartState');
+
+  const nullStoredRes = dispatchS3CompleteMultipartUpload(manifest, null);
+  assert.equal(nullStoredRes.http_status, 400);
+  assert.equal(nullStoredRes.error_code, 'InvalidPart');
+  assert.equal(nullStoredRes.reason, 'MissingStoredPartState');
+
+  const strStoredRes = dispatchS3CompleteMultipartUpload(manifest, 'invalid-state');
+  assert.equal(strStoredRes.http_status, 400);
+  assert.equal(strStoredRes.error_code, 'InvalidPart');
+  assert.equal(strStoredRes.reason, 'MissingStoredPartState');
+
+  // 2. Part missing ETag or blank ETag in manifest -> MissingManifestPartETag
+  const missingEtagManifest = {
+    parts: [
+      { part_number: 1, etag: '' },
+      { part_number: 2, etag: '"etag-2"' },
+    ],
+  };
+  const validStored = new Map([
+    [1, { etag: '"etag-1"' }],
+    [2, { etag: '"etag-2"' }],
+  ]);
+  const missingEtagRes = dispatchS3CompleteMultipartUpload(missingEtagManifest, validStored);
+  assert.equal(missingEtagRes.http_status, 400);
+  assert.equal(missingEtagRes.error_code, 'InvalidPart');
+  assert.equal(missingEtagRes.reason, 'MissingManifestPartETag');
+
+  const noEtagFieldManifest = {
+    parts: [
+      { part_number: 1 },
+      { part_number: 2, etag: '"etag-2"' },
+    ],
+  };
+  const noEtagRes = dispatchS3CompleteMultipartUpload(noEtagFieldManifest, validStored);
+  assert.equal(noEtagRes.http_status, 400);
+  assert.equal(noEtagRes.error_code, 'InvalidPart');
+  assert.equal(noEtagRes.reason, 'MissingManifestPartETag');
+
+  // 3. Stored part missing or stored part ETag missing/blank -> MissingStoredPartETag
+  const missingPartStored = new Map([
+    [1, { etag: '"etag-1"' }],
+  ]);
+  const missingPartRes = dispatchS3CompleteMultipartUpload(manifest, missingPartStored);
+  assert.equal(missingPartRes.http_status, 400);
+  assert.equal(missingPartRes.error_code, 'InvalidPart');
+  assert.equal(missingPartRes.reason, 'MissingStoredPartETag');
+
+  const blankStoredEtag = new Map([
+    [1, { etag: '"etag-1"' }],
+    [2, { etag: '  ' }],
+  ]);
+  const blankStoredRes = dispatchS3CompleteMultipartUpload(manifest, blankStoredEtag);
+  assert.equal(blankStoredRes.http_status, 400);
+  assert.equal(blankStoredRes.error_code, 'InvalidPart');
+  assert.equal(blankStoredRes.reason, 'MissingStoredPartETag');
+
+  // 4. Stored part ETag mismatch -> ETagMismatch
+  const mismatchStored = new Map([
+    [1, { etag: '"etag-1"' }],
+    [2, { etag: '"wrong-etag"' }],
+  ]);
+  const mismatchRes = dispatchS3CompleteMultipartUpload(manifest, mismatchStored);
+  assert.equal(mismatchRes.http_status, 400);
+  assert.equal(mismatchRes.error_code, 'InvalidPart');
+  assert.equal(mismatchRes.reason, 'ETagMismatch');
+
+  // 5. dispatchS3Error supports all new InvalidPart reasons
+  for (const reason of ['MissingStoredPartState', 'MissingManifestPartETag', 'MissingStoredPartETag', 'ETagMismatch']) {
+    const errRes = dispatchS3Error(reason);
+    assert.equal(errRes.http_status, 400);
+    assert.equal(errRes.error_code, 'InvalidPart');
+    assert.equal(errRes.reason, reason);
+    const objErrRes = dispatchS3Error({ reason });
+    assert.equal(objErrRes.http_status, 400);
+    assert.equal(objErrRes.error_code, 'InvalidPart');
+  }
+});
+
+test('dispatchS3CompleteMultipartUpload fails closed with InvalidPart when storedParts is absent, manifest part ETag is missing/blank, and stored part ETag is missing/blank (OPEN-2 / Finding 2)', () => {
+  const validStored = new Map([
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }
+    ]
+  };
+
+  // 1. Positive baseline with valid storedParts and valid ETags passes
+  const validRes = dispatchS3CompleteMultipartUpload(validManifest, validStored);
+  assert.equal(validRes.http_status, 200);
+  assert.equal(validRes.error_code, null);
+
+  // 2. Fails closed with InvalidPart when storedParts is absent (undefined / null)
+  const noStoredRes1 = dispatchS3CompleteMultipartUpload(validManifest);
+  assert.equal(noStoredRes1.http_status, 400);
+  assert.equal(noStoredRes1.error_code, 'InvalidPart');
+
+  const noStoredRes2 = dispatchS3CompleteMultipartUpload(validManifest, null);
+  assert.equal(noStoredRes2.http_status, 400);
+  assert.equal(noStoredRes2.error_code, 'InvalidPart');
+
+  const noStoredRes3 = dispatchS3CompleteMultipartUpload({ parts: validManifest.parts });
+  assert.equal(noStoredRes3.http_status, 400);
+  assert.equal(noStoredRes3.error_code, 'InvalidPart');
+
+  // 3. Fails closed with InvalidPart when manifest part ETag is missing/undefined
+  const missingManifestEtag = {
+    parts: [
+      { part_number: 1, size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }
+    ]
+  };
+  const missingManifestEtagRes = dispatchS3CompleteMultipartUpload(missingManifestEtag, validStored);
+  assert.equal(missingManifestEtagRes.http_status, 400);
+  assert.equal(missingManifestEtagRes.error_code, 'InvalidPart');
+
+  // 4. Fails closed with InvalidPart when manifest part ETag is empty string or whitespace
+  const emptyManifestEtag = {
+    parts: [
+      { part_number: 1, etag: '', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }
+    ]
+  };
+  const emptyManifestEtagRes = dispatchS3CompleteMultipartUpload(emptyManifestEtag, validStored);
+  assert.equal(emptyManifestEtagRes.http_status, 400);
+  assert.equal(emptyManifestEtagRes.error_code, 'InvalidPart');
+
+  const blankManifestEtag = {
+    parts: [
+      { part_number: 1, etag: '   ', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }
+    ]
+  };
+  const blankManifestEtagRes = dispatchS3CompleteMultipartUpload(blankManifestEtag, validStored);
+  assert.equal(blankManifestEtagRes.http_status, 400);
+  assert.equal(blankManifestEtagRes.error_code, 'InvalidPart');
+
+  // 5. Fails closed with InvalidPart when stored part ETag is missing/undefined
+  const missingStoredEtag = new Map([
+    [1, { part_number: 1, size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+  const missingStoredEtagRes = dispatchS3CompleteMultipartUpload(validManifest, missingStoredEtag);
+  assert.equal(missingStoredEtagRes.http_status, 400);
+  assert.equal(missingStoredEtagRes.error_code, 'InvalidPart');
+
+  // 6. Fails closed with InvalidPart when stored part ETag is empty string or whitespace
+  const emptyStoredEtag = new Map([
+    [1, { part_number: 1, etag: '', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+  const emptyStoredEtagRes = dispatchS3CompleteMultipartUpload(validManifest, emptyStoredEtag);
+  assert.equal(emptyStoredEtagRes.http_status, 400);
+  assert.equal(emptyStoredEtagRes.error_code, 'InvalidPart');
+
+  const blankStoredEtag = new Map([
+    [1, { part_number: 1, etag: '   ', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+  const blankStoredEtagRes = dispatchS3CompleteMultipartUpload(validManifest, blankStoredEtag);
+  assert.equal(blankStoredEtagRes.http_status, 400);
+  assert.equal(blankStoredEtagRes.error_code, 'InvalidPart');
 });

@@ -225,6 +225,10 @@
             "FULL_PROFILE_CONFORMANCE_DECLARATION"
           ]
         },
+        "target_profile_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "advertised_capabilities": {
           "type": "array",
           "minItems": 1,
@@ -357,6 +361,7 @@
         "timestamp",
         "server_nonce",
         "claim_type",
+        "target_profile_digest",
         "advertised_capabilities",
         "conformance_evidence",
         "degradation_behavior",

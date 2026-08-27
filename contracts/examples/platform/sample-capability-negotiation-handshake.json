@@ -52,6 +52,7 @@
     "timestamp": "2026-08-27T12:00:01Z",
     "server_nonce": "s-nonce-1234567890fedcba1234567890fedcba",
     "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
+    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
     "advertised_capabilities": [
       {
         "capability_name": "cap-oci",
@@ -173,7 +174,7 @@
       {
         "capability_name": "cap-cache",
         "slot_id": "cache",
-        "is_mandatory": false,
+        "is_mandatory": true,
         "supported_features": [
           "in_memory_kv",
           "noeviction_policy"
@@ -241,7 +242,7 @@
       {
         "capability_name": "cap-obs",
         "slot_id": "observability",
-        "is_mandatory": false,
+        "is_mandatory": true,
         "supported_features": [
           "sovereign_structured_logs",
           "local_metrics"
