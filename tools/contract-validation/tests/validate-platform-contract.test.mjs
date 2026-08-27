@@ -230,10 +230,10 @@ test('in-memory validation: reject offline manifest with duplicate artifact path
     "release_tag": "v1.2.3",
     "operator_trust_root": {
       "signing_key_id": "key-123456",
-      "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "artifacts": [
       {
         "name": "image-1",
@@ -251,9 +251,27 @@ test('in-memory validation: reject offline manifest with duplicate artifact path
     "migration_reversibility_guaranteed": true,
     "rollback_procedure_reference": "doc://rollback",
     "update_station_workflow": {
-      "preflight_steps": ["check-disk-space"],
-      "apply_steps": ["extract-images"],
-      "rollback_steps": ["restore-backup"]
+      "preflight_steps": [
+        {
+          "step_id": "preflight-verify",
+          "action": "VERIFY_DIGEST",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "apply_steps": [
+        {
+          "step_id": "apply-preload",
+          "action": "PRELOAD_OCI_IMAGE",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "rollback_steps": [
+        {
+          "step_id": "rollback-restore",
+          "action": "RESTORE_DATABASE_SNAPSHOT",
+          "target": "snapshots/backup.db"
+        }
+      ]
     },
     "canonicalization_scheme": "RFC_8785_JCS"
   };
@@ -270,10 +288,10 @@ test('in-memory validation: reject offline manifest with alias collision paths',
     "release_tag": "v1.2.3",
     "operator_trust_root": {
       "signing_key_id": "key-123456",
-      "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "artifacts": [
       {
         "name": "image-1",
@@ -291,9 +309,27 @@ test('in-memory validation: reject offline manifest with alias collision paths',
     "migration_reversibility_guaranteed": true,
     "rollback_procedure_reference": "doc://rollback",
     "update_station_workflow": {
-      "preflight_steps": ["check-disk-space"],
-      "apply_steps": ["extract-images"],
-      "rollback_steps": ["restore-backup"]
+      "preflight_steps": [
+        {
+          "step_id": "preflight-verify",
+          "action": "VERIFY_DIGEST",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "apply_steps": [
+        {
+          "step_id": "apply-preload",
+          "action": "PRELOAD_OCI_IMAGE",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "rollback_steps": [
+        {
+          "step_id": "rollback-restore",
+          "action": "RESTORE_DATABASE_SNAPSHOT",
+          "target": "snapshots/backup.db"
+        }
+      ]
     },
     "canonicalization_scheme": "RFC_8785_JCS"
   };
@@ -310,10 +346,10 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
     "release_tag": "v1.2.3",
     "operator_trust_root": {
       "signing_key_id": "key-123456",
-      "public_key_fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "public_key_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "signature_algorithm": "ed25519"
     },
-    "bundle_signature": "aB3/dE9+A/1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=",
+    "bundle_signature": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "artifacts": [
       {
         "name": "image-1",
@@ -325,9 +361,27 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
     "migration_reversibility_guaranteed": true,
     "rollback_procedure_reference": "doc://rollback",
     "update_station_workflow": {
-      "preflight_steps": ["check-disk-space"],
-      "apply_steps": ["extract-images"],
-      "rollback_steps": ["restore-backup"]
+      "preflight_steps": [
+        {
+          "step_id": "preflight-verify",
+          "action": "VERIFY_DIGEST",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "apply_steps": [
+        {
+          "step_id": "apply-preload",
+          "action": "PRELOAD_OCI_IMAGE",
+          "target": "images/image-1.tar"
+        }
+      ],
+      "rollback_steps": [
+        {
+          "step_id": "rollback-restore",
+          "action": "RESTORE_DATABASE_SNAPSHOT",
+          "target": "snapshots/backup.db"
+        }
+      ]
     },
     "canonicalization_scheme": "RFC_8785_JCS"
   };
