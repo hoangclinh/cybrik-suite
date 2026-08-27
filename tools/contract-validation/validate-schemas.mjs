@@ -43,13 +43,18 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
 
-export function validateIJson(rawJsonText, label = 'JSON') {
-  if (typeof rawJsonText !== 'string') {
-    if (Buffer.isBuffer(rawJsonText)) {
-      rawJsonText = rawJsonText.toString('utf8');
-    } else {
-      throw new Error(`${label}: expected string or Buffer for I-JSON validation`);
+export function validateIJson(bufferOrString, label = 'JSON') {
+  let rawJsonText;
+  if (typeof bufferOrString === 'string') {
+    rawJsonText = bufferOrString;
+  } else if (Buffer.isBuffer(bufferOrString) || bufferOrString instanceof Uint8Array) {
+    try {
+      rawJsonText = new TextDecoder('utf-8', { fatal: true }).decode(bufferOrString);
+    } catch (e) {
+      throw new Error(`${label}: fatal I-JSON validation error: malformed UTF-8 byte sequence: ${e.message}`);
     }
+  } else {
+    throw new Error(`${label}: expected string or Buffer for I-JSON validation`);
   }
 
   // Reject UTF-8 BOM
@@ -1454,6 +1459,15 @@ try {
   H('26d', false, 'floating-point number in manifest must be rejected by lexical I-JSON validator');
 } catch (e) {
   H('26d', e.message.includes('floating-point or scientific notation'), 'lexical I-JSON validator must reject floating-point numbers');
+}
+
+// 26e. Lexical I-JSON rejects raw buffers with invalid UTF-8 bytes
+const invalidUtf8Buffer = Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xff, 0x28, 0x22, 0x7d]);
+try {
+  validateIJson(invalidUtf8Buffer, 'invalid-utf8-manifest');
+  H('26e', false, 'raw buffer with invalid UTF-8 bytes must be rejected with fatal decoding error');
+} catch (e) {
+  H('26e', e.message.includes('malformed UTF-8') || e.message.includes('fatal I-JSON validation error'), 'lexical I-JSON validator must reject raw buffers with invalid UTF-8 bytes with a fatal UTF-8 decoding error');
 }
 export function validateOpenItemEffectMatrix(proposalMarkdown) {
   const lines = proposalMarkdown.split('\n');
