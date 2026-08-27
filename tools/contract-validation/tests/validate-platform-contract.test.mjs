@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -20,235 +20,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '../../..');
 const JSON_SCHEMA_DIR = join(ROOT, 'contracts/json-schema');
 const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
-
-
-const S3_17_MANDATORY_OPS = [
-  'PutObject',
-  'GetObject',
-  'HeadObject',
-  'DeleteObject',
-  'DeleteObjects',
-  'ListObjectsV2',
-  'HeadBucket',
-  'CreateBucket',
-  'PutObjectRetention',
-  'GetObjectRetention',
-  'PutObjectLegalHold',
-  'GetObjectLegalHold',
-  'CreateMultipartUpload',
-  'UploadPart',
-  'CompleteMultipartUpload',
-  'AbortMultipartUpload',
-  'ListParts'
-];
-
-const CORE_MANDATORY_SLOTS = [
-  'oci_container_runtime',
-  'isolation_substrate',
-  'network_segmentation',
-  'storage',
-  'database',
-  'secrets',
-  'crypto',
-  'identity_workload_identity',
-  'artifact_update_mechanism'
-];
-
-function validatePlatformSemantics(data, schemaId) {
-  if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
-    const adv = data.advertisement_response || data;
-    if (adv.advertised_capabilities && adv.conformance_evidence) {
-      const validTests = new Set();
-      for (const e of adv.conformance_evidence) {
-        if (validTests.has(e.test_identifier)) {
-          throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
-        }
-        validTests.add(e.test_identifier);
-      }
-      for (const cap of adv.advertised_capabilities) {
-        for (const ref of (cap.evidence_references || [])) {
-          if (!validTests.has(ref)) {
-            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
-          }
-        }
-      }
-    }
-    const claimType = adv.claim_type || data.claim_type;
-    const targetProfileId = data.target_profile_id;
-    const targetProfileDigest = data.target_profile_digest;
-    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
-
-    if (data.agreed_capability_lease) {
-      const lease = data.agreed_capability_lease;
-      if (lease.issued_at && lease.valid_until) {
-        const issued_at_ms = Date.parse(lease.issued_at);
-        const valid_until_ms = Date.parse(lease.valid_until);
-        if (Number.isNaN(issued_at_ms) || Number.isNaN(valid_until_ms)) {
-          throw new Error(`Semantic error: invalid timestamp format in lease`);
-        }
-        if (!(valid_until_ms > issued_at_ms)) {
-          throw new Error(`Semantic error: lease valid_until_ms (${valid_until_ms}) must be strictly greater than issued_at_ms (${issued_at_ms})`);
-        }
-        if (typeof lease.ttl_seconds === 'number') {
-          const duration_ms = valid_until_ms - issued_at_ms;
-          const expected_ms = lease.ttl_seconds * 1000;
-          if (duration_ms !== expected_ms) {
-            throw new Error(`Semantic error: lease ttl_seconds (${lease.ttl_seconds}) does not match timestamp duration (${expected_ms}ms expected vs ${duration_ms}ms actual)`);
-          }
-        }
-      }
-
-      const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
-      if (lease.lease_status === 'ACTIVE_OPTIMAL') {
-        for (const cap of caps) {
-          const capStatus = cap.disposition || cap.status;
-          const fallback = cap.fallback_applied || 'NONE';
-          if (capStatus === 'GRANTED_DEGRADED' || fallback !== 'NONE') {
-            throw new Error(`Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability '${cap.capability_name}' (status: ${capStatus}, fallback: ${fallback})`);
-          }
-        }
-      } else if (lease.lease_status === 'ACTIVE_DEGRADED') {
-        const hasDegraded = caps.some(cap => {
-          const capStatus = cap.disposition || cap.status;
-          const fallback = cap.fallback_applied || 'NONE';
-          return capStatus === 'GRANTED_DEGRADED' && fallback !== 'NONE';
-        });
-        if (!hasDegraded) {
-          throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback`);
-        }
-      }
-    }
-
-    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_slots)) {
-      const requestedSlots = new Set(data.negotiation_request.requested_slots);
-      for (const slot of CORE_MANDATORY_SLOTS) {
-        if (!requestedSlots.has(slot)) {
-          throw new Error(`Semantic error: negotiation_request.requested_slots missing core mandatory slot '${slot}'`);
-        }
-      }
-    }
-
-    if (isNegotiation && adv.advertised_capabilities) {
-      const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
-      if (storageCap) {
-        if (storageCap.supported_features) {
-          const featureSet = new Set(storageCap.supported_features);
-          for (const op of S3_17_MANDATORY_OPS) {
-            if (!featureSet.has(op)) {
-              throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline`);
-            }
-          }
-        }
-        const storageRefs = new Set(storageCap.evidence_references || []);
-        const hasObjectLockEvidence = (adv.conformance_evidence || []).some(
-          e => storageRefs.has(e.test_identifier) && (
-            e.test_identifier.toLowerCase().includes('object-lock') ||
-            e.test_identifier.toLowerCase().includes('retention') ||
-            e.test_identifier.toLowerCase().includes('worm') ||
-            e.report_uri.toLowerCase().includes('object-lock') ||
-            e.report_uri.toLowerCase().includes('retention') ||
-            e.report_uri.toLowerCase().includes('worm')
-          )
-        );
-        if (!hasObjectLockEvidence) {
-          throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
-        }
-      }
-    }
-
-    if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
-      const profilePath = join(EXAMPLES_DIR, `${targetProfileId}.profile.json`);
-      if (!existsSync(profilePath)) {
-        throw new Error(`Semantic error: target profile fixture '${targetProfileId}.profile.json' not found`);
-      }
-      const actualDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
-      if (actualDigest !== targetProfileDigest) {
-        throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match actual digest '${actualDigest}'`);
-      }
-      if (data.agreed_capability_lease) {
-        const lease = data.agreed_capability_lease;
-        if (lease.target_profile_digest && lease.target_profile_digest !== actualDigest) {
-          throw new Error(`Semantic error: lease target_profile_digest '${lease.target_profile_digest}' does not match actual digest '${actualDigest}'`);
-        }
-        if (lease.target_profile_id && lease.target_profile_id !== targetProfileId) {
-          throw new Error(`Semantic error: lease target_profile_id '${lease.target_profile_id}' does not match document target_profile_id '${targetProfileId}'`);
-        }
-      }
-    }
-
-    if (isNegotiation && targetProfileId && (data.negotiation_status === 'AGREED_LEASE_GRANTED' || data.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (data.agreed_capability_lease && data.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
-      const profilePath = join(EXAMPLES_DIR, `${targetProfileId}.profile.json`);
-      if (existsSync(profilePath)) {
-        const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
-        const mandatorySlots = [];
-        if (profile.strength) {
-          for (const [slot, str] of Object.entries(profile.strength)) {
-            if (str === 'MANDATORY') mandatorySlots.push(slot);
-          }
-        }
-        if (profile.slots) {
-          for (const [slot, spec] of Object.entries(profile.slots)) {
-            if (spec.specification?.required === true && !mandatorySlots.includes(slot)) {
-              mandatorySlots.push(slot);
-            }
-          }
-        }
-
-        const lease = data.agreed_capability_lease || {};
-        const satisfiedSlots = new Set(lease.mandatory_slots_satisfied || []);
-        const advertisedMap = new Map();
-        for (const cap of (adv.advertised_capabilities || [])) {
-          advertisedMap.set(cap.slot_id, cap);
-        }
-        const evidenceSet = new Set((adv.conformance_evidence || []).map(e => e.test_identifier));
-
-        for (const slot of mandatorySlots) {
-          if (!satisfiedSlots.has(slot)) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' not present in lease mandatory_slots_satisfied`);
-          }
-          const advertised = advertisedMap.get(slot);
-          if (!advertised) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' not found in advertised capabilities`);
-          }
-          const refs = advertised.evidence_references || [];
-          if (refs.length === 0) {
-            throw new Error(`Semantic error: mandatory profile slot '${slot}' lacks evidence references`);
-          }
-          for (const ref of refs) {
-            if (!evidenceSet.has(ref)) {
-              throw new Error(`Semantic error: mandatory profile slot '${slot}' evidence reference '${ref}' not found in conformance evidence`);
-            }
-          }
-        }
-
-        const immutableStorageMandated =
-          profile.slots?.storage?.specification?.immutable_storage_required === true;
-
-        if (immutableStorageMandated) {
-          const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
-          for (const cap of leaseCaps) {
-            const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
-            const isDegraded = cap.disposition === 'GRANTED_DEGRADED' || cap.status === 'GRANTED_DEGRADED';
-            if (isStorageCap && isDegraded) {
-              throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
-            }
-          }
-        }
-      }
-    }
-  } else if (schemaId.includes('offline-install-update-manifest')) {
-    if (data.artifacts) {
-      const paths = new Set();
-      for (const art of data.artifacts) {
-        const norm = posix.normalize(art.path);
-        if (paths.has(norm)) {
-          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
-        }
-        paths.add(norm);
-      }
-    }
-  }
-}
 
 const PLATFORM_SCHEMAS = [
   'cybrik.deployment-profile.v1.schema.json',
@@ -1138,56 +909,75 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   assert.ok(valid4, 'Explicit boolean false immutable_storage_required should be valid in schema: ' + ajv.errorsText());
 });
 
-test('in-memory validation: reject capability negotiation with degraded storage when profile requires immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
+test('in-memory validation: reject capability negotiation with degraded storage across all immutable profiles (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 1. Degraded storage_object_lock by capability_name against onprem-standard-v1 (immutable_storage_required: true)
-  const data1 = JSON.parse(JSON.stringify(sample));
-  const storageCap1 = data1.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
-  if (storageCap1) {
-    storageCap1.disposition = "GRANTED_DEGRADED";
-    storageCap1.fallback_applied = "FEATURE_DISABLED_GRACEFUL";
+  const immutableProfiles = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(EXAMPLES_DIR, `${profileId}.profile.json`);
+    assert.ok(existsSync(profilePath), `Profile fixture missing: ${profilePath}`);
+    const profileData = JSON.parse(readFileSync(profilePath, 'utf8'));
+    assert.equal(
+      profileData.slots?.storage?.specification?.immutable_storage_required,
+      true,
+      `${profileId} must mandate immutable_storage_required: true`
+    );
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. Degraded storage_object_lock by capability_name throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const data1 = JSON.parse(JSON.stringify(sample));
+    data1.target_profile_id = profileId;
+    data1.target_profile_digest = profileDigest;
+    data1.agreed_capability_lease.target_profile_id = profileId;
+    data1.agreed_capability_lease.target_profile_digest = profileDigest;
+    data1.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    data1.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_object_lock",
+        slot_id: "storage",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "standard_retention_fallback",
+        fallback_applied: "FEATURE_DISABLED_GRACEFUL"
+      }
+    ];
+
+    assert.ok(ajv.validate(schemaId, data1), `Structurally valid schema for ${profileId}: ` + ajv.errorsText());
+    assert.throws(
+      () => validatePlatformSemantics(data1, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject degraded storage_object_lock`
+    );
+
+    // 2. Degraded storage by slot_id throws DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN
+    const data2 = JSON.parse(JSON.stringify(sample));
+    data2.target_profile_id = profileId;
+    data2.target_profile_digest = profileDigest;
+    data2.agreed_capability_lease.target_profile_id = profileId;
+    data2.agreed_capability_lease.target_profile_digest = profileDigest;
+    data2.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    data2.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: "storage_custom_perf",
+        slot_id: "storage",
+        disposition: "GRANTED_DEGRADED",
+        active_mode: "slow_emulated_storage",
+        fallback_applied: "CORE_EMULATION_FALLBACK"
+      }
+    ];
+
+    assert.ok(ajv.validate(schemaId, data2), `Structurally valid schema for ${profileId}: ` + ajv.errorsText());
+    assert.throws(
+      () => validatePlatformSemantics(data2, schemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} to reject degraded storage slot_id`
+    );
   }
-  assert.ok(ajv.validate(schemaId, data1), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data1, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
-
-  // 2. Degraded storage slot by slot_id against onprem-standard-v1 (immutable_storage_required: true)
-  const data2 = JSON.parse(JSON.stringify(sample));
-  data2.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_custom_perf",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "slow_emulated_storage",
-      fallback_applied: "CORE_EMULATION_FALLBACK"
-    }
-  ];
-  assert.ok(ajv.validate(schemaId, data2), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data2, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
-
-  // 3. Degraded storage capability with both capability_name and slot_id against onprem-standard-v1
-  const data3 = JSON.parse(JSON.stringify(sample));
-  data3.agreed_capability_lease.negotiated_optional_capabilities = [
-    {
-      capability_name: "storage_object_lock",
-      slot_id: "storage",
-      disposition: "GRANTED_DEGRADED",
-      active_mode: "standard_retention_fallback",
-      fallback_applied: "FEATURE_DISABLED_GRACEFUL"
-    }
-  ];
-  assert.ok(ajv.validate(schemaId, data3), 'Structurally valid schema: ' + ajv.errorsText());
-  assert.throws(
-    () => validatePlatformSemantics(data3, schemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/
-  );
 });
 
 test('in-memory validation: permit degraded storage when profile does not require immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {
@@ -1195,6 +985,13 @@ test('in-memory validation: permit degraded storage when profile does not requir
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
   const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+  assert.ok(existsSync(privateCloudPath), 'private-cloud-v1 profile must exist');
+  const privateCloudData = JSON.parse(readFileSync(privateCloudPath, 'utf8'));
+  assert.equal(
+    privateCloudData.slots?.storage?.specification?.immutable_storage_required,
+    false,
+    'private-cloud-v1 must declare immutable_storage_required: false'
+  );
   const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
 
   // 1. Degraded storage_object_lock against private-cloud-v1 (immutable_storage_required: false / not mandated)
@@ -1250,6 +1047,78 @@ test('in-memory validation: permit degraded storage when profile does not requir
     () => validatePlatformSemantics(data3, schemaId),
     /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback/
   );
+});
+
+test('in-memory validation: reject HEALTH_PROBE with remote WAN target or POST method in offline manifest (OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Valid local HEALTH_PROBE with GET on 127.0.0.1 passes schema validation
+  const valid1 = JSON.parse(JSON.stringify(sample));
+  valid1.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-local-127',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:8080/healthz',
+    parameters: {
+      method: 'GET',
+      expected_status: 200,
+      interval_seconds: 5,
+      retries: 3
+    }
+  });
+  assert.ok(ajv.validate(schemaId, valid1), 'Valid 127.0.0.1 health probe should pass: ' + ajv.errorsText());
+
+  // 2. Valid local HEALTH_PROBE with HEAD on localhost passes schema validation
+  const valid2 = JSON.parse(JSON.stringify(sample));
+  valid2.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-localhost',
+    action: 'HEALTH_PROBE',
+    target: 'http://localhost:8080/readyz',
+    parameters: {
+      method: 'HEAD',
+      expected_status: 200
+    }
+  });
+  assert.ok(ajv.validate(schemaId, valid2), 'Valid localhost health probe should pass: ' + ajv.errorsText());
+
+  // 3. Valid local HEALTH_PROBE with IPv6 [::1] loopback passes schema validation
+  const valid3 = JSON.parse(JSON.stringify(sample));
+  valid3.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-ipv6',
+    action: 'HEALTH_PROBE',
+    target: 'http://[::1]:8080/healthz'
+  });
+  assert.ok(ajv.validate(schemaId, valid3), 'Valid IPv6 loopback health probe should pass: ' + ajv.errorsText());
+
+  // 4. Reject remote WAN target https://external.example.com
+  const invalidWan = JSON.parse(JSON.stringify(sample));
+  invalidWan.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-wan',
+    action: 'HEALTH_PROBE',
+    target: 'https://external.example.com/healthz'
+  });
+  assert.ok(!ajv.validate(schemaId, invalidWan), 'Remote WAN target must be rejected by schema');
+
+  // 5. Reject cloud metadata IP target http://169.254.169.254
+  const invalidMetadata = JSON.parse(JSON.stringify(sample));
+  invalidMetadata.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-metadata',
+    action: 'HEALTH_PROBE',
+    target: 'http://169.254.169.254/latest/meta-data'
+  });
+  assert.ok(!ajv.validate(schemaId, invalidMetadata), 'Cloud metadata target 169.254.169.254 must be rejected by schema');
+
+  // 6. Reject mutating method POST
+  const invalidPost = JSON.parse(JSON.stringify(sample));
+  invalidPost.update_station_workflow.apply_steps.push({
+    step_id: 'health-check-post',
+    action: 'HEALTH_PROBE',
+    target: 'http://127.0.0.1:8080/healthz',
+    parameters: {
+      method: 'POST'
+    }
+  });
+  assert.ok(!ajv.validate(schemaId, invalidPost), 'Mutating POST method must be rejected by schema');
 });
 
 
