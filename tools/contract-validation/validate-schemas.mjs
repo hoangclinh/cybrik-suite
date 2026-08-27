@@ -923,6 +923,32 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
+    // R16-02: Composite Key Uniqueness on Request and Lease Arrays
+    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
+      const seenReqKeys = new Set();
+      for (const cap of data.negotiation_request.requested_optional_capabilities) {
+        const key = `${cap.capability_name}::${cap.slot_id}`;
+        if (seenReqKeys.has(key)) {
+          throw new Error(`Semantic error: requested_optional_capabilities contains duplicate composite key (${cap.capability_name}, ${cap.slot_id})`);
+        }
+        seenReqKeys.add(key);
+      }
+    }
+
+    if (data.agreed_capability_lease) {
+      const leaseCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities;
+      if (Array.isArray(leaseCaps)) {
+        const seenLeaseKeys = new Set();
+        for (const cap of leaseCaps) {
+          const key = `${cap.capability_name}::${cap.slot_id}`;
+          if (seenLeaseKeys.has(key)) {
+            throw new Error(`Semantic error: negotiated_optional_capabilities contains duplicate composite key (${cap.capability_name}, ${cap.slot_id})`);
+          }
+          seenLeaseKeys.add(key);
+        }
+      }
+    }
+
     // F-03: Requested-to-lease composite key and cardinality closure (strict bidirectional multiset equality)
     if (data.negotiation_request && data.agreed_capability_lease) {
       const reqCaps = data.negotiation_request.requested_optional_capabilities || [];
@@ -972,6 +998,20 @@ export function validatePlatformSemantics(data, schemaId) {
       // Assert equal total lengths
       if (reqCaps.length !== leaseCaps.length) {
         throw new Error(`Semantic error: requested optional capabilities count (${reqCaps.length}) does not match lease optional capabilities count (${leaseCaps.length})`);
+      }
+
+      // Reject equal-duplicate composite keys (cardinality > 1 per composite identity)
+      for (const [key, count] of reqCountMap.entries()) {
+        if (count > 1) {
+          const [capName, slotId] = key.split('::');
+          throw new Error(`Semantic error: duplicate composite key '(${capName}, ${slotId})' detected in negotiation request and lease`);
+        }
+      }
+      for (const [key, count] of leaseCountMap.entries()) {
+        if (count > 1) {
+          const [capName, slotId] = key.split('::');
+          throw new Error(`Semantic error: duplicate composite key '(${capName}, ${slotId})' detected in agreed_capability_lease`);
+        }
       }
     }
 
@@ -1178,9 +1218,18 @@ export function validatePlatformSemantics(data, schemaId) {
         paths.add(norm);
       }
     }
-  } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest')) {
+  } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest') || schemaId.includes('storageConformanceProfile') || (data && Array.isArray(data.required_error_codes))) {
     if (data && Array.isArray(data.parts)) {
       validateS3MultipartSemantics(data);
+    }
+    // R16-01: All 13 Canonical S3 Error Codes Required in Storage Conformance Profile
+    if (data && (Array.isArray(data.required_error_codes) || data.provider_identifier || data.required_operations)) {
+      const errSet = new Set(data.required_error_codes || []);
+      for (const code of S3_CANONICAL_ERROR_CODES) {
+        if (!errSet.has(code)) {
+          throw new Error(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`);
+        }
+      }
     }
   }
 }
@@ -1489,9 +1538,7 @@ for (const pos of storagePositives) {
   bump('positive_total');
   if (ok) {
     bump('positive_pass');
-    if (pos.schemaId === S3_MULTIPART_DEF_ID || pos.file === 's3-multipart-upload-manifest.json' || (data && Array.isArray(data.parts))) {
-      validateS3MultipartSemantics(data);
-    }
+    validatePlatformSemantics(data, pos.schemaId);
   } else {
     fail(`storage positive example ${pos.file} FAILED validation against ${pos.schemaId}: ${ajv.errorsText(ajv.errors)}`);
   }
@@ -2269,6 +2316,39 @@ H('30g-3', sampleProfile.slots?.storage?.specification?.immutable_storage_requir
            profilePrivate.slots?.storage?.specification?.immutable_storage_required === false,
   'all 4 deployment profiles must declare explicit immutable_storage_required boolean');
 
+// 30h. in-memory validation: reject duplicate composite key in negotiation_request.requested_optional_capabilities (Finding R16-02 / OPEN-5)
+const pcnDupReqKey = JSON.parse(JSON.stringify(pcnSample));
+pcnDupReqKey.negotiation_request.requested_optional_capabilities.push({
+  capability_name: pcnDupReqKey.negotiation_request.requested_optional_capabilities[0].capability_name,
+  slot_id: pcnDupReqKey.negotiation_request.requested_optional_capabilities[0].slot_id,
+  required_for_optimal: false,
+  preferred_fallback: "FEATURE_DISABLED_GRACEFUL"
+});
+let pcnDupReqKeyCaught = false;
+try {
+  validatePlatformSemantics(pcnDupReqKey, pcnSchemaId);
+} catch (e) {
+  pcnDupReqKeyCaught = e.message.includes('requested_optional_capabilities contains duplicate composite key');
+}
+H('30h', pcnDupReqKeyCaught, 'duplicate composite key in negotiation_request.requested_optional_capabilities must be rejected');
+
+// 30i. in-memory validation: reject duplicate composite key in agreed_capability_lease.negotiated_optional_capabilities (Finding R16-02 / OPEN-5)
+const pcnDupLeaseKey = JSON.parse(JSON.stringify(pcnSample));
+pcnDupLeaseKey.agreed_capability_lease.negotiated_optional_capabilities.push({
+  capability_name: pcnDupLeaseKey.agreed_capability_lease.negotiated_optional_capabilities[0].capability_name,
+  slot_id: pcnDupLeaseKey.agreed_capability_lease.negotiated_optional_capabilities[0].slot_id,
+  disposition: "GRANTED_FULL",
+  active_mode: "gpu_direct",
+  fallback_applied: "NONE"
+});
+let pcnDupLeaseKeyCaught = false;
+try {
+  validatePlatformSemantics(pcnDupLeaseKey, pcnSchemaId);
+} catch (e) {
+  pcnDupLeaseKeyCaught = e.message.includes('negotiated_optional_capabilities contains duplicate composite key');
+}
+H('30i', pcnDupLeaseKeyCaught, 'duplicate composite key in agreed_capability_lease.negotiated_optional_capabilities must be rejected');
+
 
 
 // ---------------------------------------------------------------------------
@@ -2301,6 +2381,24 @@ const s3ErrorsAllValid = CLOSED_13_S3_ERROR_CODES.every(errCode => {
 const badErrorCodeProfile = { ...sampleS3Profile, required_error_codes: ['NonExistentErrorCode', ...CLOSED_13_S3_ERROR_CODES.slice(1)] };
 const s3BadErrorRejected = !ajv.validate(S3_PROFILE_DEF_ID, badErrorCodeProfile) && ajv.errors.length === 1 && ajv.errors[0].keyword === 'enum';
 H('27', s3ErrorsAllValid && s3BadErrorRejected, 'S3 closed 13-error taxonomy must validate all 13 error codes and reject unsupported codes');
+
+// 27b. in-memory validation: storage conformance profile missing any of 13 canonical error codes fails validatePlatformSemantics (Finding R16-01 / OPEN-2)
+let s3MissingCanonicalCodesCaught = true;
+for (const code of CLOSED_13_S3_ERROR_CODES) {
+  const missingCodeProfile = {
+    ...sampleS3Profile,
+    required_error_codes: CLOSED_13_S3_ERROR_CODES.filter(c => c !== code)
+  };
+  try {
+    validatePlatformSemantics(missingCodeProfile, S3_PROFILE_DEF_ID);
+    s3MissingCanonicalCodesCaught = false;
+  } catch (e) {
+    if (!e.message.includes(`storage conformance profile required_error_codes is missing required canonical error code '${code}'`)) {
+      s3MissingCanonicalCodesCaught = false;
+    }
+  }
+}
+H('27b', s3MissingCanonicalCodesCaught, 'storage conformance profile missing any required canonical error code must fail validatePlatformSemantics');
 
 // 28. S3 retention modes coverage (COMPLIANCE, GOVERNANCE)
 const retModeValidator = ajv.getSchema(S3_RETENTION_MODE_DEF_ID);

@@ -14,6 +14,8 @@ import {
   verifyDigestErrorDispatch,
   verifyMalformedHeaderDispatch,
   validateS3MultipartSemantics,
+  validatePlatformSemantics,
+  S3_CANONICAL_ERROR_CODES,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -1208,4 +1210,86 @@ test('EntityTooSmall dispatch mapping, error conditions, and schema validation (
     /EntityTooSmall/,
     'Non-final part below 5 MiB must throw EntityTooSmall error'
   );
+});
+
+test('storage conformance profile required_error_codes must contain all 13 canonical error codes (Finding R16-01 / OPEN-2)', () => {
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  // 1. Positive baseline: all 13 canonical error codes pass validatePlatformSemantics
+  assert.doesNotThrow(() => validatePlatformSemantics(baseProfile, PROFILE_DEF_ID));
+  assert.doesNotThrow(() => validatePlatformSemantics(baseProfile, S3_SCHEMA_ID));
+
+  // 2. Missing each of the 13 canonical error codes fails validatePlatformSemantics with exact error message
+  for (const code of S3_CANONICAL_ERROR_CODES) {
+    const mutated = {
+      ...baseProfile,
+      required_error_codes: S3_CANONICAL_ERROR_CODES.filter((c) => c !== code),
+    };
+    assert.throws(
+      () => validatePlatformSemantics(mutated, PROFILE_DEF_ID),
+      new RegExp(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`)
+    );
+  }
+});
+
+test('storage conformance profile omitting EntityTooSmall or any canonical code is rejected by schema and semantics (Finding R16-01 / OPEN-2)', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Omission of EntityTooSmall (12 codes): rejected by schema (minItems: 13) and semantics (/missing required canonical error code/)
+  const profileOmittingEntityTooSmall = {
+    ...baseProfile,
+    required_error_codes: CLOSED_13_S3_ERROR_CODES.filter((c) => c !== 'EntityTooSmall'),
+  };
+  assert.equal(profileOmittingEntityTooSmall.required_error_codes.length, 12, 'Must have exactly 12 error codes');
+
+  // Ajv schema validation rejection with minItems: 13
+  const validDef = ajv.validate(PROFILE_DEF_ID, profileOmittingEntityTooSmall);
+  assert.ok(!validDef, 'Profile with 12 codes omitting EntityTooSmall must fail schema validation against PROFILE_DEF_ID');
+  assert.ok(
+    ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/required_error_codes' && e.params?.limit === 13),
+    `Schema error must be minItems with limit 13 on /required_error_codes, got: ${ajv.errorsText()}`
+  );
+
+  const validRoot = ajv.validate(S3_SCHEMA_ID, profileOmittingEntityTooSmall);
+  assert.ok(!validRoot, 'Profile with 12 codes omitting EntityTooSmall must fail schema validation against root S3_SCHEMA_ID');
+  assert.ok(
+    ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/required_error_codes' && e.params?.limit === 13),
+    `Root schema error must be minItems with limit 13 on /required_error_codes, got: ${ajv.errorsText()}`
+  );
+
+  // Semantic validation rejection with /missing required canonical error code/
+  assert.throws(
+    () => validatePlatformSemantics(profileOmittingEntityTooSmall, PROFILE_DEF_ID),
+    /missing required canonical error code/,
+    'Profile omitting EntityTooSmall must fail semantic validation with /missing required canonical error code/'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(profileOmittingEntityTooSmall, S3_SCHEMA_ID),
+    /missing required canonical error code/,
+    'Profile omitting EntityTooSmall must fail semantic validation with /missing required canonical error code/ against root schema'
+  );
+
+  // 2. Exhaustive omission coverage across all 13 canonical error codes
+  for (const omittedCode of CLOSED_13_S3_ERROR_CODES) {
+    const profileOmittingCode = {
+      ...baseProfile,
+      required_error_codes: CLOSED_13_S3_ERROR_CODES.filter((c) => c !== omittedCode),
+    };
+    assert.equal(profileOmittingCode.required_error_codes.length, 12);
+
+    const validSchema = ajv.validate(PROFILE_DEF_ID, profileOmittingCode);
+    assert.ok(!validSchema, `Profile omitting '${omittedCode}' must fail schema validation`);
+    assert.ok(
+      ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/required_error_codes'),
+      `Schema error must be minItems on /required_error_codes when omitting '${omittedCode}'`
+    );
+
+    assert.throws(
+      () => validatePlatformSemantics(profileOmittingCode, PROFILE_DEF_ID),
+      new RegExp(`missing required canonical error code '${omittedCode}'`),
+      `Profile omitting '${omittedCode}' must throw semantic error explicitly naming '${omittedCode}'`
+    );
+  }
 });

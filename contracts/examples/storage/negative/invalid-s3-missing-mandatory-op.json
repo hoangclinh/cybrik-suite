@@ -45,6 +45,7 @@
     "PreconditionFailed",
     "AccessDenied",
     "EntityTooLarge",
+    "EntityTooSmall",
     "InvalidArgument",
     "InvalidPart",
     "InvalidPartOrder"

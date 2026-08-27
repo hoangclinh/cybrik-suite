@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, computePayloadMd5, isMalformedBase64Md5 } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, computePayloadMd5, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -3355,7 +3355,7 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
     /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'database' is not resolved in agreed_capability_lease/
   );
 
-  // 5. Negative: cardinality closure (requesting duplicate capability but lease only resolves one)
+  // 5. Negative: duplicate composite key in requested_optional_capabilities (Finding R16-02 / OPEN-5)
   const dataDupReq = JSON.parse(JSON.stringify(sample));
   dataDupReq.negotiation_request.requested_optional_capabilities.push({
     capability_name: "cache_cluster_replication",
@@ -3365,7 +3365,7 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
   });
   assert.throws(
     () => validatePlatformSemantics(dataDupReq, schemaId),
-    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'cache' is not resolved in agreed_capability_lease/
+    /Semantic error: requested_optional_capabilities contains duplicate composite key \(cache_cluster_replication, cache\)/
   );
 });
 
@@ -3476,11 +3476,11 @@ test('in-memory validation: negotiation request with slot mismatch rejected (Fin
   );
 });
 
-test('in-memory validation: duplicate requested optional capability cardinality mismatch rejected (Finding F-03 / OPEN-5)', () => {
+test('in-memory validation: duplicate requested optional capability rejected by composite key uniqueness (Finding R16-02 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // Duplicate requested optional capability (cardinality 2 in request), while resolved only once in lease (cardinality 1 in lease)
+  // Duplicate requested optional capability (composite key storage_object_lock::storage repeated)
   const data = JSON.parse(JSON.stringify(sample));
   data.negotiation_request.requested_optional_capabilities.push({
     capability_name: "storage_object_lock",
@@ -3493,11 +3493,11 @@ test('in-memory validation: duplicate requested optional capability cardinality 
   const valid = ajv.validate(schemaId, data);
   assert.ok(valid, 'Duplicate requested optional capability must pass Ajv schema validation: ' + ajv.errorsText());
 
-  // 2. Fails validatePlatformSemantics with /is not resolved in agreed_capability_lease/
+  // 2. Fails validatePlatformSemantics with /requested_optional_capabilities contains duplicate composite key/
   assert.throws(
     () => validatePlatformSemantics(data, schemaId),
-    /is not resolved in agreed_capability_lease/,
-    'Duplicate requested optional capability with cardinality mismatch must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
+    /Semantic error: requested_optional_capabilities contains duplicate composite key \(storage_object_lock, storage\)/,
+    'Duplicate requested optional capability must fail validatePlatformSemantics with duplicate composite key'
   );
 });
 
@@ -3555,7 +3555,7 @@ test('in-memory validation: bidirectional multiset lease closure rejects surplus
   const dataValid = JSON.parse(JSON.stringify(sample));
   assert.doesNotThrow(() => validatePlatformSemantics(dataValid, schemaId));
 
-  // 2. Surplus capability in lease (request has 1 storage_object_lock, lease has 2)
+  // 2. Duplicate/surplus capability in lease (request has 1 storage_object_lock, lease has duplicate storage_object_lock)
   const dataSurplus = JSON.parse(JSON.stringify(sample));
   dataSurplus.agreed_capability_lease.negotiated_optional_capabilities.push({
     capability_name: "storage_object_lock",
@@ -3566,7 +3566,7 @@ test('in-memory validation: bidirectional multiset lease closure rejects surplus
   });
   assert.throws(
     () => validatePlatformSemantics(dataSurplus, schemaId),
-    /Semantic error: agreed_capability_lease contains unrequested or surplus optional capability 'storage_object_lock' for slot 'storage'/
+    /Semantic error: negotiated_optional_capabilities contains duplicate composite key \(storage_object_lock, storage\)/
   );
 
   // 3. Unrequested capability in lease (request omits custom_acceleration, but lease includes it)
@@ -3877,4 +3877,99 @@ test('cross-artifact domain equality: conformance_evidence status const "PASS" m
       `status='${nonPass}' must be rejected by validatePlatformSemantics`
     );
   }
+});
+
+test('composite key uniqueness in negotiation_request and agreed_capability_lease (Finding R16-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Duplicate composite key in negotiation_request.requested_optional_capabilities throws exact semantic error
+  const dataDupReq = JSON.parse(JSON.stringify(sample));
+  dataDupReq.negotiation_request.requested_optional_capabilities.push({
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    required_for_optimal: true,
+    preferred_fallback: "CORE_EMULATION_FALLBACK"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataDupReq, schemaId),
+    /Semantic error: requested_optional_capabilities contains duplicate composite key \(ai_tensor_acceleration, ai_model_runtime\)/
+  );
+
+  // 2. Duplicate composite key in agreed_capability_lease.negotiated_optional_capabilities throws exact semantic error
+  const dataDupLease = JSON.parse(JSON.stringify(sample));
+  dataDupLease.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_FULL",
+    active_mode: "gpu_direct",
+    fallback_applied: "NONE"
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dataDupLease, schemaId),
+    /Semantic error: negotiated_optional_capabilities contains duplicate composite key \(ai_tensor_acceleration, ai_model_runtime\)/
+  );
+});
+
+test('storage conformance profile required_error_codes must contain all 13 canonical error codes (Finding R16-01 / OPEN-2)', () => {
+  const storageSchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const sampleStorage = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-storage-s3-subset.json'), 'utf8'));
+
+  // 1. Positive baseline: all 13 canonical error codes pass
+  assert.doesNotThrow(() => validatePlatformSemantics(sampleStorage, storageSchemaId));
+
+  // 2. Missing each of the 13 canonical error codes fails validatePlatformSemantics with exact error message
+  for (const code of S3_CANONICAL_ERROR_CODES) {
+    const mutated = JSON.parse(JSON.stringify(sampleStorage));
+    mutated.required_error_codes = mutated.required_error_codes.filter((c) => c !== code);
+    assert.throws(
+      () => validatePlatformSemantics(mutated, storageSchemaId),
+      new RegExp(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`)
+    );
+  }
+});
+
+test('in-memory validation: equal-duplicate composite keys in request and lease rejected by validatePlatformSemantics (Finding R16-02 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // Negotiation request with 2 identical composite keys (ai_tensor_acceleration, ai_model_runtime)
+  // matched with lease with 2 identical composite keys (ai_tensor_acceleration, ai_model_runtime).
+  // Total lengths match (4 in request, 4 in lease) and cardinalities match per composite key,
+  // but duplicate composite keys are prohibited by protocol semantics.
+  const data = JSON.parse(JSON.stringify(sample));
+
+  // Add duplicate ai_tensor_acceleration to requested_optional_capabilities
+  const duplicateReqCap = {
+    capability_name: 'ai_tensor_acceleration',
+    slot_id: 'ai_model_runtime',
+    required_for_optimal: false,
+    preferred_fallback: 'FEATURE_DISABLED_GRACEFUL'
+  };
+  data.negotiation_request.requested_optional_capabilities.push(duplicateReqCap);
+
+  // Add duplicate ai_tensor_acceleration to negotiated_optional_capabilities in lease
+  const duplicateLeaseCap = {
+    capability_name: 'ai_tensor_acceleration',
+    slot_id: 'ai_model_runtime',
+    disposition: 'GRANTED_DEGRADED',
+    active_mode: 'cpu_quantized_emulation',
+    fallback_applied: 'CORE_EMULATION_FALLBACK',
+    notes: 'Duplicate ai_tensor_acceleration lease entry'
+  };
+  data.agreed_capability_lease.negotiated_optional_capabilities.push(duplicateLeaseCap);
+
+  assert.equal(data.negotiation_request.requested_optional_capabilities.length, 4);
+  assert.equal(data.agreed_capability_lease.negotiated_optional_capabilities.length, 4);
+
+  // 1. Passes Ajv schema validation (schema validates individual capability objects structurally)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Equal-duplicate composite keys must pass Ajv schema validation structurally: ' + ajv.errorsText());
+
+  // 2. Fails validatePlatformSemantics with /duplicate composite key/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /duplicate composite key/,
+    'Negotiation request and lease with equal-duplicate composite keys must be rejected by validatePlatformSemantics with /duplicate composite key/'
+  );
 });

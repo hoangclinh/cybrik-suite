@@ -48,6 +48,7 @@
     "EntityTooLarge",
     "InvalidArgument",
     "InvalidPart",
-    "UnsupportedErrorCode"
+    "UnsupportedErrorCode",
+    "EntityTooSmall"
   ]
 }

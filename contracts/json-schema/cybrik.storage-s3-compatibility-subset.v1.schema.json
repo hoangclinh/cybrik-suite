@@ -118,7 +118,8 @@
           "InvalidPartOrder"
         ]
       },
-      "minItems": 12,
+      "minItems": 13,
+      "maxItems": 13,
       "uniqueItems": true
     },
     "path_formatting": {
@@ -343,7 +344,8 @@
               "InvalidPartOrder"
             ]
           },
-          "minItems": 12,
+          "minItems": 13,
+          "maxItems": 13,
           "uniqueItems": true
         }
       },
