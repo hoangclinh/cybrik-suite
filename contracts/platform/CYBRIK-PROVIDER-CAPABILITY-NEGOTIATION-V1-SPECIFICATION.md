@@ -1,6 +1,6 @@
 # CYBRIK Provider Capability Negotiation Specification (v0.1.0-proposed)
 
-**Status:** PROPOSED (Open-Item OPEN-5 Elaboration) — NOT ACCEPTED
+**Status:** PROPOSED (Open-Item Elaboration) — NOT ACCEPTED
 **Authoring Phase:** v0.1.0-proposed (Architecture contract proposal; no implementation or deployment authority)
 **Decider:** FOUNDER
 **Reference Target Schema:** [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](../json-schema/cybrik.provider-capability-negotiation.v1.schema.json)
@@ -58,52 +58,51 @@ If a provider fails to advertise, satisfy, or provide valid conformance evidence
 4. **Isolation Floor Preservation**: Provider capabilities MUST NOT lower the execution isolation floor or relax sandboxing guarantees established by `ADR-0005`.
 
 ### INV-NEG-03: Symmetry & Graceful Degradation on Optional Features (`ADR-0015` §8.3)
-1. **Provider Optionality**: An optional capability missing from a provider adapter is NOT a defect and MUST NOT be reported as non-conformance (`INV-9`).
-2. **Core Graceful Fallback**: When an optional capability (e.g., `ai_model_runtime` GPU acceleration, `storage` Object Lock, `cache` clustering, `observability` distributed tracing) is absent or unsupported, CYBRIK Core MUST gracefully degrade to a deterministic fallback strategy (`CORE_EMULATION_FALLBACK` or `FEATURE_DISABLED_GRACEFUL`).
-3. **Transparent Lease Disposition**: The resulting capability lease MUST explicitly record the granted disposition (`GRANTED_FULL`, `GRANTED_DEGRADED`, `REJECTED_UNSUPPORTED`) and the exact fallback strategy applied for each negotiated optional feature.
+1. **Deterministic Fallbacks**: Optional capabilities (e.g. GPU inference acceleration, distributed caching, object-lock storage) MAY be degraded if and only if deterministic core emulation or graceful feature disabling is available.
+2. **Finite Lease Lifespan**: Agreements are issued as finite `agreed_capability_lease` tokens with explicit `target_profile_id`, `target_profile_digest`, `issued_at`, `valid_until`, and `ttl_seconds` (max 86,400 seconds / 24 hours). Unrenewed or expired leases MUST be rejected.
+3. **Degradation Transparency**: All applied fallbacks MUST be explicitly recorded in `agreed_capability_lease.negotiated_optional_capabilities` with active runtime operating mode.
 
-### INV-NEG-04: Cryptographic Evidence & Finite Lease Invariant
-1. **Evidence Binding**: Every advertised capability (mandatory or optional) MUST explicitly reference valid, non-vacuous conformance test identifiers (`evidence_references`) present in the `conformance_evidence` array.
-2. **Finite Lease Lifespan**: Agreements are issued as finite `agreed_capability_lease` tokens with explicit `issued_at`, `expires_at`, and `lease_ttl_seconds` (max 86,400 seconds / 24 hours). Unrenewed or expired leases MUST be rejected.
-3. **Replay & Injection Defense**: Handshakes MUST include cryptographically random client nonces (`client_nonce`) and server nonces (`server_nonce`) to prevent replay, pre-computation, or cross-session capability injection.
+### INV-NEG-04: Evidence & Verifiable Discovery Invariant (`ADR-0015` §8.4)
+1. **Mutual Discovery Authentication**: Capability advertisement MUST occur over an authenticated discovery seam (`authenticated_discovery: true`) using mutual TLS or cryptographic token binding (`ADR-0006`). Ambient unauthenticated advertisements MUST be rejected.
+2. **Evidence Binding**: Every claimed capability MUST reference verifiable conformance test evidence (`conformance_evidence`) including test identifier, verification method, and verifiable report URI. Unbacked claims MUST be treated as absent.
+3. **Profile Digest Binding**: The provider advertisement and granted lease MUST bind the target deployment profile SHA-256 digest (`target_profile_digest`), preventing profile downgrade attacks.
 
 ---
 
-## 3. Protocol Handshake Sequence & State Machine
+## 3. Protocol Architecture & Handshake Flow
 
-The negotiation handshake executes as a three-phase exchange between CYBRIK Core and the Target Provider Adapter:
+The capability negotiation protocol is executed as an authenticated, three-phase exchange:
 
 ```
-+----------------+                                   +-------------------+
-|  CYBRIK Core   |                                   |  Provider Adapter |
-+----------------+                                   +-------------------+
-       |                                                       |
-       |  Phase 1: NegotiationRequest (Initiation)             |
-       |------------------------------------------------------>|
-       |  - target_profile_id & digest                         |
-       |  - requested_slots (mandatory baseline)               |
-       |  - requested_optional_capabilities & fallbacks        |
-       |  - client_nonce                                       |
-       |                                                       |
-       |  Phase 2: AdvertisementResponse (Advertisement)       |
-       |<------------------------------------------------------|
-       |  - claim_type (FULL / PARTIAL)                        |
-       |  - advertised_capabilities (with fallback modes)      |
-       |  - conformance_evidence (test identifiers & reports)  |
-       |  - server_nonce, authenticated_discovery: true        |
-       |                                                       |
-       | [Core Evaluation & Evidence Verification]             |
-       |  - Check all mandatory slots satisfied                |
-       |  - Verify evidence references & profile digest        |
-       |  - Compute optimal vs degraded feature assignments   |
-       |                                                       |
-       |  Phase 3: AgreedCapabilityLease (Lease Grant/Reject)  |
-       |------------------------------------------------------>|
-       |  - lease_id, TTL, issued_at / expires_at              |
-       |  - lease_status (ACTIVE_OPTIMAL / ACTIVE_DEGRADED)    |
-       |  - mandatory_slots_satisfied                          |
-       |  - negotiated_optional_capabilities & active modes    |
-       v                                                       v
+  CYBRIK Core (Consumer)                             Provider Adapter
+        |                                                       |
+        |  Phase 1: NegotiationRequest (Initiation)             |
+        |------------------------------------------------------>|
+        |  - target_profile_id & digest                         |
+        |  - requested_slots (mandatory baseline)               |
+        |  - requested_optional_capabilities & fallbacks        |
+        |  - client_nonce                                       |
+        |                                                       |
+        |  Phase 2: AdvertisementResponse (Advertisement)       |
+        |<------------------------------------------------------|
+        |  - claim_type (FULL / PARTIAL)                        |
+        |  - advertised_capabilities (with fallback modes)      |
+        |  - conformance_evidence (test identifiers & reports)  |
+        |  - server_nonce, authenticated_discovery: true        |
+        |                                                       |
+        | [Core Evaluation & Evidence Verification]             |
+        |  - Check all mandatory slots satisfied                |
+        |  - Verify evidence references & profile digest        |
+        |  - Compute optimal vs degraded feature assignments   |
+        |                                                       |
+        |  Phase 3: AgreedCapabilityLease (Lease Grant/Reject)  |
+        |------------------------------------------------------>|
+        |  - lease_id, target_profile_id, target_profile_digest |
+        |  - issued_at / valid_until, ttl_seconds               |
+        |  - lease_status (ACTIVE_OPTIMAL / ACTIVE_DEGRADED)    |
+        |  - mandatory_slots_satisfied                          |
+        |  - negotiated_optional_capabilities & active modes    |
+        v                                                       v
 ```
 
 ### 3.1 Handshake Phases
@@ -256,7 +255,11 @@ A capability negotiation handshake document captures the complete tripartite int
 | `/advertisement_response/claim_type` | `string` | Enum `["PARTIAL_CAPABILITY_ADVERTISEMENT", "FULL_PROFILE_CONFORMANCE_DECLARATION"]` | Scope of the capability claim. |
 | `/advertisement_response/authenticated_discovery` | `boolean` | Const `true` | Enforces authenticated discovery seam. |
 | `/advertisement_response/degradation_behavior` | `string` | Const `"FAIL_CLOSED"` | Provider-side fail-closed degradation declaration. |
-| `/agreed_capability_lease/lease_ttl_seconds` | `integer` | Minimum 1, Maximum 86400 | Authorized lifespan of the capability lease. |
+| `/agreed_capability_lease/target_profile_id` | `string` | Enum `["onprem-standard-v1", "onprem-airgap-v1", "private-cloud-v1", "hybrid-sovereign-v1"]` | Deployment profile ID bound to the agreed lease. |
+| `/agreed_capability_lease/target_profile_digest` | `string` | Pattern `^[a-f0-9]{64}$` | SHA-256 digest of profile bound to the agreed lease. |
+| `/agreed_capability_lease/issued_at` | `string` | RFC 3339 date-time | Issuance timestamp of the capability lease. |
+| `/agreed_capability_lease/valid_until` | `string` | RFC 3339 date-time | Expiration timestamp of the capability lease. |
+| `/agreed_capability_lease/ttl_seconds` | `integer` | Minimum 1, Maximum 86400 | Authorized lifespan of the capability lease in seconds. |
 | `/agreed_capability_lease/mandatory_slots_satisfied` | `array` | MinItems 9, MaxItems 13, unique items | Array of verified mandatory slot identifiers. |
 | `/agreed_capability_lease/fail_closed_violations` | `array` | Array of strings | Must be empty for active leases; non-empty for rejected handshakes. |
 | `/evidence_binding_verified` | `boolean` | `true` when lease is granted | Verification marker confirming all evidence references resolved. |
@@ -274,11 +277,10 @@ To be deemed valid, any capability negotiation document or runtime handshake exc
 
 ### Phase 2: Semantic Conformance & Referential Integrity
 1. **Evidence Referential Integrity (`SR-NEG-01`)**: Every item in `evidence_references` within `advertisement_response.advertised_capabilities` MUST resolve to an exact `test_identifier` defined in `advertisement_response.conformance_evidence`.
-2. **Profile Digest Matching (`SR-NEG-02`)**: `target_profile_digest` MUST exactly match the SHA-256 hash of the on-disk `contracts/examples/platform/<target_profile_id>.profile.json` document.
-3. **Mandatory Slot Completeness (`SR-NEG-03`)**: For any granted lease (`AGREED_LEASE_GRANTED` or `DEGRADED_LEASE_GRANTED`), `agreed_capability_lease.mandatory_slots_satisfied` MUST contain all 9 mandatory slots:
-   * `oci_container_runtime`, `isolation_substrate`, `network_segmentation`, `storage`, `database`, `secrets`, `crypto`, `identity_workload_identity`, `artifact_update_mechanism`.
+2. **Profile Digest Matching (`SR-NEG-02`)**: `target_profile_digest` (on both root document and `agreed_capability_lease`) MUST exactly match the SHA-256 hash of the on-disk `contracts/examples/platform/<target_profile_id>.profile.json` document.
+3. **Mandatory Slot Completeness (`SR-NEG-03`)**: For any granted lease (`AGREED_LEASE_GRANTED` or `DEGRADED_LEASE_GRANTED`), `agreed_capability_lease.mandatory_slots_satisfied` MUST contain all slots marked mandatory in the referenced deployment profile (including all 9 core slots), and all mandatory slots MUST be advertised with verified evidence references.
 4. **Degradation Integrity (`SR-NEG-04`)**: If any optional capability has `disposition: "GRANTED_DEGRADED"`, `fallback_applied` MUST NOT be `"NONE"`, and the resulting `negotiation_status` MUST be `"DEGRADED_LEASE_GRANTED"`.
-5. **Temporal Consistency (`SR-NEG-05`)**: `agreed_capability_lease.expires_at` MUST be strictly later than `agreed_capability_lease.issued_at`, and the interval MUST equal `lease_ttl_seconds`.
+5. **Temporal Consistency (`SR-NEG-05`)**: `agreed_capability_lease.valid_until` MUST be strictly later than `agreed_capability_lease.issued_at`, and the interval MUST equal `ttl_seconds`.
 
 ---
 

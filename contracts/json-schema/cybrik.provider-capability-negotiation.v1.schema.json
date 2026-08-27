@@ -325,15 +325,28 @@
           "pattern": "^[a-z0-9_-]+$",
           "minLength": 3
         },
+        "target_profile_id": {
+          "type": "string",
+          "enum": [
+            "onprem-standard-v1",
+            "onprem-airgap-v1",
+            "private-cloud-v1",
+            "hybrid-sovereign-v1"
+          ]
+        },
+        "target_profile_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "issued_at": {
           "type": "string",
           "format": "date-time"
         },
-        "expires_at": {
+        "valid_until": {
           "type": "string",
           "format": "date-time"
         },
-        "lease_ttl_seconds": {
+        "ttl_seconds": {
           "type": "integer",
           "minimum": 1,
           "maximum": 86400
@@ -442,9 +455,11 @@
       },
       "required": [
         "lease_id",
+        "target_profile_id",
+        "target_profile_digest",
         "issued_at",
-        "expires_at",
-        "lease_ttl_seconds",
+        "valid_until",
+        "ttl_seconds",
         "lease_status",
         "mandatory_slots_satisfied",
         "negotiated_optional_capabilities",
@@ -568,6 +583,43 @@
               },
               "fail_closed_violations": {
                 "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_request": {
+            "properties": {
+              "degradation_policy": {
+                "const": "FAIL_CLOSED_STRICT"
+              }
+            },
+            "required": [
+              "degradation_policy"
+            ]
+          }
+        },
+        "required": [
+          "negotiation_request"
+        ]
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "not": {
+              "const": "DEGRADED_LEASE_GRANTED"
+            }
+          },
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "not": {
+                  "const": "ACTIVE_DEGRADED"
+                }
               }
             }
           }
