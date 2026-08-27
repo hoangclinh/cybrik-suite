@@ -590,6 +590,108 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
   assert.ok(!valid, 'Should reject trailing slash path');
 });
 
+test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 Finding 3)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const baseManifest = {
+    bundle_identifier: "my-bundle-1",
+    release_tag: "v1.2.3",
+    manifest_sequence: 1,
+    operator_trust_root: {
+      signing_key_id: "key-123456",
+      public_key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      signature_algorithm: "ed25519"
+    },
+    detached_signature: {
+      algorithm: "ed25519",
+      signature_file: "manifest.sig",
+      key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    artifacts: [
+      {
+        name: "image-1",
+        path: "images/image-1.tar",
+        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        size_bytes: 1024
+      }
+    ],
+    migration_reversibility_guaranteed: true,
+    rollback_procedure_reference: "doc://rollback",
+    update_station_workflow: {
+      preflight_steps: [
+        {
+          step_id: "preflight-health",
+          action: "HEALTH_PROBE",
+          target: "http://127.0.0.1:8080/healthz",
+          parameters: {
+            method: "GET"
+          }
+        }
+      ],
+      apply_steps: [
+        {
+          step_id: "apply-preload",
+          action: "PRELOAD_OCI_IMAGE",
+          target: "images/image-1.tar"
+        }
+      ],
+      rollback_steps: [
+        {
+          step_id: "rollback-restore",
+          action: "RESTORE_DATABASE_SNAPSHOT",
+          target: "snapshots/backup.db"
+        }
+      ]
+    },
+    canonicalization_scheme: "RFC_8785_JCS"
+  };
+
+  // Valid probe targets: localhost, 127.0.0.1, ::1, 10.x, 192.168.x, 172.16-31.x
+  const validTargets = [
+    "http://127.0.0.1:8080/healthz",
+    "http://localhost:8080/readyz",
+    "https://10.0.1.5:8443/status",
+    "http://192.168.1.100/health",
+    "https://172.20.0.2:9000/live",
+    "http://::1:8080/status"
+  ];
+  for (const target of validTargets) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.preflight_steps[0].target = target;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(ok, `Expected target '${target}' to be valid: ` + ajv.errorsText());
+  }
+
+  // Valid probe methods: GET, HEAD
+  for (const method of ["GET", "HEAD"]) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.preflight_steps[0].parameters.method = method;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(ok, `Expected method '${method}' to be valid: ` + ajv.errorsText());
+  }
+
+  // Invalid targets (public domains, public IPs)
+  const invalidTargets = [
+    "https://example.com/healthz",
+    "http://1.1.1.1/healthz",
+    "https://8.8.8.8:8080/readyz",
+    "http://attacker.local/healthz"
+  ];
+  for (const target of invalidTargets) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.preflight_steps[0].target = target;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(!ok, `Expected target '${target}' to be rejected`);
+  }
+
+  // Invalid methods: POST, PUT, DELETE
+  for (const method of ["POST", "PUT", "DELETE"]) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.preflight_steps[0].parameters.method = method;
+    const ok = ajv.validate(schemaId, copy);
+    assert.ok(!ok, `Expected method '${method}' to be rejected`);
+  }
+});
+
 test('lexical I-JSON validation: duplicate keys, safe integer bounds, float rejection', () => {
   const samplePath = join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json');
   const validRaw = readFileSync(samplePath, 'utf8');

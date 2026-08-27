@@ -149,6 +149,7 @@ The cryptographic signature model is unified exclusively on Ed25519. The `operat
 - **RSA-PSS / RSA Suites Rejected:** RSA signatures (including `rsa-pss-sha256`, PKCS#1 v1.5) are PROHIBITED and REJECTED due to key-size ambiguity, padding vulnerabilities, and excessive parsing overhead in air-gapped micro-verifiers.
 - **Embedded / In-Band Header Signatures Rejected:** In-band signature envelopes (e.g., JOSE/JWT headers with embedded JWK/x5c key declarations or embedded signature fields) MUST NOT be used for bundle authentication.
 - **Weak Primitives Rejected:** `none`, `md5`, `sha1`, `secp256k1`, `dsa` MUST be rejected unconditionally.
+- **Zero Outbound Network Egress & Health Probe Parameter Closure:** In accordance with the airgap zero-outbound-network invariant (ADR-0015 §1.2), all workflow actions MUST NOT initiate outbound connections to arbitrary remote domains or WAN addresses. `HEALTH_PROBE` action targets are strictly restricted to local loopback (`localhost`, `127.0.0.1`, `::1`) or private enclave endpoints (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), and HTTP probe methods are strictly restricted to read-only idempotent methods (`GET`, `HEAD`). Mutating methods (`POST`, `PUT`, `DELETE`) and arbitrary WAN/domain targets are unconditionally rejected.
 
 ### 3.3 Operator Root Trust Store Architecture
 Air-gapped environments MUST maintain a local, operator-curated, write-protected root trust store on the update station host.
@@ -278,7 +279,7 @@ All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be 
 | `VERIFY_DIGEST` | Validate cryptographic SHA-256 digest and byte size | Relative artifact path matching `^(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+[a-z0-9._-]$` | `{}` (empty object) | Read-only; fail-closed on mismatch |
 | `PRELOAD_OCI_IMAGE` | Ingest OCI image archive into local container runtime storage | Relative path in `images/` matching `^images/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.tar$` | `{}` (empty object) | No network egress; local socket only |
 | `APPLY_SQL_MIGRATION` | Execute forward (`.up.sql`) or reverse (`.down.sql`) migration script | Relative path in `migrations/` matching `^migrations/(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+\.sql$` | Optional `{"transactional": boolean}` | Wrapped in ACID transaction block |
-| `HEALTH_PROBE` | Execute deterministic HTTP GET or TCP readiness/liveness probe | HTTP/HTTPS URI matching `^https?://(?:[a-zA-Z0-9.-]+|\[[a-fA-F0-9:]+\])(?::[0-9]{1,5})?(?:/[a-zA-Z0-9._~%!$&'()*+,;=:@/-]*)?$` | Optional `{"method": "GET"\|"HEAD"\|"POST", "expected_status": int(200-599), "interval_seconds": int(>=1), "retries": int(>=0)}` | Timeout bounded; failure triggers rollback |
+| `HEALTH_PROBE` | Execute deterministic HTTP GET/HEAD readiness/liveness probe | Local loopback / private enclave URI matching `^https?:\/\/(localhost\|127\.0\.0\.1\|::1\|10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\|192\.168\.[0-9]{1,3}\.[0-9]{1,3}\|172\.(1[6-9]\|2[0-9]\|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3})(?::[0-9]{1,5})?(?:\/.*)?$` | Optional `{"method": "GET"\|"HEAD", "expected_status": int(200-599), "interval_seconds": int(>=1), "retries": int(>=0)}` | Read-only idempotent; zero outbound WAN network egress; timeout bounded; failure triggers rollback |
 | `RESTORE_DATABASE_SNAPSHOT` | Restore database schema/data from verified pre-apply snapshot | File path matching `^(?:/(?!.*\.\.)[a-z0-9._/-]+|(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+)\.(?:sql|db|bak)$` | `{}` (empty object) | Idempotent restoration on rollback |
 
 #### Declarative Step Object Structure:
@@ -336,7 +337,7 @@ Stage 3 executes all declarative actions specified in `update_station_workflow.a
    - Switch local traffic router / ingress endpoints to new instances.
    - Drain active connections from superseded instances.
 5. **Post-Deployment Health Probe Gate (`HEALTH_PROBE`):**
-   - Execute local readiness and liveness probes against core service endpoints (`/healthz`, `/readyz`).
+   - Execute local readiness and liveness probes against core service endpoints (`/healthz`, `/readyz`) strictly restricted to local loopback (`localhost`, `127.0.0.1`, `::1`) or private enclave subnets (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) using read-only idempotent methods (`GET`, `HEAD`) per the airgap zero-outbound-network invariant.
    - Monitor error rates and latency across a configurable stabilization window (default: 120 seconds).
 6. **Crash-Replay Recovery:**
    - If a host crash, kernel panic, or power outage occurs while journal state is `"APPLYING"`, the update-station verifier upon daemon restart reads `/var/lib/cybrik/journal/<bundle_id>.journal`.
