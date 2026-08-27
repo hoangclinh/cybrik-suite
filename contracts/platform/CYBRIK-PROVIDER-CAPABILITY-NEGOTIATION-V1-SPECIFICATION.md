@@ -42,7 +42,7 @@ The 9 core mandatory runtime capability slots specified in `ADR-0015` §5.2 and 
 1. `oci_container_runtime` (Rootless posture, load-time image verification)
 2. `isolation_substrate` (Structural isolation floor `S0`–`S4` per `ADR-0005`)
 3. `network_segmentation` (Default-deny boundaries, DNS egress mediation seam)
-4. `storage` (Minimum 14-operation S3-compatible subset per `OPEN-2`)
+4. `storage` (Minimum 17-operation S3-compatible subset per `OPEN-2`)
 5. `database` (Relational ACID transactions, row-level security semantics)
 6. `secrets` (Zero-exfiltration memory lifecycle, startup presence verification)
 7. `crypto` (Pluggable provider seam, Ed25519/JCS signing per `ADR-0018`)
@@ -198,7 +198,7 @@ When an optional capability is not offered or cannot be verified, the handshake 
 | **Slot 2** | `isolation_substrate` | Profile isolation floor (`S0`–`S4`) per `ADR-0005` | Direct KVM / nested microVM hardware acceleration | `CORE_EMULATION_FALLBACK`: Fall back to software-isolated sandbox if within profile floor; otherwise `TERMINAL_REJECTED`. |
 | **Slot 3** | `orchestration_capability` | Basic scheduling, readiness/liveness probes, health lifecycle | Topology spread constraints, dynamic pod autoscaling | `FEATURE_DISABLED_GRACEFUL`: Fall back to static replica counts and standard round-robin scheduling. |
 | **Slot 4** | `network_segmentation` | Default-deny network policy, segment boundaries, DNS egress mediation | eBPF kernel fast-path bypass, hardware network encryption | `CORE_EMULATION_FALLBACK`: Fall back to kernel iptables / standard netfilter firewalling. |
-| **Slot 5** | `storage` | 14 mandatory S3 operations (`OPEN-2`), SigV4, path-style addressing | Object Lock / WORM retention headers | `FEATURE_DISABLED_GRACEFUL`: Application-layer SHA-256 integrity verification; object lock disabled. |
+| **Slot 5** | `storage` | 17 mandatory S3 operations (`OPEN-2`), SigV4, path-style addressing | Object Lock / WORM retention headers | `FEATURE_DISABLED_GRACEFUL`: Application-layer SHA-256 integrity verification; object lock disabled. |
 | **Slot 6** | `database` | Relational datastore, ACID transactions, row-level security (RLS) | Read-replica auto-routing, sharded clustering | `CORE_EMULATION_FALLBACK`: Fall back to single primary transaction pool with read-after-write consistency. |
 | **Slot 7** | `cache` | In-memory key-value cache, predictable consistency, `noeviction` | Multi-node cluster replication | `FEATURE_DISABLED_GRACEFUL`: Fall back to standalone single-node cache instance with in-memory fallback. |
 | **Slot 8** | `secrets` | Secret storage, rotation hooks, zero exfiltration, startup presence check | Hardware HSM envelope key wrapping | `CORE_EMULATION_FALLBACK`: Fall back to software envelope encryption with operator-injected master secret. |
@@ -299,7 +299,7 @@ In accordance with `ADR-0015` §14 and Platform Contract Proposal §9, authoring
 |---|---|---|---|
 | `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | ADR-0015 §8.2, §8.3, §8.4: Define discovery encoding, version matching, degradation reporting, and conformance evidence. | **ELABORATED & FORMALIZED (PROPOSED)**. Provides normative specification, JSON Schema 2020-12, and handshake fixture. |
 | `OPEN-10` | Platform Contract Slot Semantics | ADR-0015 §5.2: 13 capability slots defined. | **UPHELD**. Operates strictly over the 13 defined capability slots without adding unapproved slots. |
-| `OPEN-2` | Minimum S3 Compatibility Subset | Platform Contract §5: 14 mandatory S3 operations. | **UPHELD**. Enforces S3 operations as non-degradable mandatory baseline under Slot 5 (`storage`). |
+| `OPEN-2` | Minimum S3 Compatibility Subset | Platform Contract §5: 17 mandatory S3 operations. | **UPHELD**. Enforces S3 operations as non-degradable mandatory baseline under Slot 5 (`storage`). |
 | `OPEN-6`/`7`/`8` | Substrate & Provider Selection | ADR-0015 §14: Architecture authority only. | **PRESERVED**. Retains substrate neutrality; zero vendor lock-in. |
 
 ---

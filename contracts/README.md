@@ -178,7 +178,7 @@ The following normative specifications elaborate open items identified in `ADR-0
 * **Open Item:** `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`)
 * **Slot:** Slot 5 (`storage`)
 * **Normative Schema:** `contracts/json-schema/cybrik.storage-s3-compatibility-subset.v1.schema.json`
-* **Coverage:** 13 core S3 operations (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`), WORM/Object Lock compliance mode, single-defect negative fixtures, and path-style addressing.
+* **Coverage:** Exact 17 mandatory S3 operations (`PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`), version-scoped Object Lock WORM compliance mode, single-defect negative fixtures, strict `BadDigest`/`InvalidDigest` error dispatch, and path-style addressing.
 
 ### 2. Offline Installation & Update Manifest (`contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md`)
 * **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`

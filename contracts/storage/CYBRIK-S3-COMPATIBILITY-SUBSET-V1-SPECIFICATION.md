@@ -82,8 +82,8 @@ A conforming Platform Contract Slot 5 storage provider MUST satisfy the followin
 * **`INV-S3-02` (Mandatory Path-Style Addressing)**: The provider MUST support path-style request routing (`https://{endpoint}/{bucket}/{key}`) without requiring DNS-level virtual-host bucket resolution.
 * **`INV-S3-03` (AWS SigV4 Authentication)**: The provider MUST authenticate requests signed with `AWS4-HMAC-SHA256` in compliance with AWS Signature Version 4.
 * **`INV-S3-04` (Strict RFC 3986 URL Path Encoding)**: Request URI paths MUST adhere to RFC 3986 unreserved character preservation and uppercase percent-encoding rules.
-* **`INV-S3-05` (Strict End-to-End Digest Verification)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers, failing closed with `BadDigest` on payload digest mismatch and `InvalidDigest` on malformed digest headers.
-* **`INV-S3-06` (Version-Level Object Lock Immutability)**: The provider MUST enforce WORM retention on individual object versions in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or overwrite of protected version IDs until the retain-until date expires.
+* **`INV-S3-05` (Strict End-to-End Digest Verification & Strict Error Dispatch)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers, failing closed strictly with `BadDigest` (HTTP 400) on payload digest mismatch and `InvalidDigest` (HTTP 400) on malformed digest headers. Returning `InvalidArgument` or `AccessDenied` in lieu of `BadDigest`/`InvalidDigest` is strictly forbidden.
+* **`INV-S3-06` (Version-Level Object Lock Immutability & Version-Scoped Evidence)**: The provider MUST enforce WORM retention on individual object versions in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or overwrite of protected version IDs until the retain-until date expires. Every retention and legal-hold evidence assertion (`objectRetentionCompliance`) MUST strictly bind to an explicit non-empty `version_id`. Key-level or unversioned evidence assertions are strictly prohibited.
 * **`INV-S3-07` (Legal Hold Independence)**: Legal hold status MUST operate independently of retention expiration dates, preventing version deletion while `Status=ON`.
 * **`INV-S3-08` (Standard Error Taxonomy)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope conforming to the 12-error taxonomy.
 * **`INV-S3-09` (Multipart Upload Integrity)**: Multipart uploads MUST be atomic upon completion and guarantee part checksum consistency and ordered assembly.
@@ -522,12 +522,12 @@ Lists the parts that have been uploaded for a specific active multipart upload s
 
 ### 5.14 Operation 14: `PutObjectRetention`
 
-Configures or extends the WORM retention configuration for a specific object version.
+Configures or extends the WORM retention configuration for a specific object version. In conformance with version-scoped WORM immutability, retention configuration MUST bind to an explicit object version ID.
 
 * **HTTP Method**: `PUT`
 * **Resource Path**: `/{bucket}/{key+}?retention`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
+* **Query Parameters**:
+  * `versionId`: (Mandatory for version-scoped compliance evidence) Target object version ID.
 * **Optional Headers**:
   * `Content-MD5`: Base64 MD5 of the XML body.
   * `x-amz-bypass-governance-retention`: `true` | `false`.
@@ -554,12 +554,12 @@ Configures or extends the WORM retention configuration for a specific object ver
 
 ### 5.15 Operation 15: `GetObjectRetention`
 
-Queries the active WORM retention configuration of an object version.
+Queries the active WORM retention configuration of a specific object version.
 
 * **HTTP Method**: `GET`
 * **Resource Path**: `/{bucket}/{key+}?retention`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
+* **Query Parameters**:
+  * `versionId`: (Mandatory for version-scoped compliance evidence) Target object version ID.
 * **Success Response**:
   * **HTTP Status**: `200 OK`
   * **Response Headers**: `Content-Type: application/xml`
@@ -572,12 +572,12 @@ Queries the active WORM retention configuration of an object version.
 
 ### 5.16 Operation 16: `PutObjectLegalHold`
 
-Applies or releases an indefinite legal hold on an object version.
+Applies or releases an indefinite legal hold on a specific object version.
 
 * **HTTP Method**: `PUT`
 * **Resource Path**: `/{bucket}/{key+}?legal-hold`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
+* **Query Parameters**:
+  * `versionId`: (Mandatory for version-scoped compliance evidence) Target object version ID.
 * **Optional Headers**:
   * `Content-MD5`: Base64 MD5 of the XML body.
 * **Request Body**: XML document conforming to `LegalHold`:
@@ -602,12 +602,12 @@ Applies or releases an indefinite legal hold on an object version.
 
 ### 5.17 Operation 17: `GetObjectLegalHold`
 
-Retrieves the legal hold status of an object version.
+Retrieves the legal hold status of a specific object version.
 
 * **HTTP Method**: `GET`
 * **Resource Path**: `/{bucket}/{key+}?legal-hold`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
+* **Query Parameters**:
+  * `versionId`: (Mandatory for version-scoped compliance evidence) Target object version ID.
 * **Success Response**:
   * **HTTP Status**: `200 OK`
   * **Response Headers**: `Content-Type: application/xml`
@@ -660,9 +660,10 @@ WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence prese
 +-----------------------------------------------------------------------------+
 ```
 
-1. **Version ID Granularity**:
+1. **Version ID Granularity & Mandatory Evidence Binding**:
    * Object Lock retention rules (`COMPLIANCE`, `GOVERNANCE`) and Legal Holds apply strictly to **individual version IDs** (`versionId`) within a versioning-enabled bucket, rather than globally across the mutable key path pointer.
    * Each object version possesses its own independent retention metadata (`Mode`, `RetainUntilDate`) and legal hold flag (`Status=ON|OFF`).
+   * **Mandatory Version-Scoped Evidence**: Every retention and legal-hold evidence assertion (including `objectRetentionCompliance` in `cybrik.storage-s3-compatibility-subset.v1.schema.json`) MUST strictly bind to an explicit non-empty `version_id`. Evidence assertions omitting `version_id` or scoping retention to a bare key path are strictly non-conforming and invalid.
 
 2. **Permitted Key-Level Mutations (Non-Destructive Versioning)**:
    * **Writing New Versions**: Clients MAY execute `PutObject` or multipart upload operations against an existing key containing locked versions. The storage engine creates a new, distinct version ID for the newly written payload, which becomes the current (latest) version of the key. Prior locked versions remain fully intact and immutable under their respective version IDs.
@@ -708,6 +709,12 @@ WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence prese
 ### 6.5 Timestamp & Date Normalization
 * All retention dates MUST be formatted as ISO 8601 UTC strings terminating in `Z` or millisecond precision (e.g., `2031-08-27T00:00:00.000Z`).
 * Providers MUST evaluate expiration using synchronized UTC clocks.
+
+### 6.6 Version-Scoped Evidence Assertions & Invariants
+For regulatory compliance, forensic integrity, and non-repudiation:
+1. **Explicit Version Binding**: All retention and legal-hold evidence records (e.g., forensic bundles, execution receipts, audit ledgers) MUST capture and verify the exact non-empty `version_id` returned by the storage provider upon `PutObject` or `CompleteMultipartUpload`.
+2. **Key-Level Ambiguity Rejection**: Storing or asserting retention against a mutable key path without an explicit `version_id` is strictly non-conforming. A key path can refer to new versions or delete markers created subsequent to the evidence capture; therefore, only the immutable `version_id` provides durable WORM integrity.
+3. **Evidence Conformance Contract**: Conforming evidence objects MUST satisfy the `objectRetentionCompliance` schema contract (`cybrik.storage-s3-compatibility-subset.v1.schema.json`), requiring non-empty `bucket`, `object_key`, `version_id`, `retention_mode`, `retain_until_date`, `legal_hold`, and `object_sha256`.
 
 ---
 
@@ -811,16 +818,18 @@ Conforming storage providers MUST strictly differentiate between digest calculat
    * **Semantic Trigger**: The client supplied a syntactically valid Base64-encoded 128-bit MD5 digest in the `Content-MD5` header (or valid checksum header), but the digest calculated by the storage provider over the received payload bytes does **not match** the client's declared value.
    * **Cause**: In-transit network bit corruption, payload truncation, or erroneous client-side checksum generation.
    * **Error Code**: `<Code>BadDigest</Code>`.
+   * **Strict Error Dispatch**: Storage providers MUST return HTTP 400 with `<Code>BadDigest</Code>`. Providers MUST NOT return `InvalidArgument` or `AccessDenied` for payload checksum or digest mismatches.
 
 2. **`InvalidDigest` (`HTTP 400 Bad Request`)**:
    * **Semantic Trigger**: The value provided in the `Content-MD5` header is **malformed** and cannot be parsed as a valid 128-bit MD5 digest (e.g., contains non-base64 characters, invalid padding, or decodes to a byte sequence whose length is not exactly 16 bytes).
    * **Cause**: Syntactically invalid header syntax or encoding error by the client.
    * **Error Code**: `<Code>InvalidDigest</Code>`.
+   * **Strict Error Dispatch**: Storage providers MUST return HTTP 400 with `<Code>InvalidDigest</Code>`. Providers MUST NOT return `InvalidArgument` for malformed digest header values.
 
-### 8.2 Payload SHA-256 Validation (`x-amz-content-sha256`)
-* The server MUST verify the received payload against the 64-character hexadecimal SHA-256 digest provided in `x-amz-content-sha256` (when not `UNSIGNED-PAYLOAD`).
-* Syntactically invalid SHA-256 header values (e.g., length $\neq 64$, non-hex characters) MUST be rejected with HTTP 400 (`InvalidDigest` or `InvalidArgument`).
-* SHA-256 hash mismatches during AWS SigV4 authorization MUST result in signature authentication failure rejected with HTTP 403 `AccessDenied` or HTTP 400 `BadDigest`.
+### 8.2 Payload Digest Validation (`Content-MD5` and `x-amz-content-sha256`)
+* The server MUST verify the received payload against the 64-character hexadecimal SHA-256 digest provided in `x-amz-content-sha256` (when not `UNSIGNED-PAYLOAD`) and the Base64 MD5 digest provided in `Content-MD5`.
+* Syntactically invalid digest header values (e.g., non-hex characters or length $\neq 64$ in SHA-256 headers, or malformed Base64 in `Content-MD5`) MUST be rejected strictly with HTTP 400 `<Code>InvalidDigest</Code>`. Storage providers MUST NOT return `InvalidArgument` for malformed digest headers.
+* Calculated digest mismatches against the received payload bytes MUST be rejected strictly with HTTP 400 `<Code>BadDigest</Code>`. Storage providers MUST NOT return `AccessDenied` or `InvalidArgument` in lieu of `BadDigest` for payload digest discrepancies.
 
 ### 8.3 ETag Formats
 * For single-part `PutObject` uploads, `ETag` MUST be the double-quoted lowercase hex MD5 digest: `"<md5-hex>"`.
@@ -848,8 +857,8 @@ Conforming providers MUST implement and return exactly the 12 error codes define
 
 | # | Error Code (`<Code>`) | HTTP Status | Trigger Condition / Semantic Meaning |
 |---|---|---|---|
-| 1 | `BadDigest` | `400 Bad Request` | The `Content-MD5` or payload checksum calculated by the server does not match the digest value specified in the request header. |
-| 2 | `InvalidDigest` | `400 Bad Request` | The `Content-MD5` header value is malformed (e.g., non-base64 characters or decoded length $\neq 16$ bytes). |
+| 1 | `BadDigest` | `400 Bad Request` | The `Content-MD5` or payload checksum calculated by the server does not match the digest value specified in the request header. Strictly mandated for all payload digest mismatches (providers MUST NOT return `InvalidArgument` or `AccessDenied`). |
+| 2 | `InvalidDigest` | `400 Bad Request` | The `Content-MD5` or digest header value is malformed (e.g., non-base64 characters or decoded length $\neq 16$ bytes for MD5, or malformed SHA-256 string). Strictly mandated for malformed digest strings (providers MUST NOT return `InvalidArgument`). |
 | 3 | `NoSuchBucket` | `404 Not Found` | The specified target bucket does not exist. |
 | 4 | `NoSuchKey` | `404 Not Found` | The specified object key does not exist in the bucket. |
 | 5 | `NoSuchUpload` | `404 Not Found` | The specified multipart `UploadId` does not exist, has been aborted, or has already completed. |
@@ -857,7 +866,7 @@ Conforming providers MUST implement and return exactly the 12 error codes define
 | 7 | `PreconditionFailed` | `412 Precondition Failed` | At least one condition specified in conditional headers (`If-Match`, `If-None-Match`, `If-Modified-Since`, `If-Unmodified-Since`) evaluated to false. |
 | 8 | `AccessDenied` | `403 Forbidden` | Invalid authentication credentials, SigV4 signature mismatch, missing permissions, or attempt to overwrite/delete a WORM-locked object version. |
 | 9 | `EntityTooLarge` | `400 Bad Request` | Proposed object payload or part segment exceeds the maximum allowed size boundary (5 GiB). |
-| 10 | `InvalidArgument` | `400 Bad Request` | An invalid argument or malformed XML body was supplied (e.g., part number outside 1–10,000, unknown retention mode, malformed XML structure). |
+| 10 | `InvalidArgument` | `400 Bad Request` | An invalid argument or malformed XML body was supplied (e.g., part number outside 1–10,000, unknown retention mode, malformed XML structure). MUST NOT be returned in lieu of `BadDigest` or `InvalidDigest`. |
 | 11 | `InvalidPart` | `400 Bad Request` | One or more declared parts in `CompleteMultipartUpload` were not found or the provided part ETag does not match the stored part ETag. |
 | 12 | `InvalidPartOrder` | `400 Bad Request` | The list of parts in `CompleteMultipartUpload` was not in ascending numerical order by part number. |
 
