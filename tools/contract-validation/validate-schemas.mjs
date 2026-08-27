@@ -1796,6 +1796,27 @@ try {
 }
 H('30f', pcnPermittedNoThrow, 'degraded storage must be permitted when profile does not require immutable storage');
 
+// 30g. in-memory validation: validate immutable_storage_required in deployment profile schema (Finding 1 / OPEN-5)
+const sampleProfile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
+const profileMissingSpec = JSON.parse(JSON.stringify(sampleProfile));
+delete profileMissingSpec.slots.storage.specification;
+const profileMissingSpecValid = ajv.validate(profileSchemaId, profileMissingSpec);
+H('30g-1', !profileMissingSpecValid && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'specification'), 'slots.storage missing specification must be rejected');
+
+const profileMissingImmutable = JSON.parse(JSON.stringify(sampleProfile));
+delete profileMissingImmutable.slots.storage.specification.immutable_storage_required;
+const profileMissingImmutableValid = ajv.validate(profileSchemaId, profileMissingImmutable);
+H('30g-2', !profileMissingImmutableValid && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'immutable_storage_required'), 'slots.storage.specification missing immutable_storage_required must be rejected');
+
+const profileAirgap = readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-airgap-v1.profile.json'));
+const profileHybrid = readJson(join(PLATFORM_EXAMPLES_DIR, 'hybrid-sovereign-v1.profile.json'));
+const profilePrivate = readJson(join(PLATFORM_EXAMPLES_DIR, 'private-cloud-v1.profile.json'));
+H('30g-3', sampleProfile.slots?.storage?.specification?.immutable_storage_required === true &&
+           profileAirgap.slots?.storage?.specification?.immutable_storage_required === true &&
+           profileHybrid.slots?.storage?.specification?.immutable_storage_required === true &&
+           profilePrivate.slots?.storage?.specification?.immutable_storage_required === false,
+  'all 4 deployment profiles must declare explicit immutable_storage_required boolean');
+
 
 
 // ---------------------------------------------------------------------------

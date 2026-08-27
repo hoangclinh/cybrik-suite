@@ -1131,11 +1131,40 @@ test('in-memory validation: validate immutable_storage_required in deployment pr
   const hasMissingPropError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'immutable_storage_required');
   assert.ok(hasMissingPropError, 'Schema error must indicate missing immutable_storage_required');
 
+  // Omitting specification under slots.storage is rejected
+  const dataNoSpec = JSON.parse(JSON.stringify(sample));
+  delete dataNoSpec.slots.storage.specification;
+  const validNoSpec = ajv.validate(schemaId, dataNoSpec);
+  assert.ok(!validNoSpec, 'Omitting specification from slots.storage must be rejected');
+  const hasMissingSpecError = ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'specification');
+  assert.ok(hasMissingSpecError, 'Schema error must indicate missing specification under slots.storage');
+
   // Explicit boolean false immutable_storage_required is accepted by schema (valid boolean type)
   const data4 = JSON.parse(JSON.stringify(sample));
   data4.slots.storage.specification.immutable_storage_required = false;
   const valid4 = ajv.validate(schemaId, data4);
   assert.ok(valid4, 'Explicit boolean false immutable_storage_required should be valid in schema: ' + ajv.errorsText());
+});
+
+test('on-disk deployment profiles declare explicit immutable_storage_required across all 4 profiles (Finding 1 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
+  const profiles = [
+    { file: 'onprem-standard-v1.profile.json', expected: true },
+    { file: 'onprem-airgap-v1.profile.json', expected: true },
+    { file: 'hybrid-sovereign-v1.profile.json', expected: true },
+    { file: 'private-cloud-v1.profile.json', expected: false },
+  ];
+
+  for (const { file, expected } of profiles) {
+    const raw = readFileSync(join(EXAMPLES_DIR, file), 'utf8');
+    const doc = JSON.parse(raw);
+    assert.ok(ajv.validate(schemaId, doc), `${file} should validate against schema: ` + ajv.errorsText());
+    assert.equal(
+      doc.slots?.storage?.specification?.immutable_storage_required,
+      expected,
+      `${file} must have slots.storage.specification.immutable_storage_required === ${expected}`
+    );
+  }
 });
 
 test('in-memory validation: reject capability negotiation with degraded storage when profile requires immutable storage (DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN / OPEN-5)', () => {

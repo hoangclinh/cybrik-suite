@@ -437,6 +437,9 @@
       "properties": {
         "storage": {
           "type": "object",
+          "required": [
+            "specification"
+          ],
           "properties": {
             "slot_id": {
               "const": "storage"
