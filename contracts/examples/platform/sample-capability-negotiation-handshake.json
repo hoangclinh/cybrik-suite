@@ -292,72 +292,100 @@
     "conformance_evidence": [
       {
         "test_identifier": "urn:cybrik:evidence:ev-oci-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a101010101010101010101010101010101010101010101010101010101010101",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-oci-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-iso-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a102020202020202020202020202020202020202020202020202020202020202",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-iso-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-orch-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a103030303030303030303030303030303030303030303030303030303030303",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-orch-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-net-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a104040404040404040404040404040404040404040404040404040404040404",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-net-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:storage:s3-17-ops:v1",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a105050505050505050505050505050505050505050505050505050505050505",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:storage:object-lock:v1",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a106060606060606060606060606060606060606060606060606060606060606",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-object-lock-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-db-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a107070707070707070707070707070707070707070707070707070707070707",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-db-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-cache-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a108080808080808080808080808080808080808080808080808080808080808",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-cache-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-sec-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a109090909090909090909090909090909090909090909090909090909090909",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-sec-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-crypt-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a110101010101010101010101010101010101010101010101010101010101010",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-crypt-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-id-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a111111111111111111111111111111111111111111111111111111111111111",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-id-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-obs-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a112121212121212121212121212121212121212121212121212121212121212",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-obs-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-ai-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a113131313131313131313131313131313131313131313131313131313131313",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-ai-01.json"
       },
       {
         "test_identifier": "urn:cybrik:evidence:ev-art-01",
-        "verification_method": "AUTOMATED_TEST",
+        "status": "PASS",
+        "evidence_pack_digest": "a114141414141414141414141414141414141414141414141414141414141414",
+        "executed_at": "2026-08-27T12:00:00Z",
         "report_uri": "https://reports.cybrik.example/evidence/ev-art-01.json"
       }
     ],

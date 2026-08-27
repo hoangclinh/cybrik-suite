@@ -1495,7 +1495,9 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   storeCapObj.evidence_references.push("urn:cybrik:evidence:test-object-lock-01");
   dataObj.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:cybrik:evidence:test-object-lock-01",
-    verification_method: "AUTOMATED_TEST",
+    status: "PASS",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000001",
+    executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/urn-lock-01.json"
   });
 
@@ -1514,7 +1516,9 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   storeCapArr.evidence_references.push("urn:iso:std:iso-iec:27001:evidence:lock-01");
   dataArr.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:iso:std:iso-iec:27001:evidence:lock-01",
-    verification_method: "AUTOMATED_TEST",
+    status: "PASS",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000002",
+    executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/iso-lock-01.json"
   });
 
@@ -1527,7 +1531,9 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   };
   dataMissingRef.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:cybrik:evidence:test-object-lock-02",
-    verification_method: "AUTOMATED_TEST",
+    status: "PASS",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000003",
+    executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/urn-lock-02.json"
   });
 
@@ -1558,7 +1564,9 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   storeCapBadUrn.evidence_references.push("urn:::invalid-urn");
   dataBadUrn.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:::invalid-urn",
-    verification_method: "AUTOMATED_TEST",
+    status: "PASS",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000004",
+    executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/bad-urn.json"
   });
 
@@ -1858,7 +1866,9 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
       ),
       {
         test_identifier: canonicalUrn,
-        verification_method: "AUTOMATED_TEST",
+        status: "PASS",
+        evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000005",
+        executed_at: "2026-08-27T12:00:00Z",
         report_uri: "https://reports.cybrik.example/evidence/canonical.json"
       }
     ];
@@ -1880,7 +1890,9 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     ),
     {
       test_identifier: "urn:cybrik:evidence:generic-storage-report-01",
-      verification_method: "AUTOMATED_TEST",
+      status: "PASS",
+      evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000006",
+      executed_at: "2026-08-27T12:00:00Z",
       report_uri: "https://reports.cybrik.example/evidence/generic-storage-report-01.json"
     }
   ];
@@ -1910,7 +1922,9 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
       ),
       {
         test_identifier: looseUrn,
-        verification_method: "AUTOMATED_TEST",
+        status: "PASS",
+        evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000007",
+        executed_at: "2026-08-27T12:00:00Z",
         report_uri: "https://reports.cybrik.example/evidence/loose.json"
       }
     ];
@@ -1933,7 +1947,9 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     ),
     {
       test_identifier: "ev-fake-non-urn",
-      verification_method: "AUTOMATED_TEST",
+      status: "PASS",
+      evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000008",
+      executed_at: "2026-08-27T12:00:00Z",
       report_uri: "http://attacker.example.com/fake-evidence.txt"
     }
   ];
@@ -1970,15 +1986,18 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     ),
     {
       test_identifier: "urn:cybrik:evidence:storage:object-lock:v1",
-      verification_method: "AUTOMATED_TEST",
-      report_uri: "https://reports.cybrik.example/evidence/fail.json",
-      status: "FAIL"
+      status: "FAIL",
+      evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000009",
+      executed_at: "2026-08-27T12:00:00Z",
+      report_uri: "https://reports.cybrik.example/evidence/fail.json"
     }
   ];
+  const validFailStatus = ajv.validate(schemaId, dataFailStatus);
+  assert.ok(validFailStatus, 'Object Lock evidence with status FAIL passes Ajv schema validation: ' + ajv.errorsText());
   assert.throws(
     () => validatePlatformSemantics(dataFailStatus, schemaId),
-    /failed status 'FAIL'|lacks Object Lock retention evidence/,
-    'Object Lock evidence with status FAIL must be rejected'
+    /has non-passing status 'FAIL'|failed status 'FAIL'|lacks Object Lock retention evidence/,
+    'Object Lock evidence with status FAIL must be rejected by semantic validation'
   );
 
   // 8. Negative test: Object Lock evidence with malformed evidence_pack_digest is rejected
@@ -1991,26 +2010,30 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     ),
     {
       test_identifier: 'urn:cybrik:evidence:storage-object-lock:01',
-      verification_method: "AUTOMATED_TEST",
-      report_uri: "https://reports.cybrik.example/evidence/baddig.json",
       status: "PASS",
-      evidence_pack_digest: "not-a-valid-64-hex-digest"
+      evidence_pack_digest: "not-a-valid-64-hex-digest",
+      executed_at: "2026-08-27T12:00:00Z",
+      report_uri: "https://reports.cybrik.example/evidence/baddig.json"
     }
   ];
+  const validBadDigest = ajv.validate(schemaId, dataBadDigest);
+  assert.ok(!validBadDigest, 'Object Lock evidence with malformed evidence_pack_digest must be rejected by Ajv schema validation');
   assert.throws(
     () => validatePlatformSemantics(dataBadDigest, schemaId),
-    /lacks Object Lock retention evidence/,
-    'Object Lock evidence with malformed evidence_pack_digest must be rejected'
+    /lacks valid SHA-256 evidence_pack_digest|lacks Object Lock retention evidence/,
+    'Object Lock evidence with malformed evidence_pack_digest must be rejected by semantic validation'
   );
 
   // 9. Storage capability with dangling fake evidence reference is rejected
   const dataDangling = JSON.parse(JSON.stringify(sample));
   const storeCapDangling = dataDangling.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapDangling.evidence_references = ["urn:cybrik:evidence:nonexistent-evidence-ref"];
+  const validDangling = ajv.validate(schemaId, dataDangling);
+  assert.ok(validDangling, 'Dangling fake evidence reference must pass Ajv schema validation: ' + ajv.errorsText());
   assert.throws(
     () => validatePlatformSemantics(dataDangling, schemaId),
     /evidence_reference 'urn:cybrik:evidence:nonexistent-evidence-ref' not found in conformance_evidence/,
-    'Dangling fake evidence reference must be rejected'
+    'Dangling fake evidence reference must be rejected by semantic validation'
   );
 });
 
@@ -2773,4 +2796,108 @@ test('governance guard: validate OPEN-11 PRODUCT-MODULE-SOVEREIGNTY-CLASSIFICATI
   assert.ok(content.includes('__main__.py'), 'Map must contain __main__.py');
   assert.ok(content.includes('services/api/pyproject.toml'), 'Map must contain services/api/pyproject.toml');
   assert.ok(content.includes('TaxiiClient'), 'Map must cite TaxiiClient');
+});
+
+test('in-memory validation: conformance_evidence schema requirements (Finding F-01 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Positive: valid evidence with all optional and required fields passes
+  const validData = JSON.parse(JSON.stringify(sample));
+  validData.advertisement_response.conformance_evidence[0] = {
+    test_identifier: 'urn:cybrik:evidence:ev-oci-01',
+    status: 'PASS',
+    evidence_pack_digest: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    executed_at: '2026-08-28T00:00:00Z',
+    report_uri: 'https://reports.cybrik.example/report.json'
+  };
+  assert.ok(ajv.validate(schemaId, validData), 'Valid conformance evidence must pass: ' + ajv.errorsText());
+
+  // 2. Positive: valid evidence with only required fields (omitting executed_at and report_uri) passes
+  const minValidData = JSON.parse(JSON.stringify(sample));
+  minValidData.advertisement_response.conformance_evidence[0] = {
+    test_identifier: 'urn:cybrik:evidence:ev-oci-01',
+    status: 'PASS',
+    evidence_pack_digest: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+  };
+  assert.ok(ajv.validate(schemaId, minValidData), 'Minimal valid conformance evidence must pass: ' + ajv.errorsText());
+
+  // 3. Positive: valid status enum values (PASS, FAIL, INCONCLUSIVE, SKIPPED) pass schema validation
+  for (const st of ['PASS', 'FAIL', 'INCONCLUSIVE', 'SKIPPED']) {
+    const stData = JSON.parse(JSON.stringify(sample));
+    stData.advertisement_response.conformance_evidence[0].status = st;
+    assert.ok(ajv.validate(schemaId, stData), `Status '${st}' must pass schema validation: ` + ajv.errorsText());
+  }
+
+  // 4. Negative: missing status property is rejected
+  const missingStatus = JSON.parse(JSON.stringify(sample));
+  delete missingStatus.advertisement_response.conformance_evidence[0].status;
+  assert.ok(!ajv.validate(schemaId, missingStatus), 'Missing status must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'status'),
+    'Schema error must indicate missing status property'
+  );
+
+  // 5. Negative: missing evidence_pack_digest property is rejected
+  const missingDigest = JSON.parse(JSON.stringify(sample));
+  delete missingDigest.advertisement_response.conformance_evidence[0].evidence_pack_digest;
+  assert.ok(!ajv.validate(schemaId, missingDigest), 'Missing evidence_pack_digest must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'evidence_pack_digest'),
+    'Schema error must indicate missing evidence_pack_digest property'
+  );
+
+  // 6. Negative: invalid status enum value is rejected
+  const invalidStatus = JSON.parse(JSON.stringify(sample));
+  invalidStatus.advertisement_response.conformance_evidence[0].status = 'INVALID_STATUS';
+  assert.ok(!ajv.validate(schemaId, invalidStatus), 'Invalid status must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' && e.instancePath.includes('/conformance_evidence/0/status')),
+    'Schema error must indicate invalid enum on status'
+  );
+
+  // 7. Negative: malformed evidence_pack_digest is rejected (short length, uppercase, non-hex)
+  const badDigests = [
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde', // 63 chars
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0', // 65 chars
+    '0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF', // uppercase
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg', // non-hex 'g'
+    ''
+  ];
+  for (const badDig of badDigests) {
+    const badDigestData = JSON.parse(JSON.stringify(sample));
+    badDigestData.advertisement_response.conformance_evidence[0].evidence_pack_digest = badDig;
+    assert.ok(!ajv.validate(schemaId, badDigestData), `Bad digest '${badDig}' must be rejected`);
+    assert.ok(
+      ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('/conformance_evidence/0/evidence_pack_digest')),
+      `Schema error must indicate pattern mismatch for digest '${badDig}'`
+    );
+  }
+
+  // 8. Negative: legacy verification_method / additional properties rejected by additionalProperties: false
+  const extraProps = JSON.parse(JSON.stringify(sample));
+  extraProps.advertisement_response.conformance_evidence[0].verification_method = 'AUTOMATED_TEST';
+  assert.ok(!ajv.validate(schemaId, extraProps), 'Legacy verification_method must be rejected by additionalProperties: false');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === 'verification_method'),
+    'Schema error must indicate unexpected property verification_method'
+  );
+
+  // 9. Negative: invalid executed_at format rejected
+  const badDate = JSON.parse(JSON.stringify(sample));
+  badDate.advertisement_response.conformance_evidence[0].executed_at = 'not-a-date-time';
+  assert.ok(!ajv.validate(schemaId, badDate), 'Invalid executed_at date-time format must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'format' && e.instancePath.includes('/conformance_evidence/0/executed_at')),
+    'Schema error must indicate format error on executed_at'
+  );
+
+  // 10. Negative: invalid report_uri format rejected
+  const badUri = JSON.parse(JSON.stringify(sample));
+  badUri.advertisement_response.conformance_evidence[0].report_uri = 'not a valid uri with spaces';
+  assert.ok(!ajv.validate(schemaId, badUri), 'Invalid report_uri format must be rejected');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'format' && e.instancePath.includes('/conformance_evidence/0/report_uri')),
+    'Schema error must indicate format error on report_uri'
+  );
 });

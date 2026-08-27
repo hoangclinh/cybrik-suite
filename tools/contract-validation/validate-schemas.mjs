@@ -816,16 +816,21 @@ export function validatePlatformSemantics(data, schemaId) {
 
         const OBJECT_LOCK_URN_PATTERN = /^urn:cybrik:evidence:(?:storage:object-lock|storage-object-lock|object-lock)(?::[a-zA-Z0-9_-]+)*$/;
 
-        const hasObjectLockEvidence = (storageCap.evidence_references || []).some(ref => {
-          if (!OBJECT_LOCK_URN_PATTERN.test(ref)) return false;
-          const evRecord = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
-          if (!evRecord) return false;
-          if (evRecord.status !== undefined && evRecord.status !== 'PASS') return false;
-          if (evRecord.evidence_pack_digest !== undefined && (typeof evRecord.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(evRecord.evidence_pack_digest))) return false;
-          return true;
-        });
-        if (!hasObjectLockEvidence) {
+        const lockRefs = (storageCap.evidence_references || []).filter(ref => OBJECT_LOCK_URN_PATTERN.test(ref));
+        if (lockRefs.length === 0) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
+        }
+        for (const ref of lockRefs) {
+          const matchingEv = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
+          if (!matchingEv) {
+            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+          }
+          if (matchingEv.status !== 'PASS') {
+            throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
+          }
+          if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
+            throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
+          }
         }
       }
     }
@@ -1884,7 +1889,13 @@ try {
 const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
 const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
 storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
-pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1');
+pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence
+  .filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1')
+  .map(e => ({
+    ...e,
+    status: 'PASS',
+    evidence_pack_digest: 'a105050505050505050505050505050505050505050505050505050505050505'
+  }));
 try {
   validatePlatformSemantics(pcnStorageMissingLockEv, pcnSchemaId);
   fail('storage Object Lock evidence: expected validatePlatformSemantics to throw when Object Lock evidence is missing');
