@@ -8,6 +8,78 @@
   "title": "CYBRIK Provider Capability Advertisement v1",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "capabilityDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capability_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 2
+        },
+        "slot_id": {
+          "type": "string",
+          "enum": [
+            "oci_container_runtime",
+            "isolation_substrate",
+            "orchestration_capability",
+            "network_segmentation",
+            "storage",
+            "database",
+            "cache",
+            "secrets",
+            "crypto",
+            "identity_workload_identity",
+            "observability",
+            "ai_model_runtime",
+            "artifact_update_mechanism"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "pattern": "\\S+"
+        },
+        "is_mandatory": {
+          "type": "boolean"
+        },
+        "supported_features": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S+"
+          }
+        },
+        "degradation_fallback": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "CORE_EMULATION_FALLBACK",
+            "FEATURE_DISABLED_GRACEFUL"
+          ]
+        },
+        "evidence_references": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "capability_name",
+        "slot_id",
+        "description",
+        "is_mandatory",
+        "supported_features",
+        "degradation_fallback",
+        "evidence_references"
+      ]
+    }
+  },
   "properties": {
     "target_profile_id": {
       "type": "string",
@@ -42,51 +114,7 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "capability_name": {
-            "type": "string",
-            "pattern": "^[a-z0-9_-]+$",
-            "minLength": 2
-          },
-          "slot_id": {
-            "type": "string",
-            "enum": [
-              "oci_container_runtime",
-              "isolation_substrate",
-              "orchestration_capability",
-              "network_segmentation",
-              "storage",
-              "database",
-              "cache",
-              "secrets",
-              "crypto",
-              "identity_workload_identity",
-              "observability",
-              "ai_model_runtime",
-              "artifact_update_mechanism"
-            ]
-          },
-          "description": {
-            "type": "string",
-            "minLength": 5,
-            "pattern": "\\S+"
-          },
-          "evidence_references": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "capability_name",
-          "slot_id",
-          "description",
-          "evidence_references"
-        ]
+        "$ref": "#/$defs/capabilityDescriptor"
       }
     },
     "conformance_evidence": {
@@ -134,6 +162,7 @@
   "required": [
     "target_profile_id",
     "target_profile_version",
+    "target_profile_digest",
     "provider_namespace",
     "claim_type",
     "advertised_capabilities",
@@ -151,9 +180,6 @@
         }
       },
       "then": {
-        "required": [
-          "target_profile_digest"
-        ],
         "allOf": [
           {
             "properties": {

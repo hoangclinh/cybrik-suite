@@ -153,6 +153,7 @@ test('in-memory validation: reject advertisement with unresolvable evidence refe
   const data = {
     "target_profile_id": "onprem-standard-v1",
     "target_profile_version": "1.0.0",
+    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
     "provider_namespace": "evil-corp",
     "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
     "advertised_capabilities": [
@@ -160,6 +161,9 @@ test('in-memory validation: reject advertisement with unresolvable evidence refe
         "capability_name": "cap-storage",
         "slot_id": "storage",
         "description": "Storage slot",
+        "is_mandatory": true,
+        "supported_features": ["basic"],
+        "degradation_fallback": "NONE",
         "evidence_references": ["urn:cybrik:evidence:missing-test"]
       }
     ],
@@ -546,7 +550,7 @@ test('in-memory validation: offline manifest RESTORE_DATABASE_SNAPSHOT restricti
     assert.ok(ok, `Expected restore target '${target}' to be valid: ` + ajv.errorsText());
   }
 
-  // Invalid restore targets: absolute host paths, arbitrary relative paths, invalid extensions
+  // Invalid restore targets: absolute host paths, arbitrary relative paths, invalid extensions, path traversal, double slashes, hidden files
   const invalidTargets = [
     "/etc/passwd.db",
     "/var/backups/cybrik/snapshots/pre-v1.2.3.sql",
@@ -555,14 +559,47 @@ test('in-memory validation: offline manifest RESTORE_DATABASE_SNAPSHOT restricti
     "backup.db",
     "snapshots/backup.txt",
     "snapshots/backup.tar",
-    "$PRE_APPLY_SNAPSHOT/backup.json"
+    "$PRE_APPLY_SNAPSHOT/backup.json",
+    "snapshots//backup.db",
+    "$PRE_APPLY_SNAPSHOT/.hidden.db",
+    "snapshots/../etc/passwd.db",
+    "$PRE_APPLY_SNAPSHOT/foo//bar.db"
   ];
   for (const target of invalidTargets) {
     const copy = JSON.parse(JSON.stringify(baseManifest));
     copy.update_station_workflow.rollback_steps[0].target = target;
     const ok = ajv.validate(schemaId, copy);
-    assert.ok(!ok, `Expected restore target '${target}' to be rejected`);
+    assert.ok(!ok, `Expected restore target '${target}' to be rejected by schema`);
+    assert.throws(
+      () => validatePlatformSemantics(copy, schemaId),
+      /invalid RESTORE_DATABASE_SNAPSHOT target path/,
+      `Expected restore target '${target}' to be rejected by semantic validation`
+    );
   }
+
+  // Explicit regression checks for bypass path patterns
+  const bypassTargets = [
+    "snapshots//backup.db",
+    "$PRE_APPLY_SNAPSHOT/.hidden.db",
+    "snapshots/../etc/passwd.db",
+    "$PRE_APPLY_SNAPSHOT/foo//bar.db"
+  ];
+  for (const target of bypassTargets) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.update_station_workflow.rollback_steps[0].target = target;
+    const schemaOk = ajv.validate(schemaId, copy);
+    assert.equal(schemaOk, false, `Bypass path '${target}' must fail schema validation`);
+    assert.throws(
+      () => validatePlatformSemantics(copy, schemaId),
+      /invalid RESTORE_DATABASE_SNAPSHOT target path/,
+      `Bypass path '${target}' must fail semantic validation`
+    );
+  }
+
+  // Duplicate artifact path
+  const dupArtDoc = JSON.parse(JSON.stringify(baseManifest));
+  dupArtDoc.artifacts.push(dupArtDoc.artifacts[0]);
+  assert.throws(() => validatePlatformSemantics(dupArtDoc, schemaId), /duplicate artifact path/);
 });
 
 test('lexical I-JSON validation: duplicate keys, safe integer bounds, float rejection', () => {
@@ -3693,6 +3730,9 @@ test('in-memory validation: reject duplicate slot_id in advertised_capabilities 
     capability_name: "oci_container_runtime_secondary",
     slot_id: "oci_container_runtime",
     description: "Duplicate slot runtime",
+    is_mandatory: true,
+    supported_features: ["container_lifecycle"],
+    degradation_fallback: "NONE",
     evidence_references: [
       "urn:cybrik:evidence:ev-oci-01"
     ]
@@ -3761,12 +3801,18 @@ test('in-memory validation: reject duplicate slot advertisements e.g. conflictin
       capability_name: "storage_compliant_s3",
       slot_id: "storage",
       description: "Compliant S3 storage with full Object Lock retention",
+      is_mandatory: true,
+      supported_features: ["PutObject"],
+      degradation_fallback: "NONE",
       evidence_references: ["urn:cybrik:evidence:ev-storage-01"]
     },
     {
       capability_name: "storage_weak_s3",
       slot_id: "storage",
       description: "Weak S3 storage without Object Lock",
+      is_mandatory: true,
+      supported_features: ["PutObject"],
+      degradation_fallback: "NONE",
       evidence_references: ["urn:cybrik:evidence:ev-storage-02"]
     }
   ];
@@ -3976,4 +4022,579 @@ test('in-memory validation: equal-duplicate composite keys in request and lease 
     /duplicate composite key/,
     'Negotiation request and lease with equal-duplicate composite keys must be rejected by validatePlatformSemantics with /duplicate composite key/'
   );
+});
+
+test('in-memory validation: unconditional target_profile_digest enforcement on advertisement_response / negotiation (OPEN-1 Finding 5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Missing target_profile_digest is rejected by validatePlatformSemantics
+  const missingDigest = JSON.parse(JSON.stringify(sample));
+  delete missingDigest.target_profile_digest;
+  assert.throws(
+    () => validatePlatformSemantics(missingDigest, schemaId),
+    /target_profile_digest/,
+    'Missing target_profile_digest must fail validatePlatformSemantics'
+  );
+
+  // 2. Non-hex pattern target_profile_digest is rejected by validatePlatformSemantics
+  const badPatternDigest = JSON.parse(JSON.stringify(sample));
+  badPatternDigest.target_profile_digest = 'not-a-valid-64-char-hex-digest-at-all!';
+  assert.throws(
+    () => validatePlatformSemantics(badPatternDigest, schemaId),
+    /target_profile_digest/,
+    'Malformed pattern target_profile_digest must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: strict snapshot restore target path constraints in validatePlatformSemantics (OPEN-1 Finding 4)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Double slash is rejected by validatePlatformSemantics
+  const doubleSlashData = JSON.parse(JSON.stringify(sample));
+  doubleSlashData.update_station_workflow.rollback_steps[0].target = 'snapshots//backup.db';
+  assert.throws(
+    () => validatePlatformSemantics(doubleSlashData, schemaId),
+    /double slash/,
+    'Double slash // in restore target must fail validatePlatformSemantics'
+  );
+
+  // 2. Leading dot on segment is rejected by validatePlatformSemantics
+  const leadingDotData = JSON.parse(JSON.stringify(sample));
+  leadingDotData.update_station_workflow.rollback_steps[0].target = 'snapshots/.hidden/backup.db';
+  assert.throws(
+    () => validatePlatformSemantics(leadingDotData, schemaId),
+    /leading dot segment/,
+    'Leading dot in segment of restore target must fail validatePlatformSemantics'
+  );
+
+  // 3. Dot-dot traversal sequence is rejected by validatePlatformSemantics
+  const traversalData = JSON.parse(JSON.stringify(sample));
+  traversalData.update_station_workflow.rollback_steps[0].target = 'snapshots/../backup.db';
+  assert.throws(
+    () => validatePlatformSemantics(traversalData, schemaId),
+    /(leading dot segment|contains '\.\.')/,
+    'Dot-dot traversal in restore target must fail validatePlatformSemantics'
+  );
+
+  // 4. Non-snapshot path prefix is rejected by validatePlatformSemantics
+  const badPrefixData = JSON.parse(JSON.stringify(sample));
+  badPrefixData.update_station_workflow.rollback_steps[0].target = 'other/backup.db';
+  assert.throws(
+    () => validatePlatformSemantics(badPrefixData, schemaId),
+    /must start with 'snapshots\/' or '\$PRE_APPLY_SNAPSHOT\/'/,
+    'Non-snapshot path prefix must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: reject advertisement missing target_profile_digest for full profile declaration (OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const original = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // 1. Positive baseline passes
+  assert.ok(ajv.validate(schemaId, original));
+  assert.doesNotThrow(() => validatePlatformSemantics(original, schemaId));
+
+  // 2. Missing target_profile_digest rejected by schema (required under FULL_PROFILE_CONFORMANCE_DECLARATION)
+  const dataMissing = JSON.parse(JSON.stringify(original));
+  delete dataMissing.target_profile_digest;
+
+  const valid = ajv.validate(schemaId, dataMissing);
+  assert.equal(valid, false, 'Should reject full profile declaration missing target_profile_digest in schema');
+  const hasDigestRequiredError = ajv.errors.some(
+    (e) => e.keyword === 'required' && e.params?.missingProperty === 'target_profile_digest'
+  );
+  assert.ok(hasDigestRequiredError, 'Schema error must indicate missing target_profile_digest');
+
+  // Semantic validation also rejects missing target_profile_digest
+  assert.throws(
+    () => validatePlatformSemantics(dataMissing, schemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION requires target_profile_digest|target_profile_digest/,
+    'Semantic validation must reject full profile declaration missing target_profile_digest'
+  );
+
+  // 3. Malformed target_profile_digest pattern rejected
+  const dataBadDigest = JSON.parse(JSON.stringify(original));
+  dataBadDigest.target_profile_digest = 'not-a-64-hex-digest';
+  assert.equal(ajv.validate(schemaId, dataBadDigest), false);
+  assert.ok(ajv.errors.some((e) => e.keyword === 'pattern' && e.instancePath === '/target_profile_digest'));
+
+  // 4. Mismatched target_profile_digest rejected by semantic validation
+  const dataMismatchedDigest = JSON.parse(JSON.stringify(original));
+  dataMismatchedDigest.target_profile_digest = '0000000000000000000000000000000000000000000000000000000000000000';
+  assert.ok(ajv.validate(schemaId, dataMismatchedDigest));
+  assert.throws(
+    () => validatePlatformSemantics(dataMismatchedDigest, schemaId),
+    /does not match actual digest/
+  );
+});
+
+test('in-memory validation: full profile conformance declaration shape and Object Lock evidence validation (OPEN-5 / OPEN-2)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const original = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // 1. Positive baseline passes validation
+  assert.ok(ajv.validate(schemaId, original), 'Original full profile declaration must pass: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(original, schemaId));
+
+  // 2. Reject fewer than 13 advertised capabilities (< 13 items)
+  const data12 = JSON.parse(JSON.stringify(original));
+  data12.advertised_capabilities.pop();
+  assert.equal(ajv.validate(schemaId, data12), false, 'Should reject 12 capabilities for full profile declaration');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/advertised_capabilities'));
+
+  // 3. Reject more than 13 advertised capabilities (> 13 items)
+  const data14 = JSON.parse(JSON.stringify(original));
+  data14.advertised_capabilities.push({
+    capability_name: 'cap-extra',
+    slot_id: 'storage',
+    description: 'Extra storage',
+    evidence_references: ['urn:cybrik:evidence:ev-5']
+  });
+  assert.equal(ajv.validate(schemaId, data14), false, 'Should reject 14 capabilities for full profile declaration');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'maxItems' && e.instancePath === '/advertised_capabilities'));
+
+  // 4. Reject missing specific slot from the 13 required slots (e.g. replace storage with duplicate database)
+  const dataDup = JSON.parse(JSON.stringify(original));
+  const storeIdx = dataDup.advertised_capabilities.findIndex((c) => c.slot_id === 'storage');
+  dataDup.advertised_capabilities[storeIdx] = {
+    capability_name: 'cap-db-dup',
+    slot_id: 'database',
+    description: 'Duplicate database slot',
+    evidence_references: ['urn:cybrik:evidence:ev-6']
+  };
+  assert.equal(ajv.validate(schemaId, dataDup), false, 'Should reject full profile declaration missing storage slot');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'contains'), 'Schema must fail contains condition for missing slot');
+  assert.throws(
+    () => validatePlatformSemantics(dataDup, schemaId),
+    /duplicate slot_id 'database'/,
+    'Semantic validation must reject duplicate slot_id'
+  );
+
+  // 5. Object Lock evidence validation on full profile conformance declaration with storage Object Lock evidence
+  const dataWithLock = JSON.parse(JSON.stringify(original));
+  const storageCap = dataWithLock.advertised_capabilities.find((c) => c.slot_id === 'storage');
+  const lockUrn = 'urn:cybrik:evidence:storage:object-lock:v1';
+  storageCap.evidence_references.push(lockUrn);
+  dataWithLock.conformance_evidence.push({
+    test_identifier: lockUrn,
+    status: 'PASS',
+    evidence_pack_digest: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    executed_at: '2026-08-27T12:00:00Z',
+    report_uri: 'https://example.com/reports/lock-evidence.json'
+  });
+  assert.ok(ajv.validate(schemaId, dataWithLock), 'Full profile declaration with Object Lock evidence must pass schema: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(dataWithLock, schemaId));
+
+  // 6. Object Lock evidence with non-passing status is rejected by schema and semantic validation
+  const dataLockFail = JSON.parse(JSON.stringify(dataWithLock));
+  const lockEv = dataLockFail.conformance_evidence.find((e) => e.test_identifier === lockUrn);
+  lockEv.status = 'FAIL';
+  assert.equal(ajv.validate(schemaId, dataLockFail), false, 'Object Lock evidence with status FAIL must fail schema validation');
+  assert.throws(
+    () => validatePlatformSemantics(dataLockFail, schemaId),
+    /has non-passing status 'FAIL'/
+  );
+
+  // 7. Object Lock evidence with invalid SHA256 digest is rejected by schema and semantic validation
+  const dataLockBadDigest = JSON.parse(JSON.stringify(dataWithLock));
+  const lockEvBad = dataLockBadDigest.conformance_evidence.find((e) => e.test_identifier === lockUrn);
+  lockEvBad.evidence_pack_digest = 'malformed-digest';
+  assert.equal(ajv.validate(schemaId, dataLockBadDigest), false, 'Malformed evidence pack digest must fail schema validation');
+  assert.throws(
+    () => validatePlatformSemantics(dataLockBadDigest, schemaId),
+    /lacks valid SHA-256 evidence_pack_digest/
+  );
+
+  // 8. Unreferenced dangling Object Lock evidence is rejected by semantic validation
+  const dataDanglingLock = JSON.parse(JSON.stringify(original));
+  dataDanglingLock.conformance_evidence.push({
+    test_identifier: lockUrn,
+    status: 'PASS',
+    evidence_pack_digest: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+    executed_at: '2026-08-27T12:00:00Z',
+    report_uri: 'https://example.com/reports/lock-evidence.json'
+  });
+  assert.ok(ajv.validate(schemaId, dataDanglingLock));
+  assert.throws(
+    () => validatePlatformSemantics(dataDanglingLock, schemaId),
+    /unreferenced or dangling evidence/
+  );
+});
+
+test('validateIJson comprehensive parser edge cases and error handling', () => {
+  // 1. Type check
+  assert.throws(() => validateIJson(123), /expected string or Buffer/);
+  assert.throws(() => validateIJson(null), /expected string or Buffer/);
+  assert.throws(() => validateIJson(undefined), /expected string or Buffer/);
+
+  // 2. Control characters in strings
+  assert.throws(() => validateIJson('{"a": "hello\x00world"}'), /Unescaped control character/);
+  assert.throws(() => validateIJson('{"a": "hello\x1fworld"}'), /Unescaped control character/);
+
+  // 3. Unterminated string
+  assert.throws(() => validateIJson('{"a": "hello'), /Unterminated string/);
+
+  // 4. Number parsing edge cases
+  assert.doesNotThrow(() => validateIJson('{"zero": 0, "neg": -0, "pos": 12345, "negInt": -987}'));
+  assert.throws(() => validateIJson('{"bad": -}'), /Invalid number/);
+  assert.throws(() => validateIJson('{"bad": 01}'), /Expected ',' or '}'/);
+  assert.throws(() => validateIJson('{"bad": 1.}'), /Invalid decimal number/);
+
+  // 5. Object parsing errors
+  assert.doesNotThrow(() => validateIJson('{}'));
+  assert.throws(() => validateIJson('{'), /Unterminated object|Expected string key/);
+  assert.throws(() => validateIJson('{123: "val"}'), /Expected string key/);
+  assert.throws(() => validateIJson('{"key" "val"}'), /Expected ':'/);
+  assert.throws(() => validateIJson('{"key": "val",}'), /Expected string key/);
+  assert.throws(() => validateIJson('{"key": "val" "other": 1}'), /Expected ',' or '}'/);
+
+  // 6. Array parsing errors
+  assert.doesNotThrow(() => validateIJson('[]'));
+  assert.doesNotThrow(() => validateIJson('[1, 2, 3, "a", true, false, null]'));
+  assert.throws(() => validateIJson('['), /Unterminated array/);
+  assert.throws(() => validateIJson('[1,]'), /Unterminated array|Unexpected token/);
+  assert.throws(() => validateIJson('[1 2]'), /Expected ',' or ']'/);
+
+  // 7. Value parsing errors
+  assert.throws(() => validateIJson('undefined'), /Unexpected token|Unexpected character/);
+  assert.throws(() => validateIJson('foo'), /Unexpected token|Unexpected character/);
+  assert.throws(() => validateIJson('{"a": undefined}'), /Unexpected token|Unexpected character/);
+  assert.throws(() => validateIJson('{"a": 1} extra'), /Trailing characters after JSON root/);
+
+  // 8. Escaped surrogate pair variations in parseString
+  assert.doesNotThrow(() => validateIJson('{"emoji": "\\uD83D\\uDE00"}'));
+  assert.doesNotThrow(() => validateIJson('{"ascii": "\\u0041"}'));
+  assert.throws(() => validateIJson('{"bad": "\\uD800"}'), /escaped lone surrogate/);
+  assert.throws(() => validateIJson('{"bad": "\\uDC00"}'), /escaped lone surrogate/);
+});
+
+test('validateOpenItemEffectMatrix comprehensive negative governance checks', () => {
+  const sampleDoc = readFileSync(join(ROOT, 'contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md'), 'utf8');
+
+  // 1. Positive: valid proposal markdown passes
+  assert.doesNotThrow(() => validateOpenItemEffectMatrix(sampleDoc));
+
+  // 2. Missing Section 10
+  assert.throws(
+    () => validateOpenItemEffectMatrix('# Some Doc\n\nNo section 10 here.'),
+    /Missing section: ## 10. Required Open-Item Effect Matrix/
+  );
+
+  // 3. Missing table header
+  const noHeader = sampleDoc.replace('| OPEN ID |', '| WRONG HEADER |');
+  assert.throws(
+    () => validateOpenItemEffectMatrix(noHeader),
+    /Missing table header for Open-Item Effect Matrix/
+  );
+
+  // 4. Matrix row with invalid number of columns
+  const badCol = sampleDoc.replace(
+    '| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN | OPEN, PARTIALLY_UNBLOCKED |',
+    '| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN |'
+  );
+  assert.throws(
+    () => validateOpenItemEffectMatrix(badCol),
+    /Matrix row must have exactly 4 columns/
+  );
+
+  // 5. Matrix row count mismatch
+  const missingRow = sampleDoc.replace(
+    '| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN | OPEN, PARTIALLY_UNBLOCKED |\n',
+    ''
+  );
+  assert.throws(
+    () => validateOpenItemEffectMatrix(missingRow),
+    /Matrix must have exactly 11 rows/
+  );
+
+  // 6. Trailing table rows after table end
+  const trailingRows = sampleDoc.replace(
+    '| OPEN-11 | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` | OPEN | OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN |',
+    '| OPEN-11 | `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` | OPEN | OPEN, PARTIALLY_UNBLOCKED / PER_MODULE_CLASSIFICATION_REMAINS_OPEN |\n\nSome text\n| Extra | Row | Here | Now |'
+  );
+  assert.throws(
+    () => validateOpenItemEffectMatrix(trailingRows),
+    /Multiple tables or trailing table rows found in Section 10/
+  );
+
+  // 7. Expected ID at row position mismatch
+  const wrongRowId = sampleDoc.replace('| OPEN-2 |', '| OPEN-99 |');
+  assert.throws(
+    () => validateOpenItemEffectMatrix(wrongRowId),
+    /Expected ID OPEN-2 at row 2, found OPEN-99/
+  );
+
+  // 8. Unauthorized status
+  const wrongStatus = sampleDoc.replace(
+    '| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | OPEN |',
+    '| OPEN-1 | `OFFLINE_INSTALL_UPDATE_CONTRACT` | RESOLVED |'
+  );
+  assert.throws(
+    () => validateOpenItemEffectMatrix(wrongStatus),
+    /Unauthorized status for OPEN-1: RESOLVED/
+  );
+});
+
+test('validatePlatformSemantics comprehensive error branches', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const adSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const manifestSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Conformance evidence duplicate test_identifier
+  const dupEvAd = JSON.parse(JSON.stringify(adSample));
+  dupEvAd.conformance_evidence.push(JSON.parse(JSON.stringify(dupEvAd.conformance_evidence[0])));
+  assert.throws(() => validatePlatformSemantics(dupEvAd, pcaSchemaId), /duplicate test_identifier/);
+
+  // 2. Conformance evidence non-PASS status
+  const failEvAd = JSON.parse(JSON.stringify(adSample));
+  failEvAd.conformance_evidence[0].status = 'FAIL';
+  assert.throws(() => validatePlatformSemantics(failEvAd, pcaSchemaId), /has non-passing status 'FAIL'/);
+
+  // 3. Conformance evidence invalid SHA-256 digest
+  const badDigestEvAd = JSON.parse(JSON.stringify(adSample));
+  badDigestEvAd.conformance_evidence[0].evidence_pack_digest = '12345';
+  assert.throws(() => validatePlatformSemantics(badDigestEvAd, pcaSchemaId), /lacks valid SHA-256 evidence_pack_digest/);
+
+  // 4. Advertised capability duplicate slot_id
+  const dupSlotAd = JSON.parse(JSON.stringify(adSample));
+  dupSlotAd.advertised_capabilities.push(JSON.parse(JSON.stringify(dupSlotAd.advertised_capabilities[0])));
+  assert.throws(() => validatePlatformSemantics(dupSlotAd, pcaSchemaId), /contains duplicate slot_id/);
+
+  // 5. Advertised capability evidence reference not found in conformance_evidence
+  const missingRefAd = JSON.parse(JSON.stringify(adSample));
+  missingRefAd.advertised_capabilities[0].evidence_references = ['urn:cybrik:evidence:nonexistent'];
+  assert.throws(() => validatePlatformSemantics(missingRefAd, pcaSchemaId), /evidence_reference 'urn:cybrik:evidence:nonexistent' not found/);
+
+  // 6. Agreed capability lease evidence reference not found in conformance_evidence
+  const missingLeaseRef = JSON.parse(JSON.stringify(handshakeSample));
+  missingLeaseRef.agreed_capability_lease.negotiated_optional_capabilities[0].evidence_references = ['urn:cybrik:evidence:nonexistent'];
+  assert.throws(() => validatePlatformSemantics(missingLeaseRef, pcnSchemaId), /evidence_reference 'urn:cybrik:evidence:nonexistent' not found/);
+
+  // 7. Lease timestamps: valid_until <= issued_at
+  const badLeaseDates = JSON.parse(JSON.stringify(handshakeSample));
+  badLeaseDates.agreed_capability_lease.issued_at = '2026-08-25T14:00:00Z';
+  badLeaseDates.agreed_capability_lease.valid_until = '2026-08-25T12:00:00Z';
+  assert.throws(() => validatePlatformSemantics(badLeaseDates, pcnSchemaId), /must be strictly greater than/);
+
+  // 8. Lease timestamps: invalid timestamp format (NaN)
+  const nanLeaseDates = JSON.parse(JSON.stringify(handshakeSample));
+  nanLeaseDates.agreed_capability_lease.issued_at = 'not-a-date';
+  assert.throws(() => validatePlatformSemantics(nanLeaseDates, pcnSchemaId), /invalid timestamp format in lease/);
+
+  // 9. Lease ttl_seconds duration mismatch
+  const ttlMismatchLease = JSON.parse(JSON.stringify(handshakeSample));
+  ttlMismatchLease.agreed_capability_lease.ttl_seconds = 999999;
+  assert.throws(() => validatePlatformSemantics(ttlMismatchLease, pcnSchemaId), /does not match timestamp duration/);
+
+  // 10. F-02: GRANTED_FULL with fallback != NONE
+  const badFullCap = JSON.parse(JSON.stringify(handshakeSample));
+  badFullCap.agreed_capability_lease.negotiated_optional_capabilities[0].disposition = 'GRANTED_FULL';
+  badFullCap.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = 'CORE_EMULATION_FALLBACK';
+  assert.throws(() => validatePlatformSemantics(badFullCap, pcnSchemaId), /cannot have fallback/);
+
+  // 11. F-02: Fallback == NONE with disposition != GRANTED_FULL
+  const badDegradedCap = JSON.parse(JSON.stringify(handshakeSample));
+  badDegradedCap.agreed_capability_lease.negotiated_optional_capabilities[0].disposition = 'GRANTED_DEGRADED';
+  badDegradedCap.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = 'NONE';
+  assert.throws(() => validatePlatformSemantics(badDegradedCap, pcnSchemaId), /must have disposition 'GRANTED_FULL'/);
+
+  // 12. ACTIVE_OPTIMAL lease containing degraded cap
+  const optimalWithDegraded = JSON.parse(JSON.stringify(handshakeSample));
+  optimalWithDegraded.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  optimalWithDegraded.agreed_capability_lease.negotiated_optional_capabilities[0].disposition = 'GRANTED_DEGRADED';
+  optimalWithDegraded.agreed_capability_lease.negotiated_optional_capabilities[0].fallback_applied = 'CORE_EMULATION_FALLBACK';
+  assert.throws(() => validatePlatformSemantics(optimalWithDegraded, pcnSchemaId), /ACTIVE_OPTIMAL lease cannot contain degraded capability/);
+
+  // 13. ACTIVE_DEGRADED lease containing zero degraded caps
+  const degradedWithNone = JSON.parse(JSON.stringify(handshakeSample));
+  degradedWithNone.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  for (const c of degradedWithNone.agreed_capability_lease.negotiated_optional_capabilities) {
+    c.disposition = 'GRANTED_FULL';
+    c.fallback_applied = 'NONE';
+  }
+  assert.throws(() => validatePlatformSemantics(degradedWithNone, pcnSchemaId), /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED/);
+
+  // 14. Negotiation request missing core mandatory slots
+  const missingCoreSlots = JSON.parse(JSON.stringify(handshakeSample));
+  missingCoreSlots.negotiation_request.requested_slots = ['storage'];
+  assert.throws(() => validatePlatformSemantics(missingCoreSlots, pcnSchemaId), /missing core mandatory slot/);
+
+  // 15. Storage slot advertisement missing mandatory S3 operation
+  const missingS3Ops = JSON.parse(JSON.stringify(handshakeSample));
+  const storeCap = missingS3Ops.advertisement_response.advertised_capabilities.find((c) => c.slot_id === 'storage');
+  storeCap.supported_features = ['PutObject', 'GetObject'];
+  assert.throws(() => validatePlatformSemantics(missingS3Ops, pcnSchemaId), /missing required S3 operation/);
+
+  // 16. Storage slot advertisement missing Object Lock retention evidence
+  const noLockEv = JSON.parse(JSON.stringify(handshakeSample));
+  const storeCapNoLock = noLockEv.advertisement_response.advertised_capabilities.find((c) => c.slot_id === 'storage');
+  storeCapNoLock.evidence_references = storeCapNoLock.evidence_references.filter((r) => !r.includes('object-lock'));
+  assert.throws(() => validatePlatformSemantics(noLockEv, pcnSchemaId), /lacks Object Lock retention evidence/);
+
+  // 17. Target profile fixture not found
+  const missingProfileDoc = JSON.parse(JSON.stringify(handshakeSample));
+  missingProfileDoc.target_profile_id = 'non-existent-profile-xyz';
+  assert.throws(() => validatePlatformSemantics(missingProfileDoc, pcnSchemaId), /target profile fixture .* not found/);
+
+  // 18. Offline manifest invalid RESTORE_DATABASE_SNAPSHOT target path in preflight
+  const badPreflightStep = JSON.parse(JSON.stringify(manifestSample));
+  badPreflightStep.update_station_workflow.preflight_steps.push({
+    step_id: 'pre-restore',
+    action: 'RESTORE_DATABASE_SNAPSHOT',
+    target: 'snapshots//double-slash.db'
+  });
+  assert.throws(() => validatePlatformSemantics(badPreflightStep, manifestSchemaId), /invalid RESTORE_DATABASE_SNAPSHOT target path/);
+
+  // 19. Lease target_profile_id mismatch with document
+  const leaseIdMismatch = JSON.parse(JSON.stringify(handshakeSample));
+  leaseIdMismatch.agreed_capability_lease.target_profile_id = 'onprem-airgap-v1';
+  assert.throws(() => validatePlatformSemantics(leaseIdMismatch, pcnSchemaId), /lease target_profile_id .* does not match document/);
+
+  // 20. Lease target_profile_digest mismatch with actual digest
+  const leaseDigestMismatch = JSON.parse(JSON.stringify(handshakeSample));
+  leaseDigestMismatch.agreed_capability_lease.target_profile_digest = '0'.repeat(64);
+  assert.throws(() => validatePlatformSemantics(leaseDigestMismatch, pcnSchemaId), /lease target_profile_digest .* does not match actual digest/);
+
+  // 21. Mandatory profile slot missing from mandatory_slots_satisfied
+  const missingMandatorySat = JSON.parse(JSON.stringify(handshakeSample));
+  missingMandatorySat.agreed_capability_lease.mandatory_slots_satisfied = missingMandatorySat.agreed_capability_lease.mandatory_slots_satisfied.filter(s => s !== 'oci_container_runtime');
+  assert.throws(() => validatePlatformSemantics(missingMandatorySat, pcnSchemaId), /not present in lease mandatory_slots_satisfied/);
+
+  // 22. Mandatory profile slot not found in advertised capabilities
+  const missingMandatoryAdv = JSON.parse(JSON.stringify(handshakeSample));
+  missingMandatoryAdv.advertisement_response.advertised_capabilities = missingMandatoryAdv.advertisement_response.advertised_capabilities.filter(c => c.slot_id !== 'oci_container_runtime');
+  assert.throws(() => validatePlatformSemantics(missingMandatoryAdv, pcnSchemaId), /not found in advertised capabilities/);
+
+  // 23. Mandatory profile slot lacks evidence references
+  const noRefsMandatory = JSON.parse(JSON.stringify(handshakeSample));
+  const ociCap = noRefsMandatory.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  ociCap.evidence_references = [];
+  assert.throws(() => validatePlatformSemantics(noRefsMandatory, pcnSchemaId), /lacks evidence references/);
+
+  // 24. Mandatory profile slot evidence reference not found in conformance evidence
+  const missingEvMandatory = JSON.parse(JSON.stringify(handshakeSample));
+  const ociCap2 = missingEvMandatory.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  ociCap2.evidence_references = ['urn:cybrik:evidence:missing-oci'];
+  assert.throws(() => validatePlatformSemantics(missingEvMandatory, pcnSchemaId), /evidence_reference 'urn:cybrik:evidence:missing-oci' not found in conformance_evidence/);
+
+  // 25. Duplicate composite key in negotiation request
+  const dupReqKey = JSON.parse(JSON.stringify(handshakeSample));
+  dupReqKey.negotiation_request.requested_optional_capabilities.push(
+    JSON.parse(JSON.stringify(dupReqKey.negotiation_request.requested_optional_capabilities[0]))
+  );
+  assert.throws(() => validatePlatformSemantics(dupReqKey, pcnSchemaId), /requested_optional_capabilities contains duplicate composite key/);
+
+  // 26. Duplicate composite key in agreed capability lease
+  const dupLeaseKey = JSON.parse(JSON.stringify(handshakeSample));
+  dupLeaseKey.agreed_capability_lease.negotiated_optional_capabilities.push(
+    JSON.parse(JSON.stringify(dupLeaseKey.agreed_capability_lease.negotiated_optional_capabilities[0]))
+  );
+  assert.throws(() => validatePlatformSemantics(dupLeaseKey, pcnSchemaId), /negotiated_optional_capabilities contains duplicate composite key/);
+
+  // 27. Requested optional capability not resolved in lease
+  const unresolvedReqCapDoc = JSON.parse(JSON.stringify(handshakeSample));
+  unresolvedReqCapDoc.agreed_capability_lease.negotiated_optional_capabilities[0].capability_name = 'different_cap_name';
+  assert.throws(() => validatePlatformSemantics(unresolvedReqCapDoc, pcnSchemaId), /is not resolved in agreed_capability_lease/);
+
+  // 27b. Lease optional capability not requested in negotiation request
+  const unrequestedLeaseCapDoc = JSON.parse(JSON.stringify(handshakeSample));
+  unrequestedLeaseCapDoc.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'extra_unrequested_cap',
+    slot_id: 'cache',
+    disposition: 'GRANTED_FULL',
+    fallback_applied: 'NONE'
+  });
+  assert.throws(() => validatePlatformSemantics(unrequestedLeaseCapDoc, pcnSchemaId), /contains unrequested or surplus optional capability/);
+
+  // 28. Mandatory profile slot conformance evidence has non-passing status
+  const nonPassMandatoryDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const ociEv = nonPassMandatoryDoc.advertisement_response.conformance_evidence.find(e => e.test_identifier.includes('oci'));
+  ociEv.status = 'FAIL';
+  assert.throws(() => validatePlatformSemantics(nonPassMandatoryDoc, pcnSchemaId), /has non-passing status 'FAIL'/);
+
+  // 29. Immutable storage capability degraded in lease when immutable storage is mandated by profile
+  const immutableDegradedDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const storageOptional = immutableDegradedDoc.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage');
+  storageOptional.disposition = 'GRANTED_DEGRADED';
+  storageOptional.fallback_applied = 'FEATURE_DISABLED_GRACEFUL';
+  assert.throws(() => validatePlatformSemantics(immutableDegradedDoc, pcnSchemaId), /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/);
+
+  // 30. Object Lock conformance evidence with non-passing status
+  const lockFailEvDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const lockEv = lockFailEvDoc.advertisement_response.conformance_evidence.find(e => e.test_identifier.includes('object-lock'));
+  if (lockEv) {
+    lockEv.status = 'FAIL';
+    assert.throws(() => validatePlatformSemantics(lockFailEvDoc, pcnSchemaId), /has non-passing status 'FAIL'/);
+  }
+
+  // 31. Object Lock conformance evidence with invalid digest
+  const lockBadDigestDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const lockEv2 = lockBadDigestDoc.advertisement_response.conformance_evidence.find(e => e.test_identifier.includes('object-lock'));
+  if (lockEv2) {
+    lockEv2.evidence_pack_digest = 'not-a-valid-sha256-hex';
+    assert.throws(() => validatePlatformSemantics(lockBadDigestDoc, pcnSchemaId), /lacks valid SHA-256 evidence_pack_digest/);
+  }
+
+  // 32. Full profile conformance declaration target_profile_digest mismatch
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const badDigestFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  badDigestFullDecl.target_profile_digest = 'a'.repeat(64);
+  assert.throws(() => validatePlatformSemantics(badDigestFullDecl, pcaSchemaId), /target_profile_digest .* does not match actual digest/);
+
+  // 33. Full profile conformance declaration target profile fixture not found
+  const missingProfileFullDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  missingProfileFullDecl.target_profile_id = 'nonexistent-profile';
+  assert.throws(() => validatePlatformSemantics(missingProfileFullDecl, pcaSchemaId), /target profile fixture .* not found/);
+
+  // 34. Evidence bindings missing in storage evidence references
+  const badBindingRefDoc = JSON.parse(JSON.stringify(handshakeSample));
+  badBindingRefDoc.evidence_bindings = [
+    { name: 'storage_object_lock', evidence_id: 'urn:cybrik:evidence:missing-binding' }
+  ];
+  assert.throws(() => validatePlatformSemantics(badBindingRefDoc, pcnSchemaId), /not found in storage evidence references/);
+
+  // 35. Evidence bindings missing in conformance evidence
+  const badBindingConfDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const storeCapObj = badBindingConfDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapObj.evidence_references.push('urn:cybrik:evidence:storage:extra-ref');
+  badBindingConfDoc.evidence_bindings = [
+    { name: 'storage_object_lock', evidence_id: 'urn:cybrik:evidence:storage:extra-ref' }
+  ];
+  assert.throws(() => validatePlatformSemantics(badBindingConfDoc, pcnSchemaId), /evidence_reference 'urn:cybrik:evidence:storage:extra-ref' not found in conformance_evidence/);
+
+  // 36. Lease contains surplus capability not in request
+  const surplusLeaseDoc = JSON.parse(JSON.stringify(handshakeSample));
+  surplusLeaseDoc.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'surplus_cap_2',
+    slot_id: 'cache',
+    disposition: 'GRANTED_FULL',
+    fallback_applied: 'NONE'
+  });
+  assert.throws(() => validatePlatformSemantics(surplusLeaseDoc, pcnSchemaId), /contains unrequested or surplus optional capability/);
+
+  // 37. Lease target_profile_id does not match document target_profile_id
+  const leaseIdMismatchDoc = JSON.parse(JSON.stringify(handshakeSample));
+  leaseIdMismatchDoc.agreed_capability_lease.target_profile_id = 'different-profile-id';
+  assert.throws(() => validatePlatformSemantics(leaseIdMismatchDoc, pcnSchemaId), /lease target_profile_id .* does not match document target_profile_id/);
+
+  // 38. Lease target_profile_digest does not match actual digest
+  const leaseDigestMismatchDoc = JSON.parse(JSON.stringify(handshakeSample));
+  leaseDigestMismatchDoc.agreed_capability_lease.target_profile_digest = 'b'.repeat(64);
+  assert.throws(() => validatePlatformSemantics(leaseDigestMismatchDoc, pcnSchemaId), /lease target_profile_digest .* does not match actual digest/);
+
+  // 39. Mandatory profile slot not present in lease mandatory_slots_satisfied
+  const missingSatisfiedDoc = JSON.parse(JSON.stringify(handshakeSample));
+  missingSatisfiedDoc.agreed_capability_lease.mandatory_slots_satisfied = missingSatisfiedDoc.agreed_capability_lease.mandatory_slots_satisfied.filter(s => s !== 'secrets');
+  assert.throws(() => validatePlatformSemantics(missingSatisfiedDoc, pcnSchemaId), /mandatory profile slot 'secrets' not present in lease mandatory_slots_satisfied/);
+
+  // 40. Mandatory profile slot lacks evidence references
+  const noEvRefsDoc = JSON.parse(JSON.stringify(handshakeSample));
+  noEvRefsDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'secrets').evidence_references = [];
+  assert.throws(() => validatePlatformSemantics(noEvRefsDoc, pcnSchemaId), /mandatory profile slot 'secrets' lacks evidence references/);
 });

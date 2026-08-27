@@ -9,8 +9,11 @@ import addFormatsModule from 'ajv-formats';
 import {
   dispatchS3Error,
   dispatchS3PutObject,
+  dispatchS3CompleteMultipartUpload,
   computePayloadMd5,
+  computePayloadSha256,
   isMalformedBase64Md5,
+  isMalformedSha256,
   verifyDigestErrorDispatch,
   verifyMalformedHeaderDispatch,
   validateS3MultipartSemantics,
@@ -1391,4 +1394,583 @@ test('InvalidPartOrder dispatch mapping and validateS3MultipartSemantics duplica
     /Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates \(found part 1 after 2\) \(InvalidPartOrder\)/,
     'Descending part numbers must throw exact InvalidPartOrder semantic error'
   );
+});
+
+test('dispatchS3PutObject x-amz-content-sha256 validation (OPEN-2 Finding 1)', () => {
+  const payload = Buffer.from('CYBRIK_IMMUTABLE_TEST_PAYLOAD_SHA256_VERIFICATION');
+  const validSha256 = createHash('sha256').update(payload).digest('hex');
+  const mismatchedSha256 = '0000000000000000000000000000000000000000000000000000000000000000';
+  const malformedSha256 = 'not-a-valid-64-hex-sha256!';
+
+  // 1. Matching SHA256 returns 200
+  const matchRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': validSha256 });
+  assert.equal(matchRes.http_status, 200);
+  assert.equal(matchRes.error_code, null);
+
+  // 2. UNSIGNED-PAYLOAD returns 200
+  const unsignedRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+  assert.equal(unsignedRes.http_status, 200);
+  assert.equal(unsignedRes.error_code, null);
+
+  // 3. STREAMING-AWS4-HMAC-SHA256-PAYLOAD returns 200
+  const streamingRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' });
+  assert.equal(streamingRes.http_status, 200);
+  assert.equal(streamingRes.error_code, null);
+
+  // 4. Mismatched SHA256 returns 400 BadDigest / PAYLOAD_SHA256_MISMATCH
+  const mismatchRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': mismatchedSha256 });
+  assert.equal(mismatchRes.http_status, 400);
+  assert.equal(mismatchRes.error_code, 'BadDigest');
+  assert.equal(mismatchRes.code, 'BadDigest');
+  assert.equal(mismatchRes.reason, 'PAYLOAD_SHA256_MISMATCH');
+
+  // 5. Malformed SHA256 returns 400 InvalidDigest / MALFORMED_HEADER_SYNTAX
+  const malformedRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': malformedSha256 });
+  assert.equal(malformedRes.http_status, 400);
+  assert.equal(malformedRes.error_code, 'InvalidDigest');
+  assert.equal(malformedRes.code, 'InvalidDigest');
+  assert.equal(malformedRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 6. dispatchS3Error mapping for PAYLOAD_SHA256_MISMATCH and MALFORMED_HEADER_SYNTAX
+  const errDispatchSha = dispatchS3Error('PAYLOAD_SHA256_MISMATCH');
+  assert.equal(errDispatchSha.http_status, 400);
+  assert.equal(errDispatchSha.error_code, 'BadDigest');
+  assert.equal(errDispatchSha.reason, 'PAYLOAD_SHA256_MISMATCH');
+
+  const errDispatchMal = dispatchS3Error('MALFORMED_HEADER_SYNTAX');
+  assert.equal(errDispatchMal.http_status, 400);
+  assert.equal(errDispatchMal.error_code, 'InvalidDigest');
+  assert.equal(errDispatchMal.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Object (OPEN-2 Finding 3)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"etag-part-1"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"etag-part-2"', size_bytes: 5242880 },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+
+  // 1. Success with Map
+  const validMap = new Map([
+    [1, { etag: '"etag-part-1"' }],
+    [2, { etag: '"etag-part-2"' }],
+  ]);
+  const okMapRes = dispatchS3CompleteMultipartUpload(manifest, validMap);
+  assert.equal(okMapRes.http_status, 200);
+  assert.equal(okMapRes.error_code, null);
+
+  // 2. Success with Object
+  const validObj = {
+    1: { etag: '"etag-part-1"' },
+    2: { etag: '"etag-part-2"' },
+  };
+  const okObjRes = dispatchS3CompleteMultipartUpload(manifest, validObj);
+  assert.equal(okObjRes.http_status, 200);
+  assert.equal(okObjRes.error_code, null);
+
+  // 3. Missing part with Map -> MISSING_PART
+  const missingMap = new Map([
+    [1, { etag: '"etag-part-1"' }],
+  ]);
+  const missingMapRes = dispatchS3CompleteMultipartUpload(manifest, missingMap);
+  assert.equal(missingMapRes.http_status, 400);
+  assert.equal(missingMapRes.error_code, 'InvalidPart');
+  assert.equal(missingMapRes.code, 'InvalidPart');
+  assert.equal(missingMapRes.reason, 'MISSING_PART');
+
+  // 4. Missing part with Object -> MISSING_PART
+  const missingObj = {
+    1: { etag: '"etag-part-1"' },
+  };
+  const missingObjRes = dispatchS3CompleteMultipartUpload(manifest, missingObj);
+  assert.equal(missingObjRes.http_status, 400);
+  assert.equal(missingObjRes.error_code, 'InvalidPart');
+  assert.equal(missingObjRes.reason, 'MISSING_PART');
+
+  // 5. ETag mismatch with Map -> PART_ETAG_MISMATCH
+  const mismatchMap = new Map([
+    [1, { etag: '"etag-part-1"' }],
+    [2, { etag: '"mismatched-etag"' }],
+  ]);
+  const mismatchMapRes = dispatchS3CompleteMultipartUpload(manifest, mismatchMap);
+  assert.equal(mismatchMapRes.http_status, 400);
+  assert.equal(mismatchMapRes.error_code, 'InvalidPart');
+  assert.equal(mismatchMapRes.code, 'InvalidPart');
+  assert.equal(mismatchMapRes.reason, 'PART_ETAG_MISMATCH');
+
+  // 6. ETag mismatch with Object -> PART_ETAG_MISMATCH
+  const mismatchObj = {
+    1: { etag: '"etag-part-1"' },
+    2: { etag: '"mismatched-etag"' },
+  };
+  const mismatchObjRes = dispatchS3CompleteMultipartUpload(manifest, mismatchObj);
+  assert.equal(mismatchObjRes.http_status, 400);
+  assert.equal(mismatchObjRes.error_code, 'InvalidPart');
+  assert.equal(mismatchObjRes.reason, 'PART_ETAG_MISMATCH');
+
+  // 7. dispatchS3Error mapping for InvalidPart, PartNotFound, ETagMismatch, MISSING_PART, PART_ETAG_MISMATCH
+  for (const trigger of ['InvalidPart', 'INVALID_PART', 'PartNotFound', 'PART_NOT_FOUND', 'MISSING_PART']) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+  }
+  for (const trigger of ['ETagMismatch', 'ETAG_MISMATCH', 'PART_ETAG_MISMATCH']) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+  }
+});
+test('dispatchS3PutObject with valid MD5 but mismatched x-amz-content-sha256 rejects payload (OPEN-2 / Finding 3)', () => {
+  const payload = Buffer.from('CYBRIK_IMMUTABLE_AUDIT_LOG_PAYLOAD_SHA256_TEST_2026');
+  const validMd5 = computePayloadMd5(payload);
+  const validSha256 = computePayloadSha256(payload);
+
+  const mismatchedSha256 = '0000000000000000000000000000000000000000000000000000000000000000';
+  const malformedSha256 = 'not-a-valid-64-hex-sha256!';
+
+  // 1. Positive: valid MD5 and matching x-amz-content-sha256 passes
+  const matchedRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': validSha256,
+  });
+  assert.equal(matchedRes.http_status, 200);
+  assert.equal(matchedRes.error_code, null);
+
+  // 2. Negative: valid MD5 but mismatched x-amz-content-sha256 returns HTTP 400 BadDigest
+  const mismatchRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': mismatchedSha256,
+  });
+  assert.equal(mismatchRes.http_status, 400);
+  assert.equal(mismatchRes.error_code, 'BadDigest');
+  assert.equal(mismatchRes.reason, 'PAYLOAD_SHA256_MISMATCH');
+
+  // Also via dispatchS3Error with options object
+  const mismatchErrRes = dispatchS3Error({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': mismatchedSha256,
+  });
+  assert.equal(mismatchErrRes.http_status, 400);
+  assert.equal(mismatchErrRes.error_code, 'BadDigest');
+  assert.equal(mismatchErrRes.reason, 'PAYLOAD_SHA256_MISMATCH');
+
+  // 3. Negative: valid MD5 but malformed x-amz-content-sha256 returns HTTP 400 InvalidDigest
+  const malformedRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': malformedSha256,
+  });
+  assert.equal(malformedRes.http_status, 400);
+  assert.equal(malformedRes.error_code, 'InvalidDigest');
+  assert.equal(malformedRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. Negative: valid x-amz-content-sha256 but mismatched MD5 returns HTTP 400 BadDigest
+  const mismatchMd5Res = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: '1B2M2Y8AsgTpgAmY7PhCfg==',
+    'x-amz-content-sha256': validSha256,
+  });
+  assert.equal(mismatchMd5Res.http_status, 400);
+  assert.equal(mismatchMd5Res.error_code, 'BadDigest');
+  assert.equal(mismatchMd5Res.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // 5. Negative: valid x-amz-content-sha256 but malformed MD5 returns HTTP 400 InvalidDigest
+  const malformedMd5Res = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: 'malformed-md5!@#',
+    'x-amz-content-sha256': validSha256,
+  });
+  assert.equal(malformedMd5Res.http_status, 400);
+  assert.equal(malformedMd5Res.error_code, 'InvalidDigest');
+  assert.equal(malformedMd5Res.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 6. Helper coverage: isMalformedSha256 and computePayloadSha256
+  assert.equal(isMalformedSha256(validSha256), false);
+  assert.equal(isMalformedSha256(''), true);
+  assert.equal(isMalformedSha256(null), true);
+  assert.equal(isMalformedSha256(12345), true);
+  assert.equal(isMalformedSha256('abc'), true);
+  assert.equal(computePayloadSha256('hello'), createHash('sha256').update('hello').digest('hex'));
+  assert.equal(computePayloadSha256(null), createHash('sha256').update(Buffer.alloc(0)).digest('hex'));
+});
+
+test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismatch returns HTTP 400 InvalidPart (OPEN-2 / Finding 4)', () => {
+  const storedParts = [
+    {
+      part_number: 1,
+      etag: '"d41d8cd98f00b204e9800998ecf8427e"',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 5242880,
+    },
+    {
+      part_number: 2,
+      etag: '"098f6bcd4621d373cade4e832627b4f6"',
+      sha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      size_bytes: 5242880,
+    },
+  ];
+
+  // 1. Positive: valid completion with matching parts and ETags returns HTTP 200
+  const validCompletion = dispatchS3CompleteMultipartUpload({
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
+    ],
+    storedParts,
+  });
+  assert.equal(validCompletion.http_status, 200);
+  assert.equal(validCompletion.error_code, null);
+
+  // 2. Negative: missing part (part 3 specified in completion request, but only parts 1 & 2 stored) returns HTTP 400 InvalidPart
+  const missingPartRes = dispatchS3CompleteMultipartUpload({
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 3, etag: '"ffffffffffffffffffffffffffffffff"' },
+    ],
+    storedParts,
+  });
+  assert.equal(missingPartRes.http_status, 400);
+  assert.equal(missingPartRes.error_code, 'InvalidPart');
+  assert.equal(missingPartRes.reason, 'MISSING_PART');
+
+  // 3. Negative: stored-ETag mismatch (part 2 specified with wrong ETag) returns HTTP 400 InvalidPart
+  const mismatchedEtagRes = dispatchS3CompleteMultipartUpload({
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"mismatched-etag-value-000000000"' },
+    ],
+    storedParts,
+  });
+  assert.equal(mismatchedEtagRes.http_status, 400);
+  assert.equal(mismatchedEtagRes.error_code, 'InvalidPart');
+  assert.equal(mismatchedEtagRes.reason, 'PART_ETAG_MISMATCH');
+
+  // 4. Negative: empty parts list returns HTTP 400 InvalidPart
+  const emptyPartsRes = dispatchS3CompleteMultipartUpload({
+    parts: [],
+    storedParts,
+  });
+  assert.equal(emptyPartsRes.http_status, 400);
+  assert.equal(emptyPartsRes.error_code, 'InvalidPart');
+  assert.equal(emptyPartsRes.reason, 'EMPTY_PARTS_LIST');
+
+  // 5. Negative: duplicate part in completion returns HTTP 400 InvalidPartOrder
+  const dupPartRes = dispatchS3CompleteMultipartUpload({
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 1, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
+    ],
+    storedParts,
+  });
+  assert.equal(dupPartRes.http_status, 400);
+  assert.equal(dupPartRes.error_code, 'InvalidPartOrder');
+  assert.equal(dupPartRes.reason, 'DUPLICATE_PART');
+
+  // 6. Negative: descending part numbers in completion returns HTTP 400 InvalidPartOrder
+  const descPartRes = dispatchS3CompleteMultipartUpload({
+    parts: [
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+    ],
+    storedParts,
+  });
+  assert.equal(descPartRes.http_status, 400);
+  assert.equal(descPartRes.error_code, 'InvalidPartOrder');
+  assert.equal(descPartRes.reason, 'PARTS_NOT_ASCENDING');
+
+  // 7. Negative: non-final part too small returns HTTP 400 EntityTooSmall
+  const smallPartStored = [
+    { part_number: 1, etag: '"a"', size_bytes: 1024 },
+    { part_number: 2, etag: '"b"', size_bytes: 5242880 },
+  ];
+  const smallPartRes = dispatchS3CompleteMultipartUpload({
+    parts: [{ part_number: 1, etag: '"a"' }, { part_number: 2, etag: '"b"' }],
+    storedParts: smallPartStored,
+  });
+  assert.equal(smallPartRes.http_status, 400);
+  assert.equal(smallPartRes.error_code, 'EntityTooSmall');
+
+  // 8. Negative: part too large returns HTTP 400 EntityTooLarge
+  const largePartStored = [
+    { part_number: 1, etag: '"a"', size_bytes: 5368709121 },
+  ];
+  const largePartRes = dispatchS3CompleteMultipartUpload({
+    parts: [{ part_number: 1, etag: '"a"' }],
+    storedParts: largePartStored,
+  });
+  assert.equal(largePartRes.http_status, 400);
+  assert.equal(largePartRes.error_code, 'EntityTooLarge');
+
+  // 9. Dispatch S3 error mapping for InvalidPart string and object triggers
+  for (const trigger of ['InvalidPart', 'INVALID_PART', 'MISSING_PART', 'PART_ETAG_MISMATCH', 'ETAG_MISMATCH', 'PART_NOT_FOUND', 'EMPTY_PARTS_LIST']) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, 400, `Trigger '${trigger}' must return http_status 400`);
+    assert.equal(res.error_code, 'InvalidPart', `Trigger '${trigger}' must return error_code 'InvalidPart'`);
+  }
+
+  for (const obj of [{ error_code: 'InvalidPart' }, { code: 'InvalidPart' }, { error_condition: 'MISSING_PART' }, { reason: 'PART_ETAG_MISMATCH' }]) {
+    const res = dispatchS3Error(obj);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+  }
+});
+
+test('dispatchS3Error and dispatchS3CompleteMultipartUpload full taxonomy and branch coverage', () => {
+  // 1. All 13 canonical error codes string dispatch
+  const stringCodes = [
+    { trigger: 'NoSuchBucket', status: 404, code: 'NoSuchBucket' },
+    { trigger: 'NoSuchKey', status: 404, code: 'NoSuchKey' },
+    { trigger: 'NoSuchUpload', status: 404, code: 'NoSuchUpload' },
+    { trigger: 'ObjectLockConfigurationNotFoundError', status: 404, code: 'ObjectLockConfigurationNotFoundError' },
+    { trigger: 'PreconditionFailed', status: 412, code: 'PreconditionFailed' },
+    { trigger: 'AccessDenied', status: 403, code: 'AccessDenied' },
+    { trigger: 'InvalidArgument', status: 400, code: 'InvalidArgument' },
+    { trigger: 'EntityTooLarge', status: 400, code: 'EntityTooLarge' },
+    { trigger: 'PART_TOO_LARGE', status: 400, code: 'EntityTooLarge' },
+    { trigger: 'PAYLOAD_TOO_LARGE', status: 400, code: 'EntityTooLarge' },
+    { trigger: 'EntityTooSmall', status: 400, code: 'EntityTooSmall' },
+    { trigger: 'PART_TOO_SMALL', status: 400, code: 'EntityTooSmall' },
+    { trigger: 'NON_FINAL_PART_TOO_SMALL', status: 400, code: 'EntityTooSmall' },
+    { trigger: 'InvalidPartOrder', status: 400, code: 'InvalidPartOrder' },
+    { trigger: 'PARTS_NOT_ASCENDING', status: 400, code: 'InvalidPartOrder' },
+    { trigger: 'DUPLICATE_PART_NUMBER', status: 400, code: 'InvalidPartOrder' },
+  ];
+
+  for (const { trigger, status, code } of stringCodes) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, status);
+    assert.equal(res.error_code, code);
+  }
+
+  // 2. All 13 canonical error codes object dispatch
+  for (const code of CLOSED_13_S3_ERROR_CODES) {
+    const res = dispatchS3Error({ error_code: code });
+    assert.equal(res.error_code, code);
+    const res2 = dispatchS3Error({ code });
+    assert.equal(res2.error_code, code);
+  }
+
+  // 3. CompleteMultipartUpload with Map storedParts and Object storedParts
+  const storedMap = new Map([
+    [1, { part_number: 1, etag: '"hash1"', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"hash2"', size_bytes: 5242880 }],
+  ]);
+  const mapRes = dispatchS3CompleteMultipartUpload({
+    parts: [{ part_number: 1, etag: '"hash1"' }, { part_number: 2, etag: '"hash2"' }],
+    storedParts: storedMap,
+  });
+  assert.equal(mapRes.http_status, 200);
+
+  const storedObj = {
+    1: { part_number: 1, etag: '"hash1"', size_bytes: 5242880 },
+    2: { part_number: 2, etag: '"hash2"', size_bytes: 5242880 },
+  };
+  const objRes = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [{ PartNumber: 1, ETag: '"hash1"' }, { PartNumber: 2, ETag: '"hash2"' }],
+    },
+    storedParts: storedObj,
+  });
+  assert.equal(objRes.http_status, 200);
+
+  // 4. Invalid part numbers (non-integer, <= 0)
+  assert.equal(
+    dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 0 }] }).error_code,
+    'InvalidArgument'
+  );
+  assert.equal(
+    dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1.5 }] }).error_code,
+    'InvalidArgument'
+  );
+  assert.equal(
+    dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 'one' }] }).error_code,
+    'InvalidArgument'
+  );
+
+  // 5. Malformed base64 MD5 string trigger and fallback object/primitive triggers in dispatchS3Error
+  const malformedStrRes = dispatchS3Error('invalid-base64-md5-string!');
+  assert.equal(malformedStrRes.http_status, 400);
+  assert.equal(malformedStrRes.error_code, 'InvalidDigest');
+
+  const fallbackObjRes = dispatchS3Error({ some_random_key: 'value' });
+  assert.equal(fallbackObjRes.http_status, 400);
+  assert.equal(fallbackObjRes.error_code, 'BadDigest');
+
+  const fallbackPrimRes = dispatchS3Error(12345);
+  assert.equal(fallbackPrimRes.http_status, 400);
+  assert.equal(fallbackPrimRes.error_code, 'BadDigest');
+});
+
+test('validateS3MultipartSemantics exhaustive error conditions', () => {
+  const samplePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-multipart-upload-manifest.json');
+  const validManifest = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 0. Non-object manifest
+  assert.throws(() => validateS3MultipartSemantics(null), /multipart manifest must be an object/);
+  assert.throws(() => validateS3MultipartSemantics('not-an-obj'), /multipart manifest must be an object/);
+
+  // 1. Non-array parts
+  const nonArrayParts = JSON.parse(JSON.stringify(validManifest));
+  nonArrayParts.parts = 'not-an-array';
+  assert.throws(() => validateS3MultipartSemantics(nonArrayParts), /multipart upload manifest parts array must be non-empty/);
+
+  // 2. Empty parts array
+  const emptyParts = JSON.parse(JSON.stringify(validManifest));
+  emptyParts.parts = [];
+  assert.throws(() => validateS3MultipartSemantics(emptyParts), /multipart upload manifest parts array must be non-empty/);
+
+  // 3. total_parts mismatch
+  const totalPartsMismatch = JSON.parse(JSON.stringify(validManifest));
+  totalPartsMismatch.total_parts = 999;
+  assert.throws(() => validateS3MultipartSemantics(totalPartsMismatch), /total_parts.*does not match parts array length/);
+
+  // 4. total_size_bytes mismatch
+  const totalSizeMismatch = JSON.parse(JSON.stringify(validManifest));
+  totalSizeMismatch.total_size_bytes = 999;
+  assert.throws(() => validateS3MultipartSemantics(totalSizeMismatch), /total_size_bytes.*does not match sum of part sizes/);
+
+  // 5. Negative part size
+  const negSizePart = JSON.parse(JSON.stringify(validManifest));
+  negSizePart.parts[0].size_bytes = -1;
+  assert.throws(() => validateS3MultipartSemantics(negSizePart), /cannot be negative/);
+
+  // 6. Non-final part size too small
+  const smallPart = JSON.parse(JSON.stringify(validManifest));
+  smallPart.parts[0].size_bytes = 1024;
+  assert.throws(() => validateS3MultipartSemantics(smallPart), /below minimum non-final part size/);
+
+  // 7. Part size > 5 GiB
+  const giantPart = JSON.parse(JSON.stringify(validManifest));
+  giantPart.parts[0].size_bytes = 5368709121;
+  giantPart.total_size_bytes = 5368709121 + giantPart.parts[1].size_bytes;
+  assert.throws(() => validateS3MultipartSemantics(giantPart), /exceeds maximum part size of 5368709120 bytes/);
+
+  // 8. Total size > 5 TiB
+  const partSize = 5000000000; // 5 GB per part <= 5 GiB max
+  const partCount = 1100; // 1100 * 5 GB = 5.5 TB > 5 TiB (5497558138880 bytes)
+  const parts1100 = Array.from({ length: partCount }, (_, idx) => ({
+    part_number: idx + 1,
+    etag: '"etag"',
+    sha256: 'a'.repeat(64),
+    size_bytes: partSize
+  }));
+  const totalSizeBytes = partCount * partSize;
+  const over5TiB = {
+    parts: parts1100,
+    total_parts: partCount,
+    total_size_bytes: totalSizeBytes
+  };
+  assert.throws(() => validateS3MultipartSemantics(over5TiB), /exceeds maximum total size of 5497558138880 bytes/);
+});
+
+test('verifyDigestErrorDispatch and verifyMalformedHeaderDispatch invalid dispatch exception branches', () => {
+  const payload = Buffer.from('TEST_PAYLOAD');
+  const validMd5 = computePayloadMd5(payload);
+
+  // Calling verifyDigestErrorDispatch with valid matching digest throws because result.error_code !== 'BadDigest'
+  assert.throws(
+    () => verifyDigestErrorDispatch(payload, validMd5),
+    /Strict error dispatch violation: payload byte digest mismatch must exclusively map to BadDigest/
+  );
+
+  // Calling verifyMalformedHeaderDispatch with valid matching digest throws because result.error_code !== 'InvalidDigest'
+  assert.throws(
+    () => verifyMalformedHeaderDispatch(payload, validMd5),
+    /Strict error dispatch violation: malformed digest header must exclusively map to InvalidDigest/
+  );
+
+  // Calling verifyMalformedHeaderDispatch with valid base64 MD5 string throws because it is not malformed
+  assert.throws(
+    () => verifyMalformedHeaderDispatch(validMd5),
+    /is a valid base64 MD5 digest, not a malformed header error condition/
+  );
+
+  // Calling verify functions with invalid HTTP status code throws
+  assert.throws(
+    () => verifyDigestErrorDispatch({ http_status: 500, code: 'BadDigest' }),
+    /Strict error dispatch violation: payload byte digest mismatch must exclusively map to HTTP 400/
+  );
+  assert.throws(
+    () => verifyMalformedHeaderDispatch({ http_status: 500, code: 'InvalidDigest' }),
+    /Strict error dispatch violation: malformed digest header must exclusively map to HTTP 400/
+  );
+});
+
+test('dispatchS3PutObject and dispatchS3Error exhaustive reason taxonomy and helper functions', () => {
+  const payload = Buffer.from('TEST_PAYLOAD');
+  const validMd5 = computePayloadMd5(payload);
+  const validSha = computePayloadSha256(payload);
+
+  // 1. dispatchS3PutObject options
+  assert.equal(dispatchS3PutObject({ payloadBytes: payload, contentMd5Header: validMd5, 'x-amz-content-sha256': validSha }).http_status, 200);
+  assert.equal(dispatchS3PutObject({ payloadBytes: payload, contentMd5Header: 123 }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': 123 }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject({}).error_code, 'InvalidDigest');
+
+  // 2. dispatchS3Error string triggers
+  assert.equal(dispatchS3Error('BadDigest').error_code, 'BadDigest');
+  assert.equal(dispatchS3Error('PAYLOAD_DIGEST_MISMATCH').error_code, 'BadDigest');
+  const shaMisRes = dispatchS3Error('PAYLOAD_SHA256_MISMATCH');
+  assert.equal(shaMisRes.error_code, 'BadDigest');
+  assert.equal(shaMisRes.reason, 'PAYLOAD_SHA256_MISMATCH');
+  assert.equal(dispatchS3Error('InvalidDigest').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('MALFORMED_HEADER_SYNTAX').error_code, 'InvalidDigest');
+  const shaMalRes = dispatchS3Error('MALFORMED_SHA256_HEADER_SYNTAX');
+  assert.equal(shaMalRes.error_code, 'InvalidDigest');
+  assert.equal(shaMalRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. dispatchS3Error object reasons
+  assert.equal(dispatchS3Error({ reason: 'PAYLOAD_DIGEST_MISMATCH' }).error_code, 'BadDigest');
+  assert.equal(dispatchS3Error({ reason: 'PAYLOAD_SHA256_MISMATCH' }).error_code, 'BadDigest');
+  assert.equal(dispatchS3Error({ reason: 'MALFORMED_DIGEST_HEADER' }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error({ reason: 'MALFORMED_HEADER_SYNTAX' }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error({ reason: 'PART_TOO_SMALL' }).error_code, 'EntityTooSmall');
+  assert.equal(dispatchS3Error({ reason: 'NON_FINAL_PART_TOO_SMALL' }).error_code, 'EntityTooSmall');
+  assert.equal(dispatchS3Error({ reason: 'PART_TOO_LARGE' }).error_code, 'EntityTooLarge');
+  assert.equal(dispatchS3Error({ reason: 'PAYLOAD_TOO_LARGE' }).error_code, 'EntityTooLarge');
+  assert.equal(dispatchS3Error({ reason: 'DUPLICATE_PART' }).error_code, 'InvalidPartOrder');
+  assert.equal(dispatchS3Error({ reason: 'PART_OUT_OF_ORDER' }).error_code, 'InvalidPartOrder');
+  assert.equal(dispatchS3Error({ reason: 'MISSING_PART' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'PART_ETAG_MISMATCH' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'ETAG_MISMATCH' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'PART_NOT_FOUND' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'EMPTY_PARTS_LIST' }).error_code, 'InvalidPart');
+
+  // 4. isMalformedBase64Md5 branches
+  assert.equal(isMalformedBase64Md5(''), true);
+  assert.equal(isMalformedBase64Md5('   '), true);
+  assert.equal(isMalformedBase64Md5(null), true);
+  assert.equal(isMalformedBase64Md5(undefined), true);
+  assert.equal(isMalformedBase64Md5(12345), true);
+  assert.equal(isMalformedBase64Md5('short=='), true);
+  assert.equal(isMalformedBase64Md5('AAAAAAAAAAAAAAAAAAAAAA=='), false);
+  assert.equal(isMalformedBase64Md5('AAAAAAAAAAAAAAAAAAAAAB=='), true);
+
+  // 5. isMalformedSha256 branches
+  assert.equal(isMalformedSha256(''), true);
+  assert.equal(isMalformedSha256('   '), true);
+  assert.equal(isMalformedSha256(null), true);
+  assert.equal(isMalformedSha256(undefined), true);
+  assert.equal(isMalformedSha256(12345), true);
+  assert.equal(isMalformedSha256('not-64-chars'), true);
+  assert.equal(isMalformedSha256('a'.repeat(64)), false);
+  assert.equal(isMalformedSha256('A'.repeat(64)), false);
+  assert.equal(isMalformedSha256('z'.repeat(64)), true);
+
+  // 6. computePayloadSha256 & computePayloadMd5 string & Buffer branches
+  assert.equal(computePayloadSha256('hello'), computePayloadSha256(Buffer.from('hello')));
+  assert.equal(computePayloadMd5('hello'), computePayloadMd5(Buffer.from('hello')));
+
+  // 7. Additional dispatchS3Error and dispatchS3PutObject branch coverage
+  assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').reason, 'XAmzContentSHA256Mismatch');
+  assert.equal(dispatchS3Error(payload, validMd5).http_status, 200);
+  assert.equal(dispatchS3Error({ payloadBytes: payload, 'x-amz-content-sha256': validSha }).http_status, 200);
+  assert.equal(dispatchS3PutObject({ payloadBytes: payload }).http_status, 400);
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1.5 }] }).error_code, 'InvalidArgument');
 });

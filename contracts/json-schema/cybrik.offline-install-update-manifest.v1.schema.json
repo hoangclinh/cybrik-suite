@@ -169,7 +169,7 @@
             "properties": {
               "target": {
                 "type": "string",
-                "pattern": "^(?:snapshots\\/|\\$PRE_APPLY_SNAPSHOT\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+\\.(?:sql|db|bak)$"
+                "pattern": "^(?:snapshots|\\$PRE_APPLY_SNAPSHOT)\\/(?!.*\\/\\/)((?!\\.)[a-zA-Z0-9_\\-\\.]+\\/)*(?!\\.)[a-zA-Z0-9_\\-\\.]+\\.(?:sql|db|bak)$"
               },
               "parameters": {
                 "type": "object",

@@ -9,78 +9,170 @@
       "capability_name": "cap-oci",
       "slot_id": "oci_container_runtime",
       "description": "OCI runtime",
+      "is_mandatory": true,
+      "supported_features": [
+        "oci-runtime-spec-v1.0",
+        "containerd-compatible"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-1"]
     },
     {
       "capability_name": "cap-iso",
       "slot_id": "isolation_substrate",
       "description": "Isolation substrate",
+      "is_mandatory": true,
+      "supported_features": [
+        "gvisor-syscall-filter",
+        "disposable-sandbox"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-2"]
     },
     {
       "capability_name": "cap-orch",
       "slot_id": "orchestration_capability",
       "description": "Orchestration",
+      "is_mandatory": true,
+      "supported_features": [
+        "k8s-api-v1.28-compatible"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-3"]
     },
     {
       "capability_name": "cap-net",
       "slot_id": "network_segmentation",
       "description": "Network segmentation",
+      "is_mandatory": true,
+      "supported_features": [
+        "cni-network-policy-l3-l4"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-4"]
     },
     {
       "capability_name": "cap-store",
       "slot_id": "storage",
       "description": "Storage",
-      "evidence_references": ["urn:cybrik:evidence:ev-5"]
+      "is_mandatory": true,
+      "supported_features": [
+        "s3-api-v1.0",
+        "posix-filesystem",
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts"
+      ],
+      "degradation_fallback": "NONE",
+      "evidence_references": ["urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"]
     },
     {
       "capability_name": "cap-db",
       "slot_id": "database",
       "description": "Database",
+      "is_mandatory": true,
+      "supported_features": [
+        "postgresql-v15",
+        "acid-transactions"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-6"]
     },
     {
       "capability_name": "cap-cache",
       "slot_id": "cache",
       "description": "Cache",
+      "is_mandatory": true,
+      "supported_features": [
+        "valkey-v7-compatible",
+        "in-memory-kv"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-7"]
     },
     {
       "capability_name": "cap-sec",
       "slot_id": "secrets",
       "description": "Secrets",
+      "is_mandatory": true,
+      "supported_features": [
+        "envelope-encryption",
+        "transit-key-derivation"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-8"]
     },
     {
       "capability_name": "cap-crypt",
       "slot_id": "crypto",
       "description": "Crypto",
+      "is_mandatory": true,
+      "supported_features": [
+        "ed25519-signing",
+        "aes-256-gcm",
+        "pqc-hybrid-agile"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-9"]
     },
     {
       "capability_name": "cap-id",
       "slot_id": "identity_workload_identity",
       "description": "Identity",
+      "is_mandatory": true,
+      "supported_features": [
+        "spiffe-spire-x509",
+        "jwt-svid"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-10"]
     },
     {
       "capability_name": "cap-obs",
       "slot_id": "observability",
       "description": "Observability",
+      "is_mandatory": true,
+      "supported_features": [
+        "opentelemetry-metrics-logs-v1.0"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-11"]
     },
     {
       "capability_name": "cap-ai",
       "slot_id": "ai_model_runtime",
       "description": "AI runtime",
+      "is_mandatory": true,
+      "supported_features": [
+        "openai-v1-chat-completions-compatible"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-12"]
     },
     {
       "capability_name": "cap-art",
       "slot_id": "artifact_update_mechanism",
       "description": "Artifact update",
+      "is_mandatory": true,
+      "supported_features": [
+        "rfc-8785-jcs-verified-bundles",
+        "airgap-reproducible"
+      ],
+      "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:ev-13"]
     }
   ],
@@ -89,7 +181,7 @@
     { "test_identifier": "urn:cybrik:evidence:ev-2", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/2" },
     { "test_identifier": "urn:cybrik:evidence:ev-3", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/3" },
     { "test_identifier": "urn:cybrik:evidence:ev-4", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/4" },
-    { "test_identifier": "urn:cybrik:evidence:ev-5", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/5" },
+    { "test_identifier": "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/5" },
     { "test_identifier": "urn:cybrik:evidence:ev-6", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/6" },
     { "test_identifier": "urn:cybrik:evidence:ev-7", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/7" },
     { "test_identifier": "urn:cybrik:evidence:ev-8", "status": "PASS", "evidence_pack_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "executed_at": "2026-08-25T12:00:00Z", "report_uri": "https://example.com/8" },

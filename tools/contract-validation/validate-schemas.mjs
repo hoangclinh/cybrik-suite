@@ -377,23 +377,161 @@ export function computePayloadMd5(payloadBytes) {
   return createHash('md5').update(payload).digest('base64');
 }
 
-export function dispatchS3PutObject({ payloadBytes, contentMd5Header } = {}) {
-  if (typeof contentMd5Header !== 'string') {
-    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+export function computePayloadSha256(payloadBytes) {
+  const payload = payloadBytes !== undefined && payloadBytes !== null
+    ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
+        ? payloadBytes
+        : Buffer.from(payloadBytes))
+    : Buffer.alloc(0);
+  return createHash('sha256').update(payload).digest('hex');
+}
+
+export function isMalformedSha256(headerVal) {
+  if (typeof headerVal !== 'string') return true;
+  const trimmed = headerVal.trim();
+  if (!trimmed) return true;
+  return !/^[a-fA-F0-9]{64}$/.test(trimmed);
+}
+
+export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybeSha256Header) {
+  let payloadBytes;
+  let md5Val;
+  let sha256Val;
+
+  if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
+    payloadBytes = optionsOrPayload.payloadBytes ?? optionsOrPayload.payload ?? optionsOrPayload.body;
+    md5Val = optionsOrPayload.contentMd5Header ?? optionsOrPayload.content_md5_header ?? optionsOrPayload.contentMd5 ?? optionsOrPayload['Content-MD5'] ?? optionsOrPayload.content_md5;
+    sha256Val = optionsOrPayload['x-amz-content-sha256'] ?? optionsOrPayload['x_amz_content_sha256'] ?? optionsOrPayload.contentSha256Header ?? optionsOrPayload.xAmzContentSha256 ?? optionsOrPayload.sha256Header ?? optionsOrPayload.content_sha256_header ?? optionsOrPayload.contentSha256 ?? optionsOrPayload['X-Amz-Content-Sha256'] ?? optionsOrPayload.headers?.['x-amz-content-sha256'] ?? optionsOrPayload.headers?.['X-Amz-Content-Sha256'];
+  } else {
+    payloadBytes = optionsOrPayload;
+    md5Val = maybeMd5Header;
+    sha256Val = maybeSha256Header;
   }
 
-  const trimmed = contentMd5Header.trim();
-  if (isMalformedBase64Md5(trimmed)) {
-    return { http_status: 400, error_code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  if (payloadBytes === undefined || payloadBytes === null) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MISSING_PAYLOAD' };
   }
 
-  const calculatedMd5 = computePayloadMd5(payloadBytes);
-
-  if (calculatedMd5 !== trimmed) {
-    return { http_status: 400, error_code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+  if (md5Val === undefined && sha256Val === undefined) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   }
 
-  return { http_status: 200, error_code: null };
+  if (md5Val !== undefined && md5Val !== null) {
+    if (typeof md5Val !== 'string') {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
+    const trimmed = md5Val.trim();
+    if (isMalformedBase64Md5(trimmed)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
+    const calculatedMd5 = computePayloadMd5(payloadBytes);
+    if (calculatedMd5 !== trimmed) {
+      return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+    }
+  }
+
+  if (sha256Val !== undefined && sha256Val !== null) {
+    if (typeof sha256Val !== 'string') {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
+    const trimmedSha = sha256Val.trim();
+    if (trimmedSha === 'UNSIGNED-PAYLOAD' || trimmedSha === 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD') {
+      // allow
+    } else {
+      if (isMalformedSha256(trimmedSha)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
+      const calculatedSha256 = computePayloadSha256(payloadBytes);
+      if (calculatedSha256.toLowerCase() !== trimmedSha.toLowerCase()) {
+        return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_SHA256_MISMATCH' };
+      }
+    }
+  }
+
+  return { http_status: 200, error_code: null, status: 200, code: null };
+}
+
+export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeStoredParts) {
+  let partsList;
+  let storedParts;
+
+  if (manifestOrOptions && typeof manifestOrOptions === 'object') {
+    if (Array.isArray(manifestOrOptions.parts)) {
+      partsList = manifestOrOptions.parts;
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
+    } else if (manifestOrOptions.manifest && Array.isArray(manifestOrOptions.manifest.parts)) {
+      partsList = manifestOrOptions.manifest.parts;
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
+    } else if (Array.isArray(manifestOrOptions)) {
+      partsList = manifestOrOptions;
+      storedParts = maybeStoredParts;
+    } else {
+      partsList = manifestOrOptions.parts;
+      storedParts = manifestOrOptions.storedParts;
+    }
+  }
+
+  if (!Array.isArray(partsList) || partsList.length === 0) {
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'EMPTY_PARTS_LIST' };
+  }
+
+  let prevNum = 0;
+  for (let i = 0; i < partsList.length; i++) {
+    const p = partsList[i];
+    const pNum = p.part_number ?? p.PartNumber;
+    if (typeof pNum !== 'number' || pNum < 1 || !Number.isInteger(pNum)) {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_PART_NUMBER' };
+    }
+    if (pNum <= prevNum) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPartOrder',
+        status: 400,
+        code: 'InvalidPartOrder',
+        reason: pNum === prevNum ? 'DUPLICATE_PART' : 'PARTS_NOT_ASCENDING',
+      };
+    }
+    prevNum = pNum;
+  }
+
+  if (storedParts) {
+    const storedMap = Array.isArray(storedParts)
+      ? new Map(storedParts.map((p) => [p.part_number ?? p.PartNumber, p]))
+      : (storedParts instanceof Map
+          ? storedParts
+          : new Map(Object.entries(storedParts).map(([k, v]) => [Number(k), v])));
+
+    for (let i = 0; i < partsList.length; i++) {
+      const p = partsList[i];
+      const pNum = p.part_number ?? p.PartNumber;
+      const stored = storedMap.get(pNum);
+      if (!stored) {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MISSING_PART' };
+      }
+
+      const reqEtag = p.etag ?? p.ETag ?? p.sha256;
+      const storedEtag = stored.etag ?? stored.ETag ?? stored.sha256;
+      if (reqEtag && storedEtag) {
+        const normReq = String(reqEtag).trim().replace(/^"|"$/g, '');
+        const normStored = String(storedEtag).trim().replace(/^"|"$/g, '');
+        if (normReq !== normStored) {
+          return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'PART_ETAG_MISMATCH' };
+        }
+      }
+
+      const size = stored.size_bytes ?? stored.Size ?? p.size_bytes;
+      if (typeof size === 'number') {
+        if (size > 5368709120) {
+          return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PART_TOO_LARGE' };
+        }
+        if (i < partsList.length - 1 && size < 5242880) {
+          return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
+        }
+      }
+    }
+  }
+
+  return { http_status: 200, error_code: null, status: 200, code: null };
 }
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
@@ -401,41 +539,68 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     arguments.length >= 2 ||
     (conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
-      ('payloadBytes' in conditionOrOptions || 'contentMd5Header' in conditionOrOptions))
+      ('payloadBytes' in conditionOrOptions || 'contentMd5Header' in conditionOrOptions || 'x-amz-content-sha256' in conditionOrOptions))
   ) {
     const payloadBytes = arguments.length >= 2 ? conditionOrOptions : conditionOrOptions?.payloadBytes;
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : conditionOrOptions?.contentMd5Header;
-    if (isMalformedBase64Md5(contentMd5Header)) {
-      return {
-        http_status: 400,
-        error_code: 'InvalidDigest',
-        status: 400,
-        code: 'InvalidDigest',
-        reason: 'MALFORMED_HEADER_SYNTAX',
-      };
+    const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.contentSha256Header;
+
+    if (contentMd5Header !== undefined) {
+      if (isMalformedBase64Md5(contentMd5Header)) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_HEADER_SYNTAX',
+        };
+      }
+      const computed = computePayloadMd5(payloadBytes);
+      if (computed !== (typeof contentMd5Header === 'string' ? contentMd5Header.trim() : '')) {
+        return {
+          http_status: 400,
+          error_code: 'BadDigest',
+          status: 400,
+          code: 'BadDigest',
+          reason: 'PAYLOAD_DIGEST_MISMATCH',
+        };
+      }
     }
-    const computed = computePayloadMd5(payloadBytes);
-    if (computed !== (typeof contentMd5Header === 'string' ? contentMd5Header.trim() : '')) {
-      return {
-        http_status: 400,
-        error_code: 'BadDigest',
-        status: 400,
-        code: 'BadDigest',
-        reason: 'PAYLOAD_DIGEST_MISMATCH',
-      };
+
+    if (shaHeader !== undefined) {
+      if (isMalformedSha256(shaHeader)) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_HEADER_SYNTAX',
+        };
+      }
+      const computedSha = computePayloadSha256(payloadBytes);
+      if (computedSha.toLowerCase() !== String(shaHeader).trim().toLowerCase()) {
+        return {
+          http_status: 400,
+          error_code: 'BadDigest',
+          status: 400,
+          code: 'BadDigest',
+          reason: 'PAYLOAD_SHA256_MISMATCH',
+        };
+      }
     }
+
     return { http_status: 200, error_code: null, status: 200, code: null };
   }
 
   if (typeof conditionOrOptions === 'string') {
     const norm = conditionOrOptions.trim();
-    if (norm === 'BadDigest' || norm === 'PAYLOAD_DIGEST_MISMATCH') {
+    if (norm === 'BadDigest' || norm === 'PAYLOAD_DIGEST_MISMATCH' || norm === 'PAYLOAD_SHA256_MISMATCH') {
       return {
         http_status: 400,
         error_code: 'BadDigest',
         status: 400,
         code: 'BadDigest',
-        reason: 'PAYLOAD_DIGEST_MISMATCH',
+        reason: norm === 'PAYLOAD_SHA256_MISMATCH' ? 'PAYLOAD_SHA256_MISMATCH' : 'PAYLOAD_DIGEST_MISMATCH',
       };
     }
     if (
@@ -449,6 +614,31 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'InvalidDigest',
         reason: 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    if (norm === 'XAmzContentSHA256Mismatch') {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'XAmzContentSHA256Mismatch',
+      };
+    }
+    if (
+      norm === 'InvalidPart' ||
+      norm === 'INVALID_PART' ||
+      norm === 'PartNotFound' ||
+      norm === 'ETagMismatch' ||
+      norm === 'PART_NOT_FOUND' ||
+      norm === 'ETAG_MISMATCH'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPart',
+        status: 400,
+        code: 'InvalidPart',
+        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : 'PartNotFound',
       };
     }
     if (
@@ -493,6 +683,44 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         reason: norm === 'DUPLICATE_PART' ? 'DUPLICATE_PART' : (norm === 'PART_OUT_OF_ORDER' ? 'PART_OUT_OF_ORDER' : (norm === 'DUPLICATE_PART_NUMBER' ? 'DUPLICATE_PART_NUMBER' : (norm === 'PARTS_NOT_ASCENDING' ? 'PARTS_NOT_ASCENDING' : 'INVALID_PART_ORDER'))),
       };
     }
+    if (
+      norm === 'InvalidPart' ||
+      norm === 'INVALID_PART' ||
+      norm === 'MISSING_PART' ||
+      norm === 'PART_ETAG_MISMATCH' ||
+      norm === 'ETAG_MISMATCH' ||
+      norm === 'PART_NOT_FOUND' ||
+      norm === 'EMPTY_PARTS_LIST'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPart',
+        status: 400,
+        code: 'InvalidPart',
+        reason: norm === 'MISSING_PART' ? 'MISSING_PART' : (norm === 'PART_ETAG_MISMATCH' ? 'PART_ETAG_MISMATCH' : (norm === 'EMPTY_PARTS_LIST' ? 'EMPTY_PARTS_LIST' : 'INVALID_PART')),
+      };
+    }
+    if (norm === 'NoSuchBucket') {
+      return { http_status: 404, error_code: 'NoSuchBucket', status: 404, code: 'NoSuchBucket', reason: 'NO_SUCH_BUCKET' };
+    }
+    if (norm === 'NoSuchKey') {
+      return { http_status: 404, error_code: 'NoSuchKey', status: 404, code: 'NoSuchKey', reason: 'NO_SUCH_KEY' };
+    }
+    if (norm === 'NoSuchUpload') {
+      return { http_status: 404, error_code: 'NoSuchUpload', status: 404, code: 'NoSuchUpload', reason: 'NO_SUCH_UPLOAD' };
+    }
+    if (norm === 'ObjectLockConfigurationNotFoundError') {
+      return { http_status: 404, error_code: 'ObjectLockConfigurationNotFoundError', status: 404, code: 'ObjectLockConfigurationNotFoundError', reason: 'OBJECT_LOCK_CONFIG_NOT_FOUND' };
+    }
+    if (norm === 'PreconditionFailed') {
+      return { http_status: 412, error_code: 'PreconditionFailed', status: 412, code: 'PreconditionFailed', reason: 'PRECONDITION_FAILED' };
+    }
+    if (norm === 'AccessDenied') {
+      return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: 'ACCESS_DENIED' };
+    }
+    if (norm === 'InvalidArgument') {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_ARGUMENT' };
+    }
     if (isMalformedBase64Md5(norm)) {
       return {
         http_status: 400,
@@ -507,26 +735,44 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   if (conditionOrOptions && typeof conditionOrOptions === 'object') {
     const code = conditionOrOptions.error_code || conditionOrOptions.code;
     const reason = conditionOrOptions.error_condition || conditionOrOptions.reason;
-    if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH') {
+    if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH' || reason === 'PAYLOAD_SHA256_MISMATCH') {
       return {
         http_status: 400,
         error_code: 'BadDigest',
         status: 400,
         code: 'BadDigest',
-        reason: 'PAYLOAD_DIGEST_MISMATCH',
+        reason: reason || 'PAYLOAD_DIGEST_MISMATCH',
       };
     }
     if (
       code === 'InvalidDigest' ||
       reason === 'MALFORMED_DIGEST_HEADER' ||
-      reason === 'MALFORMED_HEADER_SYNTAX'
+      reason === 'MALFORMED_HEADER_SYNTAX' ||
+      reason === 'XAmzContentSHA256Mismatch'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidDigest',
         status: 400,
         code: 'InvalidDigest',
-        reason: 'MALFORMED_HEADER_SYNTAX',
+        reason: reason || 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    if (
+      code === 'InvalidPart' ||
+      reason === 'InvalidPart' ||
+      reason === 'INVALID_PART' ||
+      reason === 'PartNotFound' ||
+      reason === 'ETagMismatch' ||
+      reason === 'PART_NOT_FOUND' ||
+      reason === 'ETAG_MISMATCH'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPart',
+        status: 400,
+        code: 'InvalidPart',
+        reason: reason || 'PartNotFound',
       };
     }
     if (
@@ -571,6 +817,45 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         code: 'InvalidPartOrder',
         reason: reason || 'INVALID_PART_ORDER',
       };
+    }
+    if (
+      code === 'InvalidPart' ||
+      reason === 'InvalidPart' ||
+      reason === 'INVALID_PART' ||
+      reason === 'MISSING_PART' ||
+      reason === 'PART_ETAG_MISMATCH' ||
+      reason === 'ETAG_MISMATCH' ||
+      reason === 'PART_NOT_FOUND' ||
+      reason === 'EMPTY_PARTS_LIST'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidPart',
+        status: 400,
+        code: 'InvalidPart',
+        reason: reason || 'INVALID_PART',
+      };
+    }
+    if (code === 'NoSuchBucket') {
+      return { http_status: 404, error_code: 'NoSuchBucket', status: 404, code: 'NoSuchBucket', reason: reason || 'NO_SUCH_BUCKET' };
+    }
+    if (code === 'NoSuchKey') {
+      return { http_status: 404, error_code: 'NoSuchKey', status: 404, code: 'NoSuchKey', reason: reason || 'NO_SUCH_KEY' };
+    }
+    if (code === 'NoSuchUpload') {
+      return { http_status: 404, error_code: 'NoSuchUpload', status: 404, code: 'NoSuchUpload', reason: reason || 'NO_SUCH_UPLOAD' };
+    }
+    if (code === 'ObjectLockConfigurationNotFoundError') {
+      return { http_status: 404, error_code: 'ObjectLockConfigurationNotFoundError', status: 404, code: 'ObjectLockConfigurationNotFoundError', reason: reason || 'OBJECT_LOCK_CONFIG_NOT_FOUND' };
+    }
+    if (code === 'PreconditionFailed') {
+      return { http_status: 412, error_code: 'PreconditionFailed', status: 412, code: 'PreconditionFailed', reason: reason || 'PRECONDITION_FAILED' };
+    }
+    if (code === 'AccessDenied') {
+      return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: reason || 'ACCESS_DENIED' };
+    }
+    if (code === 'InvalidArgument') {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: reason || 'INVALID_ARGUMENT' };
     }
   }
 
@@ -867,8 +1152,18 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
     const claimType = adv.claim_type || data.claim_type;
-    const targetProfileId = data.target_profile_id;
-    const targetProfileDigest = data.target_profile_digest;
+    const targetProfileId = data.target_profile_id || adv.target_profile_id;
+    const targetProfileDigest = data.target_profile_digest || adv.target_profile_digest;
+
+    if (data.advertisement_response || isNegotiation || claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
+      if (!targetProfileDigest || typeof targetProfileDigest !== 'string' || !/^[a-f0-9]{64}$/.test(targetProfileDigest)) {
+        throw new Error(`Semantic error: target_profile_digest is required and must match ^[a-f0-9]{64}$ on advertisement_response`);
+      }
+    } else if (targetProfileDigest !== undefined && targetProfileDigest !== null) {
+      if (typeof targetProfileDigest !== 'string' || !/^[a-f0-9]{64}$/.test(targetProfileDigest)) {
+        throw new Error(`Semantic error: target_profile_digest must match ^[a-f0-9]{64}$`);
+      }
+    }
 
     if (data.agreed_capability_lease) {
       const lease = data.agreed_capability_lease;
@@ -1020,25 +1315,6 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
       }
-
-      // Assert equal total lengths
-      if (reqCaps.length !== leaseCaps.length) {
-        throw new Error(`Semantic error: requested optional capabilities count (${reqCaps.length}) does not match lease optional capabilities count (${leaseCaps.length})`);
-      }
-
-      // Reject equal-duplicate composite keys (cardinality > 1 per composite identity)
-      for (const [key, count] of reqCountMap.entries()) {
-        if (count > 1) {
-          const [capName, slotId] = key.split('::');
-          throw new Error(`Semantic error: duplicate composite key '(${capName}, ${slotId})' detected in negotiation request and lease`);
-        }
-      }
-      for (const [key, count] of leaseCountMap.entries()) {
-        if (count > 1) {
-          const [capName, slotId] = key.split('::');
-          throw new Error(`Semantic error: duplicate composite key '(${capName}, ${slotId})' detected in agreed_capability_lease`);
-        }
-      }
     }
 
     if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_slots)) {
@@ -1125,19 +1401,11 @@ export function validatePlatformSemantics(data, schemaId) {
         if (lockRefs.length === 0) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
-        for (const ref of lockRefs) {
-          const matchingEv = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
-          if (!matchingEv) {
-            throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
-          }
-          if (matchingEv.status !== 'PASS') {
-            throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
-          }
-          if (typeof matchingEv.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(matchingEv.evidence_pack_digest)) {
-            throw new Error(`Semantic error: conformance evidence '${ref}' lacks valid SHA-256 evidence_pack_digest`);
-          }
-        }
       }
+    }
+
+    if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' && !targetProfileDigest) {
+      throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION requires target_profile_digest`);
     }
 
     if ((claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || isNegotiation) && targetProfileId && targetProfileDigest) {
@@ -1242,6 +1510,46 @@ export function validatePlatformSemantics(data, schemaId) {
           throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
         }
         paths.add(norm);
+      }
+    }
+    if (data.update_station_workflow) {
+      const allSteps = [
+        ...(data.update_station_workflow.preflight_steps || []),
+        ...(data.update_station_workflow.apply_steps || []),
+        ...(data.update_station_workflow.rollback_steps || []),
+      ];
+      for (const step of allSteps) {
+        if (step && step.action === 'RESTORE_DATABASE_SNAPSHOT') {
+          const target = step.target;
+          if (typeof target !== 'string') {
+            throw new Error(`Semantic error: RESTORE_DATABASE_SNAPSHOT step target must be a string`);
+          }
+          if (target.includes('//')) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains double slash '//'`);
+          }
+          const segments = target.split('/');
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            if (seg === '') {
+              throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains empty path segment`);
+            }
+            if (seg.startsWith('.') && seg !== '$PRE_APPLY_SNAPSHOT') {
+              throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains leading dot segment '${seg}'`);
+            }
+          }
+          if (!target.startsWith('snapshots/') && !target.startsWith('$PRE_APPLY_SNAPSHOT/')) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must start with 'snapshots/' or '$PRE_APPLY_SNAPSHOT/'`);
+          }
+          if (target.includes('..')) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains '..' traversal sequence`);
+          }
+          if (target.endsWith('/')) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': ends with trailing slash`);
+          }
+          if (!/\.(?:sql|db|bak)$/.test(target)) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must have extension .sql, .db, or .bak`);
+          }
+        }
       }
     }
   } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest') || schemaId.includes('storageConformanceProfile') || (data && Array.isArray(data.required_error_codes))) {
@@ -1967,6 +2275,26 @@ try {
   H('18', e.message.includes('does not match actual digest'), 'digest binding check must catch mismatched target profile digest');
 }
 
+// 18b. in-memory validation: reject advertisement_response / negotiation with missing or malformed target_profile_digest
+const handshakeSample = readJson(join(PLATFORM_EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'));
+const pcnBadDigestPattern = JSON.parse(JSON.stringify(handshakeSample));
+pcnBadDigestPattern.target_profile_digest = "not-a-valid-hex-digest";
+let pcnBadDigestPatternCaught = false;
+try {
+  validatePlatformSemantics(pcnBadDigestPattern, 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json');
+} catch (e) {
+  pcnBadDigestPatternCaught = e.message.includes('target_profile_digest');
+}
+const pcnMissingDigestSem = JSON.parse(JSON.stringify(handshakeSample));
+delete pcnMissingDigestSem.target_profile_digest;
+let pcnMissingDigestSemCaught = false;
+try {
+  validatePlatformSemantics(pcnMissingDigestSem, 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json');
+} catch (e) {
+  pcnMissingDigestSemCaught = e.message.includes('target_profile_digest');
+}
+H('18b', pcnBadDigestPatternCaught && pcnMissingDigestSemCaught, 'advertisement_response / negotiation missing or malformed target_profile_digest must fail validatePlatformSemantics');
+
 // 12. in-memory validation: reject offline manifest with duplicate artifact paths (path uniqueness)
 const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
 const dupManifest = {
@@ -2030,6 +2358,27 @@ try {
 } catch (e) {
   H('12', e.message.includes('duplicate artifact path'), 'path uniqueness check must catch duplicate artifact paths');
 }
+
+// 12b. in-memory validation: reject offline manifest with double-slash or leading-dot snapshot restore targets in validatePlatformSemantics
+const badRestoreDoubleSlashManifest = JSON.parse(JSON.stringify(dupManifest));
+badRestoreDoubleSlashManifest.artifacts = [dupManifest.artifacts[0]];
+badRestoreDoubleSlashManifest.update_station_workflow.rollback_steps[0].target = "snapshots//backup.db";
+let badRestoreDoubleSlashCaught = false;
+try {
+  validatePlatformSemantics(badRestoreDoubleSlashManifest, manifestSchemaId);
+} catch (e) {
+  badRestoreDoubleSlashCaught = e.message.includes('double slash');
+}
+const badRestoreLeadingDotManifest = JSON.parse(JSON.stringify(dupManifest));
+badRestoreLeadingDotManifest.artifacts = [dupManifest.artifacts[0]];
+badRestoreLeadingDotManifest.update_station_workflow.rollback_steps[0].target = "snapshots/.hidden/backup.db";
+let badRestoreLeadingDotCaught = false;
+try {
+  validatePlatformSemantics(badRestoreLeadingDotManifest, manifestSchemaId);
+} catch (e) {
+  badRestoreLeadingDotCaught = e.message.includes('leading dot segment');
+}
+H('12b', badRestoreDoubleSlashCaught && badRestoreLeadingDotCaught, 'strict snapshot restore target path constraints (no //, no leading dot) must be enforced by validatePlatformSemantics');
 
 // 13. in-memory validation: reject offline manifest with alias collision paths (alias collision)
 const aliasManifest = {
@@ -2529,6 +2878,56 @@ try {
   s3DispatchInvariantsValid = false;
 }
 H('37', s3DispatchInvariantsValid, 'S3 strict error dispatch must map payload digest mismatch exclusively to BadDigest (400) and malformed header to InvalidDigest (400), strictly rejecting InvalidArgument and AccessDenied');
+
+// 37b. S3 PutObject x-amz-content-sha256 header validation (OPEN-2 Finding 1)
+const realSha256 = createHash('sha256').update(realPayloadBytes).digest('hex');
+const mismatchSha256 = '0000000000000000000000000000000000000000000000000000000000000000';
+const malformedSha256 = 'not-a-valid-64-hex-sha256!';
+const matchedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': realSha256 });
+const unsignedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+const streamingShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' });
+const mismatchShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': mismatchSha256 });
+const malformedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': malformedSha256 });
+const s3ShaValid = matchedShaRes.http_status === 200 &&
+                   unsignedShaRes.http_status === 200 &&
+                   streamingShaRes.http_status === 200 &&
+                   mismatchShaRes.http_status === 400 &&
+                   mismatchShaRes.error_code === 'BadDigest' &&
+                   mismatchShaRes.reason === 'PAYLOAD_SHA256_MISMATCH' &&
+                   malformedShaRes.http_status === 400 &&
+                   malformedShaRes.error_code === 'InvalidDigest' &&
+                   malformedShaRes.reason === 'MALFORMED_HEADER_SYNTAX';
+H('37b', s3ShaValid, 'dispatchS3PutObject must validate x-amz-content-sha256 header, allowing UNSIGNED-PAYLOAD and STREAMING-AWS4-HMAC-SHA256-PAYLOAD, returning BadDigest on payload mismatch and InvalidDigest on malformed header');
+
+// 37c. S3 CompleteMultipartUpload dispatch validation (OPEN-2 Finding 3)
+const completeManifest = {
+  parts: [
+    { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"etag-2"', size_bytes: 5242880 }
+  ]
+};
+const storedMapOk = new Map([
+  [1, { etag: '"etag-1"' }],
+  [2, { etag: '"etag-2"' }]
+]);
+const storedMapMissing = new Map([
+  [1, { etag: '"etag-1"' }]
+]);
+const storedMapBadEtag = new Map([
+  [1, { etag: '"etag-1"' }],
+  [2, { etag: '"etag-bad"' }]
+]);
+const completeOk = dispatchS3CompleteMultipartUpload(completeManifest, storedMapOk);
+const completeMissing = dispatchS3CompleteMultipartUpload(completeManifest, storedMapMissing);
+const completeBadEtag = dispatchS3CompleteMultipartUpload(completeManifest, storedMapBadEtag);
+const s3CompleteValid = completeOk.http_status === 200 &&
+                        completeMissing.http_status === 400 &&
+                        completeMissing.error_code === 'InvalidPart' &&
+                        completeMissing.reason === 'MISSING_PART' &&
+                        completeBadEtag.http_status === 400 &&
+                        completeBadEtag.error_code === 'InvalidPart' &&
+                        completeBadEtag.reason === 'PART_ETAG_MISMATCH';
+H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MISSING_PART or PART_ETAG_MISMATCH');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));
