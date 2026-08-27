@@ -1386,10 +1386,10 @@ const pcnMissingValid = ajv.validate(pcnSchemaId, pcnMissingMandatory);
 H('22', !pcnMissingValid && ajv.errors.some(e => e.keyword === 'contains'), 'Capability negotiation lease missing mandatory oci_container_runtime slot must be rejected via contains');
 
 // 22b. in-memory validation: reject missing core mandatory slot in negotiation_request.requested_slots
-const pcnMissingReqSlot = JSON.parse(JSON.stringify(pcnSample));
-pcnMissingReqSlot.negotiation_request.requested_slots = pcnMissingReqSlot.negotiation_request.requested_slots.filter(s => s !== 'storage');
+const pcnMissingReqSlotSemantic = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingReqSlotSemantic.negotiation_request.requested_slots = pcnMissingReqSlotSemantic.negotiation_request.requested_slots.filter(s => s !== 'storage');
 try {
-  validatePlatformSemantics(pcnMissingReqSlot, pcnSchemaId);
+  validatePlatformSemantics(pcnMissingReqSlotSemantic, pcnSchemaId);
   fail('missing requested slot: expected validatePlatformSemantics to throw when core mandatory slot is missing from requested_slots');
 } catch (e) {
   H('22b', e.message.includes('missing core mandatory slot'), 'negotiation request check must catch missing core mandatory slot');
