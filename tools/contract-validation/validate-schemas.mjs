@@ -653,6 +653,9 @@ export function validatePlatformSemantics(data, schemaId) {
         if (validTests.has(e.test_identifier)) {
           throw new Error(`Semantic error: duplicate test_identifier '${e.test_identifier}'`);
         }
+        if (e.status === 'FAIL' || e.status === 'FAILED') {
+          throw new Error(`Semantic error: conformance evidence '${e.test_identifier}' has failed status '${e.status}'`);
+        }
         validTests.add(e.test_identifier);
       }
       for (const cap of adv.advertised_capabilities) {
@@ -767,7 +770,8 @@ export function validatePlatformSemantics(data, schemaId) {
                   binding.capability_name === 'storage_object_lock' ||
                   binding.slot_id === 'storage' ||
                   binding.feature === 'object_lock' ||
-                  (typeof binding.name === 'string' && binding.name.toLowerCase().includes('object-lock'));
+                  binding.name === 'storage_object_lock' ||
+                  binding.name === 'object_lock';
                 if (isLockBinding) {
                   const evId = binding.evidence_id || binding.test_identifier || binding.urn;
                   if (evId) {
@@ -778,7 +782,7 @@ export function validatePlatformSemantics(data, schemaId) {
                     if (!validTests.has(evId)) {
                       throw new Error(`Semantic error: Object Lock evidence binding '${evId}' not found in conformance evidence`);
                     }
-                    if (evId.startsWith('urn:') && !/^urn:[a-z0-9][a-z0-9-]{0,31}:[a-z0-9()+,\-.:=@;$_!*'%/?#]+$/i.test(evId)) {
+                    if (typeof evId === 'string' && evId.startsWith('urn:') && !/^urn:[a-z0-9][a-z0-9-]{0,31}:[a-z0-9()+,\-.:=@;$_!*'%/?#]+$/i.test(evId)) {
                       throw new Error(`Semantic error: Object Lock evidence binding URN '${evId}' is malformed`);
                     }
                   }
@@ -789,9 +793,7 @@ export function validatePlatformSemantics(data, schemaId) {
                 const isLockKey =
                   key === 'storage_object_lock' ||
                   key === 'storage' ||
-                  key === 'object_lock' ||
-                  key.toLowerCase().includes('object-lock') ||
-                  key.toLowerCase().includes('retention');
+                  key === 'object_lock';
                 if (isLockKey) {
                   const evId = typeof val === 'string' ? val : (val?.evidence_id || val?.test_identifier || val?.urn);
                   if (evId) {
@@ -812,17 +814,16 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        const hasObjectLockEvidence = (adv.conformance_evidence || []).some(
-          e => storageRefs.has(e.test_identifier) && (
-            (boundObjectLockEvidenceId && e.test_identifier === boundObjectLockEvidenceId) ||
-            e.test_identifier.toLowerCase().includes('object-lock') ||
-            e.test_identifier.toLowerCase().includes('retention') ||
-            e.test_identifier.toLowerCase().includes('worm') ||
-            e.report_uri.toLowerCase().includes('object-lock') ||
-            e.report_uri.toLowerCase().includes('retention') ||
-            e.report_uri.toLowerCase().includes('worm')
-          )
-        );
+        const OBJECT_LOCK_URN_PATTERN = /^urn:cybrik:evidence:(?:storage:object-lock|storage-object-lock|object-lock)(?::[a-zA-Z0-9_-]+)*$/;
+
+        const hasObjectLockEvidence = (storageCap.evidence_references || []).some(ref => {
+          if (!OBJECT_LOCK_URN_PATTERN.test(ref)) return false;
+          const evRecord = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
+          if (!evRecord) return false;
+          if (evRecord.status !== undefined && evRecord.status !== 'PASS') return false;
+          if (evRecord.evidence_pack_digest !== undefined && (typeof evRecord.evidence_pack_digest !== 'string' || !/^[a-f0-9]{64}$/.test(evRecord.evidence_pack_digest))) return false;
+          return true;
+        });
         if (!hasObjectLockEvidence) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
@@ -1882,8 +1883,8 @@ try {
 // 29b. in-memory validation: reject storage capability missing Object Lock retention evidence
 const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
 const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-storeCap2.evidence_references = ["urn:cybrik:evidence:ev-store-01"];
-pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:ev-store-object-lock-01');
+storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
+pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1');
 try {
   validatePlatformSemantics(pcnStorageMissingLockEv, pcnSchemaId);
   fail('storage Object Lock evidence: expected validatePlatformSemantics to throw when Object Lock evidence is missing');

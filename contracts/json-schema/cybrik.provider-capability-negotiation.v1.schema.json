@@ -320,8 +320,7 @@
             "properties": {
               "test_identifier": {
                 "type": "string",
-                "minLength": 1,
-                "pattern": "\\S+"
+                "pattern": "^urn:cybrik:evidence:[a-zA-Z0-9_-]+(?::[a-zA-Z0-9_-]+)*$"
               },
               "verification_method": {
                 "type": "string",

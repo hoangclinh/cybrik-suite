@@ -935,8 +935,8 @@ test('in-memory validation: reject storage capability missing 17-op baseline or 
   // Missing Object Lock retention evidence
   const data2 = JSON.parse(JSON.stringify(sample));
   const storeCap2 = data2.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCap2.evidence_references = ["urn:cybrik:evidence:ev-store-01"];
-  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:ev-store-object-lock-01');
+  storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
+  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1');
   assert.throws(() => validatePlatformSemantics(data2, schemaId), /lacks Object Lock retention evidence/);
 });
 
@@ -1171,8 +1171,18 @@ test('in-memory validation: structured evidence URI enforcement in provider capa
     data.advertisement_response.conformance_evidence[0].test_identifier = uri;
     const ok = ajv.validate(schemaId, data);
     assert.ok(!ok, `Expected invalid evidence URI '${uri}' to be rejected by schema`);
-    const hasPatternError = ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('evidence_references'));
-    assert.ok(hasPatternError, `Expected pattern error on evidence_references for '${uri}'`);
+    const hasPatternError = ajv.errors.some(e => e.keyword === 'pattern' && (e.instancePath.includes('evidence_references') || e.instancePath.includes('conformance_evidence')));
+    assert.ok(hasPatternError, `Expected pattern error on evidence_references or conformance_evidence for '${uri}'`);
+  }
+
+  // Invalid test_identifier alone rejected by schema pattern
+  for (const uri of invalidURIs) {
+    const data = JSON.parse(JSON.stringify(sample));
+    data.advertisement_response.conformance_evidence[0].test_identifier = uri;
+    const ok = ajv.validate(schemaId, data);
+    assert.ok(!ok, `Expected invalid test_identifier '${uri}' to be rejected by schema`);
+    const hasPatternError = ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath.includes('conformance_evidence'));
+    assert.ok(hasPatternError, `Expected pattern error on conformance_evidence test_identifier for '${uri}'`);
   }
 });
 
@@ -1813,29 +1823,187 @@ test('in-memory validation: reject lease with GRANTED_FULL storage capability wi
   }
 });
 
-test('in-memory validation: reject fake non-URN Object Lock evidence (Finding 3 / OPEN-5)', () => {
+test('in-memory validation: Object Lock evidence validation across Ajv schema and semantic validation (Finding 3 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 1. Storage capability with fake unbacked evidence (no Object Lock / retention / WORM evidence) is rejected
+  // 1. Positive test: Canonical URN urn:cybrik:evidence:storage:object-lock:v1 passes both Ajv schema and semantic validation
+  const dataCanonical = JSON.parse(JSON.stringify(sample));
+  const storeCapCanonical = dataCanonical.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapCanonical.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1", "urn:cybrik:evidence:storage:object-lock:v1"];
+  const validCanonical = ajv.validate(schemaId, dataCanonical);
+  assert.ok(validCanonical, 'Canonical Object Lock evidence URN must pass Ajv schema validation: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(dataCanonical, schemaId),
+    'Canonical Object Lock evidence URN must pass semantic validation'
+  );
+
+  // 2. Valid canonical structured URN patterns pass both Ajv schema and semantic validation
+  const validCanonicalUrns = [
+    'urn:cybrik:evidence:storage:object-lock',
+    'urn:cybrik:evidence:storage-object-lock',
+    'urn:cybrik:evidence:object-lock',
+    'urn:cybrik:evidence:storage:object-lock:01',
+    'urn:cybrik:evidence:storage-object-lock:01',
+    'urn:cybrik:evidence:object-lock:retention-v1',
+    'urn:cybrik:evidence:storage:object-lock:compliance:2026'
+  ];
+  for (const canonicalUrn of validCanonicalUrns) {
+    const dataCan = JSON.parse(JSON.stringify(sample));
+    const sc = dataCan.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    sc.evidence_references = [canonicalUrn];
+    dataCan.advertisement_response.conformance_evidence = [
+      ...dataCan.advertisement_response.conformance_evidence.filter(
+        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      ),
+      {
+        test_identifier: canonicalUrn,
+        verification_method: "AUTOMATED_TEST",
+        report_uri: "https://reports.cybrik.example/evidence/canonical.json"
+      }
+    ];
+    const ok = ajv.validate(schemaId, dataCan);
+    assert.ok(ok, `Canonical URN '${canonicalUrn}' must pass Ajv schema validation: ` + ajv.errorsText());
+    assert.doesNotThrow(
+      () => validatePlatformSemantics(dataCan, schemaId),
+      `Canonical URN '${canonicalUrn}' must pass semantic validation`
+    );
+  }
+
+  // 3. Negative test: Schema-valid generic evidence URN passes Ajv schema validation but fails semantic validation with lacks Object Lock retention evidence
+  const dataGeneric = JSON.parse(JSON.stringify(sample));
+  const storeCapGeneric = dataGeneric.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapGeneric.evidence_references = ["urn:cybrik:evidence:generic-storage-report-01"];
+  dataGeneric.advertisement_response.conformance_evidence = [
+    ...dataGeneric.advertisement_response.conformance_evidence.filter(
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+    ),
+    {
+      test_identifier: "urn:cybrik:evidence:generic-storage-report-01",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://reports.cybrik.example/evidence/generic-storage-report-01.json"
+    }
+  ];
+  const validGeneric = ajv.validate(schemaId, dataGeneric);
+  assert.ok(validGeneric, 'Schema-valid generic evidence URN must pass Ajv schema validation: ' + ajv.errorsText());
+  assert.throws(
+    () => validatePlatformSemantics(dataGeneric, schemaId),
+    /lacks Object Lock retention evidence/,
+    'Schema-valid generic evidence URN must fail semantic validation with lacks Object Lock retention evidence'
+  );
+
+  // 4. Negative test: Loose substring URNs pass Ajv schema validation but fail semantic validation with lacks Object Lock retention evidence
+  const looseSubstrings = [
+    'urn:cybrik:evidence:ev-store-object-lock-01',
+    'urn:cybrik:evidence:fake-object-lock-bypass',
+    'urn:cybrik:evidence:retention-evidence-01',
+    'urn:cybrik:evidence:worm-compliance-01',
+    'urn:cybrik:evidence:other-object-lock'
+  ];
+  for (const looseUrn of looseSubstrings) {
+    const dataLoose = JSON.parse(JSON.stringify(sample));
+    const sc = dataLoose.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    sc.evidence_references = [looseUrn];
+    dataLoose.advertisement_response.conformance_evidence = [
+      ...dataLoose.advertisement_response.conformance_evidence.filter(
+        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      ),
+      {
+        test_identifier: looseUrn,
+        verification_method: "AUTOMATED_TEST",
+        report_uri: "https://reports.cybrik.example/evidence/loose.json"
+      }
+    ];
+    const ok = ajv.validate(schemaId, dataLoose);
+    assert.ok(ok, `Loose substring URN '${looseUrn}' must pass Ajv schema validation: ` + ajv.errorsText());
+    assert.throws(
+      () => validatePlatformSemantics(dataLoose, schemaId),
+      /lacks Object Lock retention evidence/,
+      `Loose substring URN '${looseUrn}' must be rejected by semantic validation`
+    );
+  }
+
+  // 5. Negative test: Fake non-URN Object Lock evidence is rejected by Ajv schema validation and semantic validation
   const dataFake = JSON.parse(JSON.stringify(sample));
-  const storeCap = dataFake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCap.evidence_references = ["ev-fake-non-urn"];
+  const storeCapFake = dataFake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapFake.evidence_references = ["ev-fake-non-urn"];
   dataFake.advertisement_response.conformance_evidence = [
-    ...dataFake.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'ev-store-object-lock-01' && e.test_identifier !== 'ev-store-01'),
+    ...dataFake.advertisement_response.conformance_evidence.filter(
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+    ),
     {
       test_identifier: "ev-fake-non-urn",
       verification_method: "AUTOMATED_TEST",
       report_uri: "http://attacker.example.com/fake-evidence.txt"
     }
   ];
+  const validFake = ajv.validate(schemaId, dataFake);
+  assert.ok(!validFake, 'Fake non-URN Object Lock evidence must be rejected by Ajv schema validation');
   assert.throws(
     () => validatePlatformSemantics(dataFake, schemaId),
     /lacks Object Lock retention evidence/,
-    'Fake non-URN Object Lock evidence must be rejected'
+    'Fake non-URN Object Lock evidence must be rejected by semantic validation'
   );
 
-  // 2. Storage capability with dangling fake evidence reference is rejected
+  // 6. Negative test: Object Lock URN not present in conformance_evidence passes Ajv schema but fails semantic validation
+  const dataMissingEv = JSON.parse(JSON.stringify(sample));
+  const storeCapMissing = dataMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapMissing.evidence_references = ["urn:cybrik:evidence:storage:object-lock:v1"];
+  dataMissingEv.advertisement_response.conformance_evidence = dataMissingEv.advertisement_response.conformance_evidence.filter(
+    e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1'
+  );
+  const validMissing = ajv.validate(schemaId, dataMissingEv);
+  assert.ok(validMissing, 'Object Lock URN not present in conformance_evidence must pass Ajv schema validation: ' + ajv.errorsText());
+  assert.throws(
+    () => validatePlatformSemantics(dataMissingEv, schemaId),
+    /evidence_reference 'urn:cybrik:evidence:storage:object-lock:v1' not found in conformance_evidence/,
+    'Object Lock URN not present in conformance_evidence must fail semantic validation'
+  );
+
+  // 7. Negative test: Object Lock evidence with status: "FAIL" fails semantic validation
+  const dataFailStatus = JSON.parse(JSON.stringify(sample));
+  const storeCapFail = dataFailStatus.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapFail.evidence_references = ["urn:cybrik:evidence:storage:object-lock:v1"];
+  dataFailStatus.advertisement_response.conformance_evidence = [
+    ...dataFailStatus.advertisement_response.conformance_evidence.filter(
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+    ),
+    {
+      test_identifier: "urn:cybrik:evidence:storage:object-lock:v1",
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://reports.cybrik.example/evidence/fail.json",
+      status: "FAIL"
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(dataFailStatus, schemaId),
+    /failed status 'FAIL'|lacks Object Lock retention evidence/,
+    'Object Lock evidence with status FAIL must be rejected'
+  );
+
+  // 8. Negative test: Object Lock evidence with malformed evidence_pack_digest is rejected
+  const dataBadDigest = JSON.parse(JSON.stringify(sample));
+  const scBadDig = dataBadDigest.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  scBadDig.evidence_references = ['urn:cybrik:evidence:storage-object-lock:01'];
+  dataBadDigest.advertisement_response.conformance_evidence = [
+    ...dataBadDigest.advertisement_response.conformance_evidence.filter(
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+    ),
+    {
+      test_identifier: 'urn:cybrik:evidence:storage-object-lock:01',
+      verification_method: "AUTOMATED_TEST",
+      report_uri: "https://reports.cybrik.example/evidence/baddig.json",
+      status: "PASS",
+      evidence_pack_digest: "not-a-valid-64-hex-digest"
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(dataBadDigest, schemaId),
+    /lacks Object Lock retention evidence/,
+    'Object Lock evidence with malformed evidence_pack_digest must be rejected'
+  );
+
+  // 9. Storage capability with dangling fake evidence reference is rejected
   const dataDangling = JSON.parse(JSON.stringify(sample));
   const storeCapDangling = dataDangling.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapDangling.evidence_references = ["urn:cybrik:evidence:nonexistent-evidence-ref"];

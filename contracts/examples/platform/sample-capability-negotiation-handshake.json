@@ -149,8 +149,8 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "urn:cybrik:evidence:ev-store-01",
-          "urn:cybrik:evidence:ev-store-object-lock-01"
+          "urn:cybrik:evidence:storage:s3-17-ops:v1",
+          "urn:cybrik:evidence:storage:object-lock:v1"
         ]
       },
       {
@@ -311,12 +311,12 @@
         "report_uri": "https://reports.cybrik.example/evidence/ev-net-01.json"
       },
       {
-        "test_identifier": "urn:cybrik:evidence:ev-store-01",
+        "test_identifier": "urn:cybrik:evidence:storage:s3-17-ops:v1",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-01.json"
       },
       {
-        "test_identifier": "urn:cybrik:evidence:ev-store-object-lock-01",
+        "test_identifier": "urn:cybrik:evidence:storage:object-lock:v1",
         "verification_method": "AUTOMATED_TEST",
         "report_uri": "https://reports.cybrik.example/evidence/ev-store-object-lock-01.json"
       },
