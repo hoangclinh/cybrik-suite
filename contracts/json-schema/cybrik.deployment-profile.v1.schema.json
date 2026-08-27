@@ -431,6 +431,39 @@
           "const": true
         }
       }
+    },
+    "slots": {
+      "type": "object",
+      "properties": {
+        "storage": {
+          "type": "object",
+          "properties": {
+            "slot_id": {
+              "const": "storage"
+            },
+            "specification": {
+              "type": "object",
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string"
+                },
+                "immutable_storage_required": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   },
   "required": [

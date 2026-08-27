@@ -4,7 +4,7 @@
   "provider_namespace": "cybrik-reference",
   "target_profile_id": "onprem-standard-v1",
   "target_profile_version": "1.0.0",
-  "target_profile_digest": "190dbf1dfaa6c153646f6eee6f7e6535cf84e736d25d039d0f8ec3bb564f7a9f",
+  "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
   "negotiation_status": "DEGRADED_LEASE_GRANTED",
   "negotiation_request": {
     "request_id": "req-onprem-init-01",
@@ -367,7 +367,7 @@
   "agreed_capability_lease": {
     "lease_id": "lease-onprem-std-20260827-01",
     "target_profile_id": "onprem-standard-v1",
-    "target_profile_digest": "190dbf1dfaa6c153646f6eee6f7e6535cf84e736d25d039d0f8ec3bb564f7a9f",
+    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
     "issued_at": "2026-08-27T12:00:02Z",
     "valid_until": "2026-08-27T13:00:02Z",
     "ttl_seconds": 3600,

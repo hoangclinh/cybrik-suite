@@ -230,7 +230,7 @@ A capability negotiation handshake document captures the complete tripartite int
   "provider_namespace": "cybrik-reference",
   "target_profile_id": "onprem-standard-v1",
   "target_profile_version": "1.0.0",
-  "target_profile_digest": "190dbf1dfaa6c153646f6eee6f7e6535cf84e736d25d039d0f8ec3bb564f7a9f",
+  "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
   "negotiation_status": "DEGRADED_LEASE_GRANTED",
   "negotiation_request": { ... },
   "advertisement_response": { ... },
