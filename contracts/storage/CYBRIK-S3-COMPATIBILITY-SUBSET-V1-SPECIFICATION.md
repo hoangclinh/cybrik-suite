@@ -1,6 +1,6 @@
 # Platform Contract Slot 5: Storage S3-Compatible Subset Specification v1
 
-**Status:** `PROPOSED (Open-Item OPEN-2 Elaboration) — NOT ACCEPTED`
+**Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
 **Authoring Phase:** `v0.1.0-proposed` (Architecture / governance proposal; carries no product, runtime, or deployment authority)
 **Document Identifier:** `contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md`
 **Contract Version:** `0.1.0-proposed`
@@ -51,13 +51,19 @@ Platform Contract Slot 5 (`storage`) provides the durable object persistence lay
 |      Normative Minimum S3-Compatible Subset Interface (OPEN-2 v1)          |
 |                                                                             |
 |   +---------------------+  +--------------------+  +--------------------+   |
-|   |   Object CRUD (5)   |  |  WORM / Lock (4)   |  |   Multipart (4)    |   |
-|   |  - PutObject        |  |  - PutObjRetention |  |  - CreateMPU       |   |
-|   |  - GetObject        |  |  - GetObjRetention |  |  - UploadPart      |   |
-|   |  - HeadObject       |  |  - PutObjLegalHold |  |  - CompleteMPU     |   |
-|   |  - DeleteObject     |  |  - GetObjLegalHold |  |  - AbortMPU        |   |
-|   |  - ListObjectsV2    |  |                    |  |                    |   |
+|   |   Object CRUD (5)   |  | Bucket/Listing (3) |  |   Multipart (5)    |   |
+|   |  - PutObject        |  |  - HeadBucket      |  |  - CreateMPU       |   |
+|   |  - GetObject        |  |  - CreateBucket    |  |  - UploadPart      |   |
+|   |  - HeadObject       |  |  - ListObjectsV2   |  |  - CompleteMPU     |   |
+|   |  - DeleteObject     |  +--------------------+  |  - AbortMPU        |   |
+|   |  - DeleteObjects    |                          |  - ListParts       |   |
 |   +---------------------+  +--------------------+  +--------------------+   |
+|                            |  WORM / Lock (4)   |                           |
+|                            |  - PutObjRetention |                           |
+|                            |  - GetObjRetention |                           |
+|                            |  - PutObjLegalHold |                           |
+|                            |  - GetObjLegalHold |                           |
+|                            +--------------------+                           |
 |                                                                             |
 |   Wire Invariants:                                                          |
 |   * Path-Style Addressing Mandatory  * AWS SigV4 (AWS4-HMAC-SHA256)         |
@@ -72,38 +78,42 @@ Platform Contract Slot 5 (`storage`) provides the durable object persistence lay
 
 A conforming Platform Contract Slot 5 storage provider MUST satisfy the following core invariants:
 
-* **`INV-S3-01` (Exact 13 Mandatory Operations)**: The provider MUST implement exactly the 13 required operations specified in §4. No subset omission is permitted.
+* **`INV-S3-01` (Exact 17 Mandatory Operations)**: The provider MUST implement exactly the 17 required operations specified in §4. No subset omission is permitted.
 * **`INV-S3-02` (Mandatory Path-Style Addressing)**: The provider MUST support path-style request routing (`https://{endpoint}/{bucket}/{key}`) without requiring DNS-level virtual-host bucket resolution.
 * **`INV-S3-03` (AWS SigV4 Authentication)**: The provider MUST authenticate requests signed with `AWS4-HMAC-SHA256` in compliance with AWS Signature Version 4.
 * **`INV-S3-04` (Strict RFC 3986 URL Path Encoding)**: Request URI paths MUST adhere to RFC 3986 unreserved character preservation and uppercase percent-encoding rules.
-* **`INV-S3-05` (Strict End-to-End Digest Verification)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers, failing closed with `InvalidDigest` on mismatch.
-* **`INV-S3-06` (Object Lock Immutability)**: The provider MUST enforce WORM retention in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or modification of locked objects.
-* **`INV-S3-07` (Legal Hold Independence)**: Legal hold status MUST operate independently of retention expiration dates, preventing deletion while `Status=ON`.
-* **`INV-S3-08` (Standard Error Taxonomy)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope.
-* **`INV-S3-09` (Multipart Upload Integrity)**: Multipart uploads MUST be atomic upon completion and guarantee part checksum consistency.
+* **`INV-S3-05` (Strict End-to-End Digest Verification)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers, failing closed with `BadDigest` on payload digest mismatch and `InvalidDigest` on malformed digest headers.
+* **`INV-S3-06` (Version-Level Object Lock Immutability)**: The provider MUST enforce WORM retention on individual object versions in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or overwrite of protected version IDs until the retain-until date expires.
+* **`INV-S3-07` (Legal Hold Independence)**: Legal hold status MUST operate independently of retention expiration dates, preventing version deletion while `Status=ON`.
+* **`INV-S3-08` (Standard Error Taxonomy)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope conforming to the 12-error taxonomy.
+* **`INV-S3-09` (Multipart Upload Integrity)**: Multipart uploads MUST be atomic upon completion and guarantee part checksum consistency and ordered assembly.
 * **`INV-S3-10` (Strong Consistency)**: Read-after-write consistency MUST be guaranteed for `PutObject`, `CompleteMultipartUpload`, and `DeleteObject`.
 
 ---
 
-## 4. Required Operations Inventory (Exact 13 Operations)
+## 4. Required Operations Inventory (Exact 17 Operations)
 
-The Platform Contract Slot 5 interface consists of exactly 13 mandatory operations, categorized into three functional groups:
+The Platform Contract Slot 5 interface consists of exactly 17 mandatory operations, categorized into four functional groups:
 
 | # | Operation Identifier | HTTP Verb & Path Pattern | Functional Category | Purpose / Architectural Consumer |
 |---|---|---|---|---|
 | 1 | `PutObject` | `PUT /{bucket}/{key+}` | Object CRUD | Write object data, metadata, and checksums |
 | 2 | `GetObject` | `GET /{bucket}/{key+}` | Object CRUD | Read object payload and user metadata |
 | 3 | `HeadObject` | `HEAD /{bucket}/{key+}` | Object CRUD | Retrieve object headers, ETag, and metadata |
-| 4 | `DeleteObject` | `DELETE /{bucket}/{key+}` | Object CRUD | Remove an unprotected object version |
-| 5 | `ListObjectsV2` | `GET /{bucket}?list-type=2` | Object CRUD | Paginated listing of objects by prefix |
-| 6 | `PutObjectRetention` | `PUT /{bucket}/{key+}?retention` | WORM / Object Lock | Set retention mode and `RetainUntilDate` |
-| 7 | `GetObjectRetention` | `GET /{bucket}/{key+}?retention` | WORM / Object Lock | Query current retention configuration |
-| 8 | `PutObjectLegalHold` | `PUT /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Apply or lift an indefinite legal hold |
-| 9 | `GetObjectLegalHold` | `GET /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Query current legal hold status |
-| 10 | `CreateMultipartUpload` | `POST /{bucket}/{key+}?uploads` | Multipart Upload | Initiate a multi-part segmented upload session |
-| 11 | `UploadPart` | `PUT /{bucket}/{key+}?uploadId={id}&partNumber={n}` | Multipart Upload | Upload an individual bounded part segment |
-| 12 | `CompleteMultipartUpload` | `POST /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Assemble uploaded parts into a single object |
-| 13 | `AbortMultipartUpload` | `DELETE /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Cancel session and reclaim allocated part storage |
+| 4 | `DeleteObject` | `DELETE /{bucket}/{key+}` | Object CRUD | Remove an object version or place a delete marker |
+| 5 | `DeleteObjects` | `POST /{bucket}?delete` | Object CRUD | Multi-object batch deletion in a single request |
+| 6 | `HeadBucket` | `HEAD /{bucket}` | Bucket / Listing | Verify bucket existence and caller access |
+| 7 | `CreateBucket` | `PUT /{bucket}` | Bucket / Listing | Create a storage bucket with Object Lock support |
+| 8 | `ListObjectsV2` | `GET /{bucket}?list-type=2` | Bucket / Listing | Paginated listing of objects by prefix and delimiter |
+| 9 | `CreateMultipartUpload` | `POST /{bucket}/{key+}?uploads` | Multipart Upload | Initiate a multi-part segmented upload session |
+| 10 | `UploadPart` | `PUT /{bucket}/{key+}?uploadId={id}&partNumber={n}` | Multipart Upload | Upload an individual bounded part segment |
+| 11 | `CompleteMultipartUpload` | `POST /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Assemble uploaded parts into a single coherent object |
+| 12 | `AbortMultipartUpload` | `DELETE /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Cancel session and reclaim allocated part storage |
+| 13 | `ListParts` | `GET /{bucket}/{key+}?uploadId={id}` | Multipart Upload | List uploaded parts for an in-progress upload session |
+| 14 | `PutObjectRetention` | `PUT /{bucket}/{key+}?retention` | WORM / Object Lock | Set retention mode and `RetainUntilDate` on a version |
+| 15 | `GetObjectRetention` | `GET /{bucket}/{key+}?retention` | WORM / Object Lock | Query current retention configuration of a version |
+| 16 | `PutObjectLegalHold` | `PUT /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Apply or lift an indefinite legal hold on a version |
+| 17 | `GetObjectLegalHold` | `GET /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Query current legal hold status of a version |
 
 ---
 
@@ -136,9 +146,10 @@ Writes an object payload and associated metadata to the specified bucket and key
     * `x-amz-version-id`: Version identifier if versioning is active.
   * **Response Body**: Empty.
 * **Failure Modes**:
-  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` or `x-amz-content-sha256` does not match calculated payload digest.
+  * `400 Bad Request` (`BadDigest`): `Content-MD5` does not match calculated payload digest.
+  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` header is malformed (not valid 128-bit Base64).
   * `400 Bad Request` (`EntityTooLarge`): Payload exceeds maximum allowed single-put size (5 GiB).
-  * `403 Forbidden` (`AccessDenied`): Missing write permissions or attempt to overwrite a locked object.
+  * `403 Forbidden` (`AccessDenied`): Missing write permissions or attempt to overwrite a locked object version.
   * `404 Not Found` (`NoSuchBucket`): Target bucket does not exist.
 
 ---
@@ -185,18 +196,19 @@ Retrieves object metadata and existence headers without returning the payload bo
   * **Response Headers**: Identical to `GetObject` response headers (`Content-Length`, `Content-Type`, `ETag`, `Last-Modified`, `x-amz-meta-*`, `x-amz-version-id`).
   * **Response Body**: Empty (MUST NOT return a body).
 * **Failure Modes**:
-  * `404 Not Found`: Returns HTTP 404 with empty body when object or bucket does not exist.
+  * `403 Forbidden` (`AccessDenied`): Missing read permissions.
+  * `404 Not Found` (`NoSuchKey` / `NoSuchBucket`): Returns HTTP 404 with empty body when object or bucket does not exist.
 
 ---
 
 ### 5.4 Operation 4: `DeleteObject`
 
-Deletes an object version or places a delete marker on unversioned/version-enabled buckets.
+Deletes an object version or places a delete marker on version-enabled buckets.
 
 * **HTTP Method**: `DELETE`
 * **Resource Path**: `/{bucket}/{key+}`
 * **Optional Query Parameters**:
-  * `versionId`: Specific version to permanently remove.
+  * `versionId`: Specific version ID to permanently remove.
 * **Optional Headers**:
   * `x-amz-bypass-governance-retention`: `true` | `false` (requires administrative bypass privilege).
 * **Success Response**:
@@ -206,12 +218,111 @@ Deletes an object version or places a delete marker on unversioned/version-enabl
     * `x-amz-version-id`: Version ID of the created delete marker or deleted version.
   * **Response Body**: Empty.
 * **Failure Modes**:
-  * `403 Forbidden` (`AccessDenied`): Object is protected by an active Object Lock (`COMPLIANCE` mode, unexpired `GOVERNANCE` mode without bypass, or active `LegalHold`).
+  * `403 Forbidden` (`AccessDenied`): Object version is protected by an active Object Lock (`COMPLIANCE` mode, unexpired `GOVERNANCE` mode without bypass, or active `LegalHold`).
   * `404 Not Found` (`NoSuchBucket`): Target bucket does not exist.
 
 ---
 
-### 5.5 Operation 5: `ListObjectsV2`
+### 5.5 Operation 5: `DeleteObjects`
+
+Performs batch deletion of multiple specified object keys or version IDs in a single request.
+
+* **HTTP Method**: `POST`
+* **Resource Path**: `/{bucket}?delete`
+* **Required Headers**:
+  * `Host`: Storage endpoint host.
+  * `Authorization`: AWS SigV4 signature string.
+  * `Content-Type`: `application/xml`
+  * `Content-MD5`: Base64-encoded MD5 digest of the XML request body.
+* **Optional Headers**:
+  * `x-amz-bypass-governance-retention`: `true` | `false`.
+* **Request Body**: XML document conforming to `Delete`:
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Delete xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Quiet>false</Quiet>
+    <Object>
+      <Key>evidence/trace-001.log</Key>
+    </Object>
+    <Object>
+      <Key>evidence/trace-002.log</Key>
+      <VersionId>v1.0.0-sample-version</VersionId>
+    </Object>
+  </Delete>
+  ```
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**: `Content-Type: application/xml`
+  * **Response Body**: XML document returning `DeleteResult`:
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <DeleteResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+      <Deleted>
+        <Key>evidence/trace-001.log</Key>
+        <DeleteMarker>true</DeleteMarker>
+        <DeleteMarkerVersionId>dm-sample-001</DeleteMarkerVersionId>
+      </Deleted>
+      <Deleted>
+        <Key>evidence/trace-002.log</Key>
+        <VersionId>v1.0.0-sample-version</VersionId>
+      </Deleted>
+    </DeleteResult>
+    ```
+* **Failure Modes**:
+  * `400 Bad Request` (`BadDigest`): `Content-MD5` does not match calculated XML payload digest.
+  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` is malformed Base64.
+  * `400 Bad Request` (`InvalidArgument`): Malformed XML body or empty object list.
+  * `404 Not Found` (`NoSuchBucket`): Target bucket does not exist.
+  * *Partial Item Errors*: If an individual version ID cannot be deleted due to active WORM Object Lock or missing permissions, the response returns `200 OK` with an embedded `<Error>` element containing `<Code>AccessDenied</Code>` for that specific key and version.
+
+---
+
+### 5.6 Operation 6: `HeadBucket`
+
+Determines if a bucket exists and the caller has permission to access it.
+
+* **HTTP Method**: `HEAD`
+* **Resource Path**: `/{bucket}`
+* **Required Headers**:
+  * `Host`: Storage endpoint host.
+  * `Authorization`: AWS SigV4 signature string.
+* **Request Body**: Empty.
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**:
+    * `x-amz-bucket-region`: Region of the bucket.
+    * `x-amz-request-id`: Tracking identifier.
+  * **Response Body**: Empty.
+* **Failure Modes**:
+  * `403 Forbidden` (`AccessDenied`): Caller lacks permission to access the bucket.
+  * `404 Not Found` (`NoSuchBucket`): Bucket does not exist.
+
+---
+
+### 5.7 Operation 7: `CreateBucket`
+
+Creates a new storage bucket with optional Object Lock support.
+
+* **HTTP Method**: `PUT`
+* **Resource Path**: `/{bucket}`
+* **Required Headers**:
+  * `Host`: Storage endpoint host.
+  * `Authorization`: AWS SigV4 signature string.
+* **Optional Headers**:
+  * `x-amz-bucket-object-lock-enabled`: `true` | `false` (enables Object Lock WORM capability on the bucket).
+* **Optional Request Body**: XML document specifying `CreateBucketConfiguration` (e.g., `LocationConstraint`).
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**:
+    * `Location`: Path of the created bucket (`/{bucket}`).
+  * **Response Body**: Empty.
+* **Failure Modes**:
+  * `400 Bad Request` (`InvalidArgument`): Invalid bucket name or malformed configuration XML.
+  * `403 Forbidden` (`AccessDenied`): Caller lacks bucket creation permissions.
+
+---
+
+### 5.8 Operation 8: `ListObjectsV2`
 
 Returns a paginated list of objects matching optional prefix and delimiter constraints.
 
@@ -244,105 +355,12 @@ Returns a paginated list of objects matching optional prefix and delimiter const
     </ListBucketResult>
     ```
 * **Failure Modes**:
+  * `403 Forbidden` (`AccessDenied`): Caller lacks list permissions on the bucket.
   * `404 Not Found` (`NoSuchBucket`): Specified bucket does not exist.
 
 ---
 
-### 5.6 Operation 6: `PutObjectRetention`
-
-Configures or extends the WORM retention configuration for a specific object version.
-
-* **HTTP Method**: `PUT`
-* **Resource Path**: `/{bucket}/{key+}?retention`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
-* **Optional Headers**:
-  * `Content-MD5`: Base64 MD5 of the XML body.
-  * `x-amz-bypass-governance-retention`: `true` | `false`.
-* **Request Body**: XML document conforming to `Retention`:
-  ```xml
-  <?xml version="1.0" encoding="UTF-8"?>
-  <Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Mode>COMPLIANCE</Mode>
-    <RetainUntilDate>2031-08-27T00:00:00.000Z</RetainUntilDate>
-  </Retention>
-  ```
-* **Success Response**:
-  * **HTTP Status**: `200 OK`
-  * **Response Body**: Empty.
-* **Failure Modes**:
-  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` mismatch on XML body.
-  * `403 Forbidden` (`AccessDenied`): Attempting to shorten `RetainUntilDate` in `COMPLIANCE` mode or altering `GOVERNANCE` retention without bypass authorization.
-  * `404 Not Found` (`NoSuchKey`): Object does not exist.
-  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): Object Lock is not enabled on the parent bucket.
-
----
-
-### 5.7 Operation 7: `GetObjectRetention`
-
-Queries the active WORM retention configuration of an object version.
-
-* **HTTP Method**: `GET`
-* **Resource Path**: `/{bucket}/{key+}?retention`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
-* **Success Response**:
-  * **HTTP Status**: `200 OK`
-  * **Response Headers**: `Content-Type: application/xml`
-  * **Response Body**: XML document containing current `<Retention>` (`Mode` and `RetainUntilDate`).
-* **Failure Modes**:
-  * `404 Not Found` (`NoSuchObjectLockConfiguration` / `ObjectLockConfigurationNotFoundError`): Object or bucket has no retention configured.
-  * `404 Not Found` (`NoSuchKey`): Object does not exist.
-
----
-
-### 5.8 Operation 8: `PutObjectLegalHold`
-
-Applies or releases an indefinite legal hold on an object version.
-
-* **HTTP Method**: `PUT`
-* **Resource Path**: `/{bucket}/{key+}?legal-hold`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
-* **Optional Headers**:
-  * `Content-MD5`: Base64 MD5 of the XML body.
-* **Request Body**: XML document conforming to `LegalHold`:
-  ```xml
-  <?xml version="1.0" encoding="UTF-8"?>
-  <LegalHold xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Status>ON</Status>
-  </LegalHold>
-  ```
-  *(Allowed `Status` values: `ON` | `OFF`)*
-* **Success Response**:
-  * **HTTP Status**: `200 OK`
-  * **Response Body**: Empty.
-* **Failure Modes**:
-  * `400 Bad Request` (`InvalidDigest`): Body MD5 mismatch.
-  * `404 Not Found` (`NoSuchKey`): Object does not exist.
-  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): Object Lock is not enabled on the parent bucket.
-
----
-
-### 5.9 Operation 9: `GetObjectLegalHold`
-
-Retrieves the legal hold status of an object version.
-
-* **HTTP Method**: `GET`
-* **Resource Path**: `/{bucket}/{key+}?legal-hold`
-* **Optional Query Parameters**:
-  * `versionId`: Target object version ID.
-* **Success Response**:
-  * **HTTP Status**: `200 OK`
-  * **Response Headers**: `Content-Type: application/xml`
-  * **Response Body**: XML document returning `<LegalHold><Status>ON|OFF</Status></LegalHold>`.
-* **Failure Modes**:
-  * `404 Not Found` (`NoSuchObjectLockConfiguration` / `ObjectLockConfigurationNotFoundError`): No legal hold configured.
-  * `404 Not Found` (`NoSuchKey`): Object does not exist.
-
----
-
-### 5.10 Operation 10: `CreateMultipartUpload`
+### 5.9 Operation 9: `CreateMultipartUpload`
 
 Initiates a multi-part upload session for large objects, returning a unique `UploadId`.
 
@@ -366,11 +384,12 @@ Initiates a multi-part upload session for large objects, returning a unique `Upl
     </InitiateMultipartUploadResult>
     ```
 * **Failure Modes**:
+  * `403 Forbidden` (`AccessDenied`): Caller lacks write permissions.
   * `404 Not Found` (`NoSuchBucket`): Bucket does not exist.
 
 ---
 
-### 5.11 Operation 11: `UploadPart`
+### 5.10 Operation 10: `UploadPart`
 
 Uploads an individual segment (part) in an active multipart upload session.
 
@@ -388,13 +407,16 @@ Uploads an individual segment (part) in an active multipart upload session.
   * **Response Headers**:
     * `ETag`: Double-quoted MD5 hex digest of the uploaded part (`"<md5-hex>"`).
 * **Failure Modes**:
-  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` or SHA-256 mismatch.
+  * `400 Bad Request` (`BadDigest`): `Content-MD5` does not match calculated part payload digest.
+  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` is malformed Base64.
   * `400 Bad Request` (`EntityTooLarge`): Part size exceeds 5 GiB limit.
+  * `400 Bad Request` (`InvalidArgument`): Part number outside valid range (1–10,000).
   * `404 Not Found` (`NoSuchUpload`): `UploadId` is invalid or expired.
+  * `404 Not Found` (`NoSuchBucket`): Bucket does not exist.
 
 ---
 
-### 5.12 Operation 12: `CompleteMultipartUpload`
+### 5.11 Operation 11: `CompleteMultipartUpload`
 
 Assembles previously uploaded parts into a single coherent object.
 
@@ -430,13 +452,13 @@ Assembles previously uploaded parts into a single coherent object.
     </CompleteMultipartUploadResult>
     ```
 * **Failure Modes**:
-  * `400 Bad Request` (`InvalidPart`): Declared part ETag does not match stored part ETag.
-  * `400 Bad Request` (`InvalidPartOrder`): Parts are not sorted in ascending numerical order.
+  * `400 Bad Request` (`InvalidPart`): Declared part ETag does not match stored part ETag or part is missing.
+  * `400 Bad Request` (`InvalidPartOrder`): Parts are not sorted in ascending numerical order by part number.
   * `404 Not Found` (`NoSuchUpload`): Upload session does not exist.
 
 ---
 
-### 5.13 Operation 13: `AbortMultipartUpload`
+### 5.12 Operation 12: `AbortMultipartUpload`
 
 Aborts a multipart upload session and releases storage associated with any uploaded parts.
 
@@ -452,15 +474,205 @@ Aborts a multipart upload session and releases storage associated with any uploa
 
 ---
 
+### 5.13 Operation 13: `ListParts`
+
+Lists the parts that have been uploaded for a specific active multipart upload session.
+
+* **HTTP Method**: `GET`
+* **Resource Path**: `/{bucket}/{key+}?uploadId={UploadId}`
+* **Required Query Parameters**:
+  * `uploadId`: Target upload session ID.
+* **Optional Query Parameters**:
+  * `max-parts`: Maximum number of parts to return (integer, 1–1000, default: 1000).
+  * `part-number-marker`: Part number after which listing begins.
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**: `Content-Type: application/xml`
+  * **Response Body**: XML document returning `ListPartsResult`:
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+      <Bucket>example-bucket</Bucket>
+      <Key>large-evidence.tar.gz</Key>
+      <UploadId>VXBsb2FkIElEIGV4YW1wbGU</UploadId>
+      <PartNumberMarker>0</PartNumberMarker>
+      <NextPartNumberMarker>2</NextPartNumberMarker>
+      <MaxParts>1000</MaxParts>
+      <IsTruncated>false</IsTruncated>
+      <Part>
+        <PartNumber>1</PartNumber>
+        <LastModified>2026-08-27T12:05:00.000Z</LastModified>
+        <ETag>"1b2cf535f27731c974343645a3985328"</ETag>
+        <Size>5242880</Size>
+      </Part>
+      <Part>
+        <PartNumber>2</PartNumber>
+        <LastModified>2026-08-27T12:06:00.000Z</LastModified>
+        <ETag>"ee960779f74b46ae364bc9f623099abb"</ETag>
+        <Size>5242880</Size>
+      </Part>
+    </ListPartsResult>
+    ```
+* **Failure Modes**:
+  * `400 Bad Request` (`InvalidArgument`): Invalid query parameter (e.g., negative `max-parts`).
+  * `404 Not Found` (`NoSuchUpload`): Upload session does not exist, was aborted, or already completed.
+  * `404 Not Found` (`NoSuchBucket`): Specified bucket does not exist.
+
+---
+
+### 5.14 Operation 14: `PutObjectRetention`
+
+Configures or extends the WORM retention configuration for a specific object version.
+
+* **HTTP Method**: `PUT`
+* **Resource Path**: `/{bucket}/{key+}?retention`
+* **Optional Query Parameters**:
+  * `versionId`: Target object version ID.
+* **Optional Headers**:
+  * `Content-MD5`: Base64 MD5 of the XML body.
+  * `x-amz-bypass-governance-retention`: `true` | `false`.
+* **Request Body**: XML document conforming to `Retention`:
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Mode>COMPLIANCE</Mode>
+    <RetainUntilDate>2031-08-27T00:00:00.000Z</RetainUntilDate>
+  </Retention>
+  ```
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Body**: Empty.
+* **Failure Modes**:
+  * `400 Bad Request` (`BadDigest`): `Content-MD5` mismatch on XML body.
+  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` is malformed Base64.
+  * `400 Bad Request` (`InvalidArgument`): Malformed XML payload or invalid retention mode.
+  * `403 Forbidden` (`AccessDenied`): Attempting to shorten `RetainUntilDate` in `COMPLIANCE` mode or altering `GOVERNANCE` retention without bypass authorization.
+  * `404 Not Found` (`NoSuchKey`): Object or version does not exist.
+  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): Object Lock is not enabled on the parent bucket.
+
+---
+
+### 5.15 Operation 15: `GetObjectRetention`
+
+Queries the active WORM retention configuration of an object version.
+
+* **HTTP Method**: `GET`
+* **Resource Path**: `/{bucket}/{key+}?retention`
+* **Optional Query Parameters**:
+  * `versionId`: Target object version ID.
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**: `Content-Type: application/xml`
+  * **Response Body**: XML document containing current `<Retention>` (`Mode` and `RetainUntilDate`).
+* **Failure Modes**:
+  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): Object or bucket has no retention configured, or Object Lock is not enabled on the bucket.
+  * `404 Not Found` (`NoSuchKey`): Object or version does not exist.
+
+---
+
+### 5.16 Operation 16: `PutObjectLegalHold`
+
+Applies or releases an indefinite legal hold on an object version.
+
+* **HTTP Method**: `PUT`
+* **Resource Path**: `/{bucket}/{key+}?legal-hold`
+* **Optional Query Parameters**:
+  * `versionId`: Target object version ID.
+* **Optional Headers**:
+  * `Content-MD5`: Base64 MD5 of the XML body.
+* **Request Body**: XML document conforming to `LegalHold`:
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <LegalHold xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Status>ON</Status>
+  </LegalHold>
+  ```
+  *(Allowed `Status` values: `ON` | `OFF`)*
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Body**: Empty.
+* **Failure Modes**:
+  * `400 Bad Request` (`BadDigest`): Body MD5 mismatch.
+  * `400 Bad Request` (`InvalidDigest`): `Content-MD5` is malformed Base64.
+  * `400 Bad Request` (`InvalidArgument`): Malformed XML body or invalid `Status` string.
+  * `404 Not Found` (`NoSuchKey`): Object or version does not exist.
+  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): Object Lock is not enabled on the parent bucket.
+
+---
+
+### 5.17 Operation 17: `GetObjectLegalHold`
+
+Retrieves the legal hold status of an object version.
+
+* **HTTP Method**: `GET`
+* **Resource Path**: `/{bucket}/{key+}?legal-hold`
+* **Optional Query Parameters**:
+  * `versionId`: Target object version ID.
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**: `Content-Type: application/xml`
+  * **Response Body**: XML document returning `<LegalHold><Status>ON|OFF</Status></LegalHold>`.
+* **Failure Modes**:
+  * `404 Not Found` (`ObjectLockConfigurationNotFoundError`): No legal hold configured, or Object Lock is not enabled on the bucket.
+  * `404 Not Found` (`NoSuchKey`): Object or version does not exist.
+
+---
+
 ## 6. Object Lock, WORM & Retention Semantics
 
-WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence preservation, immutable audit ledgers (ADR-0014), and compliance verification.
+WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence preservation, immutable audit ledgers (ADR-0014), and regulatory compliance verification.
 
 ### 6.1 Prerequisites for Object Lock
-* **Bucket-Level Enablement**: Object Lock MUST be enabled at bucket creation time. An object cannot be locked in a bucket that lacks Object Lock support.
-* **Versioning Prerequisite**: Buckets with Object Lock enabled MUST maintain versioning in the `Enabled` state. Versioning cannot be suspended on an Object Lock enabled bucket.
+* **Bucket-Level Enablement**: Object Lock MUST be enabled at bucket creation time (e.g., via the `x-amz-bucket-object-lock-enabled: true` header during `CreateBucket`). An object cannot be locked in a bucket that was created without Object Lock support.
+* **Versioning Prerequisite**: Buckets with Object Lock enabled MUST maintain versioning in the `Enabled` state. Versioning cannot be suspended or disabled on an Object Lock enabled bucket.
 
-### 6.2 Retention Modes
+### 6.2 Version-Level WORM Granularity & Version Lifecycle
+
+```
++-----------------------------------------------------------------------------+
+|                     VERSION-LEVEL WORM RETENTION MODEL                      |
+|                                                                             |
+|  Bucket: cybrik-forensics (Object Lock Enabled, Versioning Enabled)         |
+|                                                                             |
+|  Key: evidence/2026/incident-1042.bundle                                    |
+|                                                                             |
+|  +-----------------------------------------------------------------------+  |
+|  | Version ID: v3 (Current / Latest)                                     |  |
+|  | - Status: Delete Marker (placed via DeleteObject without versionId)   |  |
+|  | - Mutation: Permitted at any time                                      |  |
+|  +-----------------------------------------------------------------------+  |
+|                                     |                                       |
+|  +-----------------------------------------------------------------------+  |
+|  | Version ID: v2 (Non-Current)                                          |  |
+|  | - Payload: Updated forensics report                                    |  |
+|  | - Mode: UNPROTECTED                                                    |  |
+|  | - Mutation: Permanent deletion permitted (DeleteObject?versionId=v2)   |  |
+|  +-----------------------------------------------------------------------+  |
+|                                     |                                       |
+|  +-----------------------------------------------------------------------+  |
+|  | Version ID: v1 (Original Evidence Snapshot)                           |  |
+|  | - Payload: 2026-08-27 raw memory capture                              |  |
+|  | - Mode: COMPLIANCE, RetainUntilDate: 2036-08-27                       |  |
+|  | - Legal Hold: ON                                                      |  |
+|  | - Immutability: CANNOT be deleted, overwritten, or truncated           |  |
+|  |   DeleteObject?versionId=v1 ---> FAILS CLOSED: HTTP 403 AccessDenied  |  |
+|  +-----------------------------------------------------------------------+  |
++-----------------------------------------------------------------------------+
+```
+
+1. **Version ID Granularity**:
+   * Object Lock retention rules (`COMPLIANCE`, `GOVERNANCE`) and Legal Holds apply strictly to **individual version IDs** (`versionId`) within a versioning-enabled bucket, rather than globally across the mutable key path pointer.
+   * Each object version possesses its own independent retention metadata (`Mode`, `RetainUntilDate`) and legal hold flag (`Status=ON|OFF`).
+
+2. **Permitted Key-Level Mutations (Non-Destructive Versioning)**:
+   * **Writing New Versions**: Clients MAY execute `PutObject` or multipart upload operations against an existing key containing locked versions. The storage engine creates a new, distinct version ID for the newly written payload, which becomes the current (latest) version of the key. Prior locked versions remain fully intact and immutable under their respective version IDs.
+   * **Placing Delete Markers**: Calling `DeleteObject` without specifying a `versionId` is permitted on a key with locked versions. This operation writes a new `DeleteMarker` version as the current version; it does **NOT** delete, truncate, or alter any existing underlying protected object versions.
+
+3. **Immutability of Protected Versions**:
+   * A protected version ID cannot be overwritten, modified, or permanently deleted until its `RetainUntilDate` has passed (and its Legal Hold status is `OFF`).
+   * Explicit permanent deletion requests targeting a locked version ID (e.g., `DELETE /{bucket}/{key}?versionId={lockedVersionId}` or `DeleteObjects` specifying that `VersionId`) MUST fail closed with HTTP 403 `AccessDenied`.
+
+### 6.3 Retention Modes
 
 ```
 +-----------------------------------------------------------------------------+
@@ -473,8 +685,8 @@ WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence prese
 |  |  * CANNOT be overwritten/deleted  |  |  * Standard delete/overwrite   |  |
 |  |    by ANY user (including admin)  |  |    fails closed (HTTP 403)     |  |
 |  |  * RetainUntilDate cannot be      |  |  * Can be bypassed only with   |  |
-|  |    shortened                      |  |    s3:BypassGovernanceRetention|  |
-|  |  * RetainUntilDate CAN be extended|  |    header                      |  |
+|  |    shortened                      |  |    x-amz-bypass-governance-    |  |
+|  |  * RetainUntilDate CAN be extended|  |    retention: true             |  |
 |  +-----------------------------------+  +--------------------------------+  |
 +-----------------------------------------------------------------------------+
 ```
@@ -485,15 +697,15 @@ WORM (Write-Once-Read-Many) guarantees are essential for forensic evidence prese
    * **Mode Permanence**: An object version in `COMPLIANCE` mode cannot be downgraded to `GOVERNANCE` mode or unlocked.
 
 2. **`GOVERNANCE` Mode**:
-   * **Privileged Override**: Standard deletion and overwrite attempts are blocked.
+   * **Privileged Override**: Standard deletion and overwrite attempts are blocked with HTTP 403 `AccessDenied`.
    * **Bypass Authorization**: Users possessing explicit administrative governance bypass permissions can bypass retention by providing the header `x-amz-bypass-governance-retention: true`.
 
-### 6.3 Legal Hold Semantics
+### 6.4 Legal Hold Semantics
 * **Indefinite Duration**: A Legal Hold maintains an explicit status flag (`Status=ON` or `Status=OFF`). While `Status=ON`, the object version cannot be deleted regardless of whether its retention period has expired or if no retention period was configured.
 * **Orthogonality**: Legal Hold status is orthogonal to and independent from retention mode (`COMPLIANCE`/`GOVERNANCE`) and `RetainUntilDate`.
 * **Explicit Release**: A Legal Hold does not expire automatically; it requires an explicit `PutObjectLegalHold` call with `<Status>OFF</Status>`.
 
-### 6.4 Timestamp & Date Normalization
+### 6.5 Timestamp & Date Normalization
 * All retention dates MUST be formatted as ISO 8601 UTC strings terminating in `Z` or millisecond precision (e.g., `2031-08-27T00:00:00.000Z`).
 * Providers MUST evaluate expiration using synchronized UTC clocks.
 
@@ -566,29 +778,53 @@ To prevent data corruption in transit and at rest, providers MUST enforce strict
 |                                                                             |
 |   Client Request                                    Storage Provider        |
 |  +--------------------------------+                +---------------------+  |
-|  | Headers:                       |                | 1. Compute SHA-256  |  |
-|  | - Content-MD5: <base64>        |  ----------->  |    and MD5 over     |  |
-|  | - x-amz-content-sha256: <hex>  |   (Payload)    |    received bytes   |  |
-|  +--------------------------------+                +----------+----------+  |
-|                                                               |             |
-|                                    [ Digest Mismatch? ] <-----+             |
-|                                            |                                |
-|                        +-------------------+-------------------+            |
-|                        | YES                                   | NO         |
-|                        v                                       v            |
-|             +---------------------+                 +--------------------+  |
-|             | Reject Immediately  |                 | Store Object       |  |
-|             | HTTP 400 Bad Request|                 | Return 200 OK      |  |
-|             | Code: InvalidDigest |                 | ETag: "<md5-hex>"  |  |
-|             +---------------------+                 +--------------------+  |
+|  | Headers:                       |                | 1. Parse Header     |  |
+|  | - Content-MD5: <base64>        |  ----------->  |    Malformed?       |  |
+|  | - x-amz-content-sha256: <hex>  |   (Payload)    +----------+----------+  |
+|  +--------------------------------+                           |             |
+|                                                 +-------------+-------------+
+|                                                 | YES (malformed syntax)    | NO (valid syntax)
+|                                                 v                           v
+|                                      +---------------------+     +---------------------+
+|                                      | Reject Immediately  |     | 2. Compute SHA-256  |
+|                                      | HTTP 400 Bad Request|     |    and MD5 over     |
+|                                      | Code: InvalidDigest |     |    received bytes   |
+|                                      +---------------------+     +----------+----------+
+|                                                                             |
+|                                            [ Digest Mismatch? ] <-----------+
+|                                                    |
+|                                +-------------------+-------------------+
+|                                | YES (hash mismatch)                   | NO (hash matches)
+|                                v                                       v
+|                     +---------------------+                 +--------------------+
+|                     | Reject Immediately  |                 | Store Object       |
+|                     | HTTP 400 Bad Request|                 | Return 200 OK      |
+|                     | Code: BadDigest     |                 | ETag: "<md5-hex>"  |
+|                     +---------------------+                 +--------------------+
 +-----------------------------------------------------------------------------+
 ```
 
-1. **`Content-MD5` Validation**: When the client supplies `Content-MD5`, the server MUST compute the MD5 digest over the received payload bytes. If the computed digest does not match the header, the request MUST be rejected with HTTP 400 `InvalidDigest`.
-2. **`x-amz-content-sha256` Validation**: The server MUST verify the received payload against the hex SHA-256 digest provided in `x-amz-content-sha256`. Any mismatch MUST result in immediate rejection.
-3. **ETag Formats**:
-   * For single-part `PutObject` uploads, `ETag` MUST be the double-quoted lowercase hex MD5 digest: `"<md5-hex>"`.
-   * For multipart uploads assembled via `CompleteMultipartUpload`, `ETag` MUST follow the multipart composite format: `"<hex-digest>-<part-count>"`.
+### 8.1 Differentiation Between `BadDigest` and `InvalidDigest`
+Conforming storage providers MUST strictly differentiate between digest calculation mismatches and header formatting errors:
+
+1. **`BadDigest` (`HTTP 400 Bad Request`)**:
+   * **Semantic Trigger**: The client supplied a syntactically valid Base64-encoded 128-bit MD5 digest in the `Content-MD5` header (or valid checksum header), but the digest calculated by the storage provider over the received payload bytes does **not match** the client's declared value.
+   * **Cause**: In-transit network bit corruption, payload truncation, or erroneous client-side checksum generation.
+   * **Error Code**: `<Code>BadDigest</Code>`.
+
+2. **`InvalidDigest` (`HTTP 400 Bad Request`)**:
+   * **Semantic Trigger**: The value provided in the `Content-MD5` header is **malformed** and cannot be parsed as a valid 128-bit MD5 digest (e.g., contains non-base64 characters, invalid padding, or decodes to a byte sequence whose length is not exactly 16 bytes).
+   * **Cause**: Syntactically invalid header syntax or encoding error by the client.
+   * **Error Code**: `<Code>InvalidDigest</Code>`.
+
+### 8.2 Payload SHA-256 Validation (`x-amz-content-sha256`)
+* The server MUST verify the received payload against the 64-character hexadecimal SHA-256 digest provided in `x-amz-content-sha256` (when not `UNSIGNED-PAYLOAD`).
+* Syntactically invalid SHA-256 header values (e.g., length $\neq 64$, non-hex characters) MUST be rejected with HTTP 400 (`InvalidDigest` or `InvalidArgument`).
+* SHA-256 hash mismatches during AWS SigV4 authorization MUST result in signature authentication failure rejected with HTTP 403 `AccessDenied` or HTTP 400 `BadDigest`.
+
+### 8.3 ETag Formats
+* For single-part `PutObject` uploads, `ETag` MUST be the double-quoted lowercase hex MD5 digest: `"<md5-hex>"`.
+* For multipart uploads assembled via `CompleteMultipartUpload`, `ETag` MUST follow the multipart composite format: `"<hex-digest>-<part-count>"`.
 
 ---
 
@@ -606,22 +842,24 @@ Conforming storage providers MUST format all error responses as XML adhering to 
 </Error>
 ```
 
-### 9.1 Normative Error Code Table
+### 9.1 Normative 12-Error Code Taxonomy
 
-| Error Code (`<Code>`) | HTTP Status | Trigger Condition / Semantic Meaning |
-|---|---|---|
-| `InvalidDigest` | `400 Bad Request` | `Content-MD5` or SHA-256 digest does not match the received body. |
-| `EntityTooLarge` | `400 Bad Request` | Proposed object or part exceeds maximum size boundary (5 GiB). |
-| `InvalidArgument` | `400 Bad Request` | Malformed XML payload, invalid part number, or invalid retention mode. |
-| `InvalidPart` | `400 Bad Request` | Part ETag in `CompleteMultipartUpload` does not match uploaded part. |
-| `InvalidPartOrder` | `400 Bad Request` | Parts in `CompleteMultipartUpload` are not in ascending numerical order. |
-| `AccessDenied` | `403 Forbidden` | Invalid credentials, SigV4 signature failure, or attempt to overwrite/delete a WORM-locked object. |
-| `NoSuchBucket` | `404 Not Found` | The specified target bucket does not exist. |
-| `NoSuchKey` | `404 Not Found` | The specified object key does not exist in the bucket. |
-| `NoSuchUpload` | `404 Not Found` | The specified multipart `UploadId` is invalid, aborted, or completed. |
-| `ObjectLockConfigurationNotFoundError` | `404 Not Found` | Object Lock is not enabled on the bucket, or object lacks retention configuration. |
-| `PreconditionFailed` | `412 Precondition Failed` | At least one condition specified in `If-Match` or `If-Unmodified-Since` failed. |
-| `InternalError` | `500 Internal Server Error` | Unrecoverable storage engine failure. |
+Conforming providers MUST implement and return exactly the 12 error codes defined below:
+
+| # | Error Code (`<Code>`) | HTTP Status | Trigger Condition / Semantic Meaning |
+|---|---|---|---|
+| 1 | `BadDigest` | `400 Bad Request` | The `Content-MD5` or payload checksum calculated by the server does not match the digest value specified in the request header. |
+| 2 | `InvalidDigest` | `400 Bad Request` | The `Content-MD5` header value is malformed (e.g., non-base64 characters or decoded length $\neq 16$ bytes). |
+| 3 | `NoSuchBucket` | `404 Not Found` | The specified target bucket does not exist. |
+| 4 | `NoSuchKey` | `404 Not Found` | The specified object key does not exist in the bucket. |
+| 5 | `NoSuchUpload` | `404 Not Found` | The specified multipart `UploadId` does not exist, has been aborted, or has already completed. |
+| 6 | `ObjectLockConfigurationNotFoundError` | `404 Not Found` | Object Lock is not enabled on the parent bucket, or no retention/legal-hold configuration exists for the requested object version. |
+| 7 | `PreconditionFailed` | `412 Precondition Failed` | At least one condition specified in conditional headers (`If-Match`, `If-None-Match`, `If-Modified-Since`, `If-Unmodified-Since`) evaluated to false. |
+| 8 | `AccessDenied` | `403 Forbidden` | Invalid authentication credentials, SigV4 signature mismatch, missing permissions, or attempt to overwrite/delete a WORM-locked object version. |
+| 9 | `EntityTooLarge` | `400 Bad Request` | Proposed object payload or part segment exceeds the maximum allowed size boundary (5 GiB). |
+| 10 | `InvalidArgument` | `400 Bad Request` | An invalid argument or malformed XML body was supplied (e.g., part number outside 1–10,000, unknown retention mode, malformed XML structure). |
+| 11 | `InvalidPart` | `400 Bad Request` | One or more declared parts in `CompleteMultipartUpload` were not found or the provided part ETag does not match the stored part ETag. |
+| 12 | `InvalidPartOrder` | `400 Bad Request` | The list of parts in `CompleteMultipartUpload` was not in ascending numerical order by part number. |
 
 ---
 
@@ -630,7 +868,7 @@ Conforming storage providers MUST format all error responses as XML adhering to 
 This specification serves as the normative prose baseline for the subordinate schema artifact:
 * **Schema Location**: `contracts/json-schema/cybrik.storage-s3-compatibility-subset.v1.schema.json`
 * **JSON Schema Dialect**: `https://json-schema.org/draft/2020-12/schema`
-* **Conformance Test Location**: `tools/contract-validation/tests/validate-platform-contract.test.mjs`
+* **Conformance Test Location**: `tools/contract-validation/tests/validate-s3-compatibility.test.mjs`
 
 Any implementation declaring conformance with Platform Contract Slot 5 MUST satisfy both the schema validation rules and the behavioral invariants defined herein.
 
@@ -641,6 +879,6 @@ Any implementation declaring conformance with Platform Contract Slot 5 MUST sati
 To advance this specification from `PROPOSED` to `ACCEPTED`, the following conditions MUST be met:
 
 1. **Founder Decision**: Formal review and acceptance recorded in a dedicated Founder Decision Packet.
-2. **Schema & Fixture Closure**: Schema `cybrik.storage-s3-compatibility-subset.v1.schema.json` and associated test fixtures updated to reflect the exact 13-operation inventory.
-3. **Automated Test Validation**: 100% test pass across canonical contract validation suites (`validate:platform`, `validate:schemas`).
+2. **Schema & Fixture Closure**: Schema `cybrik.storage-s3-compatibility-subset.v1.schema.json` and associated test fixtures updated to reflect the exact 17-operation closed inventory.
+3. **Automated Test Validation**: 100% test pass across canonical contract validation suites (`validate:platform`, `validate:schemas`, `validate:s3`).
 4. **Provider-Neutral Verification**: Reconfirmation that the specification contains zero proprietary SDK tokens, vendor-specific lock-ins, or cloud provider hard dependencies.
