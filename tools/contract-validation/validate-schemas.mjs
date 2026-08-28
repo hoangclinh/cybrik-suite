@@ -1631,7 +1631,7 @@ export function validateOfflineInstallSemantics(data) {
       if (art && typeof art.path === 'string') {
         const norm = posix.normalize(art.path);
         if (art.path === 'manifest.json' || art.path === 'manifest.sig' || norm === 'manifest.json' || norm === 'manifest.sig') {
-          throw new Error(`Semantic error: offline manifest artifact path cannot be 'manifest.json' or 'manifest.sig' (got '${art.path}')`);
+          throw new Error(`Semantic error: root manifest file '${norm}' must not be listed in artifacts`);
         }
         if (paths.has(norm)) {
           throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
