@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors } from '../validate-schemas.mjs';
 
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -12670,6 +12670,83 @@ test('safe plain snapshot extraction, descriptor-level extraction, and prototype
   const snapInherited = createSafePlainSnapshot(inheritedObj);
   assert.equal(snapInherited.ownKey, 'should-copy');
   assert.equal(snapInherited.inheritedKey, undefined);
+
+  // createSafePlainSnapshot primitives, buffers, null, proxies
+  assert.equal(createSafePlainSnapshot(null), null);
+  assert.equal(createSafePlainSnapshot(undefined), undefined);
+  assert.equal(createSafePlainSnapshot(123), 123);
+  assert.equal(createSafePlainSnapshot('str'), 'str');
+  const buf = Buffer.from('hello');
+  assert.equal(createSafePlainSnapshot(buf), buf);
+  const u8 = new Uint8Array([1, 2, 3]);
+  assert.equal(createSafePlainSnapshot(u8), u8);
+  const snapProxy = createSafePlainSnapshot(new Proxy({ a: 1 }, {}));
+  assert.equal(Object.getPrototypeOf(snapProxy), null);
+
+  // 4. snapshotOwnDataDescriptors
+  assert.deepEqual(snapshotOwnDataDescriptors(null), Object.create(null));
+  assert.deepEqual(snapshotOwnDataDescriptors(undefined), Object.create(null));
+  assert.deepEqual(snapshotOwnDataDescriptors(123), Object.create(null));
+  assert.deepEqual(snapshotOwnDataDescriptors('str'), Object.create(null));
+  assert.deepEqual(snapshotOwnDataDescriptors(Buffer.from('buf')), Object.create(null));
+  assert.deepEqual(snapshotOwnDataDescriptors(new Uint8Array([1])), Object.create(null));
+
+  let snapDescGetterInvoked = false;
+  const descTestObj = {
+    a: 10,
+    b: 'hello',
+    get secret() {
+      snapDescGetterInvoked = true;
+      return 'hidden';
+    }
+  };
+  const descSnapshot = snapshotOwnDataDescriptors(descTestObj);
+  assert.equal(snapDescGetterInvoked, false, 'snapshotOwnDataDescriptors must never invoke getters');
+  assert.equal(descSnapshot.a, 10);
+  assert.equal(descSnapshot.b, 'hello');
+  assert.equal(descSnapshot.secret, undefined);
+
+  // 5. hasAnyAccessorsOrProxy Map/Set size edge cases, Buffer, and throwing proxy
+  assert.equal(hasAnyAccessorsOrProxy(new Map()), false);
+  assert.equal(hasAnyAccessorsOrProxy(new Set()), false);
+  assert.equal(hasAnyAccessorsOrProxy(Buffer.from('test')), false);
+  assert.equal(hasAnyAccessorsOrProxy(new Uint8Array([1, 2])), false);
+  const throwingProxy = new Proxy({}, {
+    ownKeys() { throw new Error('trap'); }
+  });
+  assert.equal(hasAnyAccessorsOrProxy(throwingProxy), true);
+  const throwingDescProxy = new Proxy({}, {
+    getOwnPropertyDescriptor() { throw new Error('trap'); }
+  });
+  assert.equal(getOwnDataValue(throwingDescProxy, 'a'), undefined);
+
+  // 6. Array and nested array snapshot
+  const arrSnapshot = createSafePlainSnapshot([1, 'two', null, { inner: 3 }, [4, 5]]);
+  assert.ok(Array.isArray(arrSnapshot));
+  assert.equal(arrSnapshot[0], 1);
+  assert.equal(arrSnapshot[1], 'two');
+  assert.equal(arrSnapshot[2], null);
+  assert.equal(arrSnapshot[3].inner, 3);
+  assert.ok(Array.isArray(arrSnapshot[4]));
+  assert.equal(arrSnapshot[4][0], 4);
+
+  // 7. isPlainOrNull and hasOversizedDeclaredLength edge cases
+  assert.equal(isPlainOrNull(null), false);
+  assert.equal(isPlainOrNull(123), false);
+  assert.equal(isPlainOrNull('abc'), false);
+  const throwingProtoProxy = new Proxy({}, {
+    getPrototypeOf() { throw new Error('proto trap'); }
+  });
+  assert.equal(isPlainOrNull(throwingProtoProxy), false);
+
+  assert.equal(hasOversizedDeclaredLength(null, null), false);
+  assert.equal(hasOversizedDeclaredLength(123), false);
+  assert.equal(hasOversizedDeclaredLength(Buffer.from('test')), false);
+  assert.equal(hasOversizedDeclaredLength(new Uint8Array([1])), false);
+  assert.equal(hasOversizedDeclaredLength({ content_length: 5368709121n }), true);
+  assert.equal(hasOversizedDeclaredLength({ content_length: ' 5368709121 ' }), true);
+  assert.equal(hasOversizedDeclaredLength(null, { size: 5368709121n }), true);
+  assert.equal(hasOversizedDeclaredLength(null, { size: ' 5368709121 ' }), true);
 });
 
 test('validatePlatformSemantics prototype isolation and accessor defense fail-closed (OPEN-5)', () => {
@@ -12743,5 +12820,479 @@ test('validatePlatformSemantics prototype isolation and accessor defense fail-cl
     assert.equal(globalGetterCalled, false, 'validatePlatformSemantics on null-prototype snapshot must never invoke Object.prototype getters');
   } finally {
     delete Object.prototype.__open5_polluted_getter__;
+  }
+});
+
+test('adversarial Object.prototype getter pollution: simultaneous 17-property explosive pollution fails closed with zero getter invocation across all S3 dispatchers (OPEN-2 / OPEN-5)', () => {
+  const POLLUTED_PROPERTIES = [
+    'headers',
+    'payload',
+    'payloadBytes',
+    'Content-MD5',
+    'x-amz-content-sha256',
+    'error_condition',
+    'expected_error',
+    'code',
+    'reason',
+    'parts',
+    'PartNumber',
+    'part_number',
+    'ETag',
+    'etag',
+    'Size',
+    'size',
+    'size_bytes',
+  ];
+
+  const invoked = {};
+  for (const prop of POLLUTED_PROPERTIES) {
+    invoked[prop] = false;
+    Object.defineProperty(Object.prototype, prop, {
+      get() {
+        invoked[prop] = true;
+        throw new Error(`EXPLOSIVE_OBJECT_PROTOTYPE_GETTER_${prop}`);
+      },
+      configurable: true,
+      enumerable: false,
+    });
+  }
+
+  const validEtag = '"0123456789abcdef0123456789abcdef"';
+
+  try {
+    // 1. Plain objects passed to dispatchS3PutObject
+    const putRes = dispatchS3PutObject({ payload: Buffer.from('TEST_PAYLOAD') });
+    assert.equal(putRes.http_status, 400);
+    assert.equal(putRes.error_code, 'InvalidDigest');
+    assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 2. Plain objects passed to dispatchS3Error
+    const errRes = dispatchS3Error({ error_condition: 'AccessDenied' });
+    assert.equal(errRes.http_status, 400);
+    assert.equal(errRes.error_code, 'InvalidDigest');
+    assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 3. Plain objects passed to dispatchS3CompleteMultipartUpload
+    const multipartRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: validEtag }] });
+    assert.equal(multipartRes.http_status, 400);
+    assert.equal(multipartRes.error_code, 'InvalidPart');
+    assert.equal(multipartRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+    // 4. validateS3MultipartSemantics on plain manifest
+    assert.throws(
+      () => validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: validEtag }] }),
+      /Semantic error: multipart upload manifest/
+    );
+
+    // 5. Non-plain prototype objects passed to all dispatchers
+    const nonPlainPut = Object.create({ custom: 'proto' }, { payload: { value: Buffer.from('NON_PLAIN_PAYLOAD'), enumerable: true } });
+    const nonPlainPutRes = dispatchS3PutObject(nonPlainPut);
+    assert.equal(nonPlainPutRes.http_status, 400);
+    assert.equal(nonPlainPutRes.error_code, 'InvalidDigest');
+    assert.equal(nonPlainPutRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const nonPlainErr = Object.create({ custom: 'proto' }, { code: { value: 'AccessDenied', enumerable: true } });
+    const nonPlainErrRes = dispatchS3Error(nonPlainErr);
+    assert.equal(nonPlainErrRes.http_status, 400);
+    assert.equal(nonPlainErrRes.error_code, 'InvalidDigest');
+    assert.equal(nonPlainErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const nonPlainMultipart = Object.create({ custom: 'proto' }, { parts: { value: [{ part_number: 1, etag: validEtag }], enumerable: true } });
+    const nonPlainMultipartRes = dispatchS3CompleteMultipartUpload(nonPlainMultipart);
+    assert.equal(nonPlainMultipartRes.http_status, 400);
+    assert.equal(nonPlainMultipartRes.error_code, 'InvalidPart');
+    assert.equal(nonPlainMultipartRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+    assert.throws(
+      () => validateS3MultipartSemantics(nonPlainMultipart),
+      /Semantic error: multipart upload manifest/
+    );
+
+    // 6. Custom class instances passed to all dispatchers
+    class CustomPutRequest {
+      constructor() {
+        Object.defineProperty(this, 'payload', { value: Buffer.from('CLASS_PAYLOAD'), enumerable: true });
+      }
+    }
+    const classPutRes = dispatchS3PutObject(new CustomPutRequest());
+    assert.equal(classPutRes.http_status, 400);
+    assert.equal(classPutRes.error_code, 'InvalidDigest');
+    assert.equal(classPutRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    class CustomErrorRequest {
+      constructor() {
+        Object.defineProperty(this, 'code', { value: 'AccessDenied', enumerable: true });
+      }
+    }
+    const classErrRes = dispatchS3Error(new CustomErrorRequest());
+    assert.equal(classErrRes.http_status, 400);
+    assert.equal(classErrRes.error_code, 'InvalidDigest');
+    assert.equal(classErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    class CustomMultipartRequest {
+      constructor() {
+        Object.defineProperty(this, 'parts', { value: [{ part_number: 1, etag: validEtag }], enumerable: true });
+      }
+    }
+    const classMultipartRes = dispatchS3CompleteMultipartUpload(new CustomMultipartRequest());
+    assert.equal(classMultipartRes.http_status, 400);
+    assert.equal(classMultipartRes.error_code, 'InvalidPart');
+    assert.equal(classMultipartRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+    assert.throws(
+      () => validateS3MultipartSemantics(new CustomMultipartRequest()),
+      /Semantic error: multipart upload manifest/
+    );
+
+    // 7. Transparent Proxy objects passed to all dispatchers
+    const proxyPutRes = dispatchS3PutObject(new Proxy({ payload: Buffer.from('PROXY_PAYLOAD') }, {}));
+    assert.equal(proxyPutRes.http_status, 400);
+    assert.equal(proxyPutRes.error_code, 'InvalidDigest');
+    assert.equal(proxyPutRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const proxyErrRes = dispatchS3Error(new Proxy({ code: 'AccessDenied' }, {}));
+    assert.equal(proxyErrRes.http_status, 400);
+    assert.equal(proxyErrRes.error_code, 'InvalidDigest');
+    assert.equal(proxyErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const proxyMultipartRes = dispatchS3CompleteMultipartUpload(new Proxy({ parts: [{ part_number: 1, etag: validEtag }] }, {}));
+    assert.equal(proxyMultipartRes.http_status, 400);
+    assert.equal(proxyMultipartRes.error_code, 'InvalidPart');
+    assert.equal(proxyMultipartRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+    assert.throws(
+      () => validateS3MultipartSemantics(new Proxy({ parts: [{ part_number: 1, etag: validEtag }] }, {})),
+      /Semantic error: multipart upload manifest/
+    );
+
+    // 8. Assert ZERO getters were invoked across ALL 17 polluted properties
+    for (const prop of POLLUTED_PROPERTIES) {
+      assert.equal(invoked[prop], false, `Object.prototype.${prop} getter must NOT be invoked`);
+    }
+  } finally {
+    for (const prop of POLLUTED_PROPERTIES) {
+      delete Object.prototype[prop];
+    }
+  }
+});
+
+test('adversarial Object.prototype getter pollution: individual 17-property isolated explosive pollution suites (OPEN-2 / OPEN-5)', () => {
+  const POLLUTED_PROPERTIES = [
+    'headers',
+    'payload',
+    'payloadBytes',
+    'Content-MD5',
+    'x-amz-content-sha256',
+    'error_condition',
+    'expected_error',
+    'code',
+    'reason',
+    'parts',
+    'PartNumber',
+    'part_number',
+    'ETag',
+    'etag',
+    'Size',
+    'size',
+    'size_bytes',
+  ];
+
+  const validEtag = '"0123456789abcdef0123456789abcdef"';
+
+  for (const prop of POLLUTED_PROPERTIES) {
+    let getterInvoked = false;
+    Object.defineProperty(Object.prototype, prop, {
+      get() {
+        getterInvoked = true;
+        throw new Error(`EXPLOSIVE_GETTER_${prop}`);
+      },
+      configurable: true,
+      enumerable: false,
+    });
+
+    try {
+      // 1. Plain objects
+      const putRes = dispatchS3PutObject({ payload: Buffer.from('INDIVIDUAL_TEST') });
+      assert.equal(putRes.http_status, 400);
+      assert.equal(putRes.error_code, 'InvalidDigest');
+      assert.equal(getterInvoked, false, `dispatchS3PutObject must not invoke Object.prototype.${prop}`);
+
+      const errRes = dispatchS3Error({ error_condition: 'AccessDenied' });
+      assert.equal(errRes.http_status, 400);
+      assert.equal(errRes.error_code, 'InvalidDigest');
+      assert.equal(getterInvoked, false, `dispatchS3Error must not invoke Object.prototype.${prop}`);
+
+      const multipartRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: validEtag }] });
+      assert.equal(multipartRes.http_status, 400);
+      assert.equal(multipartRes.error_code, 'InvalidPart');
+      assert.equal(getterInvoked, false, `dispatchS3CompleteMultipartUpload must not invoke Object.prototype.${prop}`);
+
+      assert.throws(
+        () => validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: validEtag }] }),
+        /Semantic error: multipart upload manifest/
+      );
+      assert.equal(getterInvoked, false, `validateS3MultipartSemantics must not invoke Object.prototype.${prop}`);
+
+      // 2. Non-plain objects
+      const nonPlain = Object.create({ protoKey: 'val' });
+      const nonPlainPut = dispatchS3PutObject(nonPlain);
+      assert.equal(nonPlainPut.http_status, 400);
+      assert.equal(getterInvoked, false, `non-plain dispatchS3PutObject must not invoke Object.prototype.${prop}`);
+
+      const nonPlainErr = dispatchS3Error(nonPlain);
+      assert.equal(nonPlainErr.http_status, 400);
+      assert.equal(getterInvoked, false, `non-plain dispatchS3Error must not invoke Object.prototype.${prop}`);
+
+      const nonPlainMp = dispatchS3CompleteMultipartUpload(nonPlain);
+      assert.equal(nonPlainMp.http_status, 400);
+      assert.equal(getterInvoked, false, `non-plain dispatchS3CompleteMultipartUpload must not invoke Object.prototype.${prop}`);
+
+      assert.throws(
+        () => validateS3MultipartSemantics(nonPlain),
+        /Semantic error: multipart upload manifest/
+      );
+      assert.equal(getterInvoked, false, `non-plain validateS3MultipartSemantics must not invoke Object.prototype.${prop}`);
+
+      // 3. Proxy objects
+      const proxyObj = new Proxy({ payload: Buffer.from('x'), parts: [] }, {});
+      const proxyPut = dispatchS3PutObject(proxyObj);
+      assert.equal(proxyPut.http_status, 400);
+      assert.equal(getterInvoked, false, `proxy dispatchS3PutObject must not invoke Object.prototype.${prop}`);
+
+      const proxyErr = dispatchS3Error(proxyObj);
+      assert.equal(proxyErr.http_status, 400);
+      assert.equal(getterInvoked, false, `proxy dispatchS3Error must not invoke Object.prototype.${prop}`);
+
+      const proxyMp = dispatchS3CompleteMultipartUpload(proxyObj);
+      assert.equal(proxyMp.http_status, 400);
+      assert.equal(getterInvoked, false, `proxy dispatchS3CompleteMultipartUpload must not invoke Object.prototype.${prop}`);
+
+      assert.throws(
+        () => validateS3MultipartSemantics(proxyObj),
+        /Semantic error: multipart upload manifest/
+      );
+      assert.equal(getterInvoked, false, `proxy validateS3MultipartSemantics must not invoke Object.prototype.${prop}`);
+    } finally {
+      delete Object.prototype[prop];
+    }
+  }
+});
+
+test('adversarial regression: Object.prototype getter on PartNumber causes validateS3MultipartSemantics and dispatchS3CompleteMultipartUpload to fail closed to InvalidPart without executing getter (OPEN-2 / OPEN-5)', () => {
+  let getterInvoked = false;
+  Object.defineProperty(Object.prototype, 'PartNumber', {
+    get() {
+      getterInvoked = true;
+      throw new Error('CRITICAL: Object.prototype.PartNumber getter must NEVER be invoked!');
+    },
+    configurable: true,
+  });
+
+  try {
+    const validStoredParts = [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+    ];
+
+    const validManifest = {
+      parts: [
+        { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880, sha256: 'a'.repeat(64) },
+        { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880, sha256: 'b'.repeat(64) },
+      ],
+      total_parts: 2,
+      total_size_bytes: 10485760,
+    };
+
+    // 1. validateS3MultipartSemantics must fail closed to InvalidPart without invoking getter
+    assert.throws(
+      () => validateS3MultipartSemantics(validManifest),
+      /InvalidPart/,
+      'validateS3MultipartSemantics must fail closed to InvalidPart when Object.prototype has PartNumber getter'
+    );
+    assert.equal(getterInvoked, false, 'Object.prototype.PartNumber getter must NOT be invoked by validateS3MultipartSemantics');
+
+    // 2. dispatchS3CompleteMultipartUpload direct manifest must fail closed to InvalidPart without invoking getter
+    const resDirect = dispatchS3CompleteMultipartUpload(validManifest, validStoredParts);
+    assert.equal(resDirect.http_status, 400, 'dispatchS3CompleteMultipartUpload must return HTTP 400');
+    assert.equal(resDirect.error_code, 'InvalidPart', 'dispatchS3CompleteMultipartUpload must return InvalidPart');
+    assert.equal(resDirect.code, 'InvalidPart');
+    assert.equal(getterInvoked, false, 'Object.prototype.PartNumber getter must NOT be invoked by dispatchS3CompleteMultipartUpload');
+
+    // 3. dispatchS3CompleteMultipartUpload wrapped options must fail closed to InvalidPart without invoking getter
+    const resWrapped = dispatchS3CompleteMultipartUpload({
+      manifest: validManifest,
+      storedParts: validStoredParts,
+    });
+    assert.equal(resWrapped.http_status, 400, 'dispatchS3CompleteMultipartUpload must return HTTP 400 for wrapped options');
+    assert.equal(resWrapped.error_code, 'InvalidPart', 'dispatchS3CompleteMultipartUpload must return InvalidPart for wrapped options');
+    assert.equal(resWrapped.code, 'InvalidPart');
+    assert.equal(getterInvoked, false, 'Object.prototype.PartNumber getter must NOT be invoked by dispatchS3CompleteMultipartUpload (wrapped options)');
+
+    // 4. Stored parts with Object.prototype.PartNumber
+    const resStoredMap = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, validStoredParts[0]], [2, validStoredParts[1]]]));
+    assert.equal(resStoredMap.http_status, 400);
+    assert.equal(resStoredMap.error_code, 'InvalidPart');
+    assert.equal(getterInvoked, false, 'Object.prototype.PartNumber getter must NOT be invoked with Map storedParts');
+  } finally {
+    delete Object.prototype.PartNumber;
+  }
+});
+
+test('adversarial regression: Object.prototype getter on headers causes dispatchS3PutObject and dispatchS3Error to fail closed to InvalidDigest without executing getter (OPEN-2 / OPEN-5)', () => {
+  let getterInvoked = false;
+  Object.defineProperty(Object.prototype, 'headers', {
+    get() {
+      getterInvoked = true;
+      throw new Error('CRITICAL: Object.prototype.headers getter must NEVER be invoked!');
+    },
+    configurable: true,
+  });
+
+  try {
+    const payload = Buffer.from('TEST_PAYLOAD_FOR_PROTOTYPE_HEADERS_REGRESSION');
+    const validSha = computePayloadSha256(payload);
+
+    const validPutOptions = {
+      payloadBytes: payload,
+      'x-amz-content-sha256': validSha,
+      content_length: payload.length,
+    };
+
+    // 1. dispatchS3PutObject must fail closed to InvalidDigest without invoking getter
+    const putRes = dispatchS3PutObject(validPutOptions);
+    assert.equal(putRes.http_status, 400, 'dispatchS3PutObject must return HTTP 400 when Object.prototype has headers getter');
+    assert.equal(putRes.error_code, 'InvalidDigest', 'dispatchS3PutObject must return InvalidDigest when Object.prototype has headers getter');
+    assert.equal(putRes.code, 'InvalidDigest');
+    assert.equal(getterInvoked, false, 'Object.prototype.headers getter must NOT be invoked by dispatchS3PutObject');
+
+    // 2. dispatchS3PutObject with empty object
+    const putEmptyRes = dispatchS3PutObject({});
+    assert.equal(putEmptyRes.http_status, 400);
+    assert.equal(putEmptyRes.error_code, 'InvalidDigest');
+    assert.equal(getterInvoked, false, 'Object.prototype.headers getter must NOT be invoked by dispatchS3PutObject ({})');
+
+    // 3. dispatchS3Error must fail closed to InvalidDigest without invoking getter
+    const errRes = dispatchS3Error(validPutOptions);
+    assert.equal(errRes.http_status, 400, 'dispatchS3Error must return HTTP 400 when Object.prototype has headers getter');
+    assert.equal(errRes.error_code, 'InvalidDigest', 'dispatchS3Error must return InvalidDigest when Object.prototype has headers getter');
+    assert.equal(errRes.code, 'InvalidDigest');
+    assert.equal(getterInvoked, false, 'Object.prototype.headers getter must NOT be invoked by dispatchS3Error');
+
+    // 4. dispatchS3Error with empty object
+    const errEmptyRes = dispatchS3Error({});
+    assert.equal(errEmptyRes.http_status, 400);
+    assert.equal(errEmptyRes.error_code, 'InvalidDigest');
+    assert.equal(getterInvoked, false, 'Object.prototype.headers getter must NOT be invoked by dispatchS3Error ({})');
+  } finally {
+    delete Object.prototype.headers;
+  }
+});
+
+test('branch coverage: comprehensive S3 multipart, put object, and error dispatcher edge cases (OPEN-2 / OPEN-5)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880, sha256: 'a'.repeat(64) },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880, sha256: 'b'.repeat(64) },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+
+  // 1. Manifest part with invalid or empty ETag
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '' }] }, validStoredParts).reason, 'MissingManifestPartETag');
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: 'invalid-non-s3-etag' }] }, validStoredParts).reason, 'InvalidETagFormat');
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: 12345 }] }, validStoredParts).reason, 'MissingManifestPartETag');
+
+  // 2. Stored part with invalid or empty ETag
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, [{ part_number: 1, etag: '' }]).reason, 'MissingStoredPartETag');
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, [{ part_number: 1, etag: 'invalid-non-s3-etag', size_bytes: 5242880 }]).reason, 'InvalidETagFormat');
+
+  // 3. Stored parts with accessor on storedParts object
+  const storedPartsWithAccessor = { get 1() { return { etag: '"abc"', size_bytes: 5242880 }; } };
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, storedPartsWithAccessor).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 4. Stored parts with non-plain prototype entry
+  const protoStoredPart = Object.create({ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 });
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, [protoStoredPart]).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, protoStoredPart]])).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload(validManifest, { 1: protoStoredPart }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 5. headers with prototype inheritance on headers object
+  const inhHdrs = Object.create({ 'x-amz-content-sha256': 'abc' });
+  assert.equal(dispatchS3PutObject({ payload: 'abc', headers: inhHdrs }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3Error({ payload: 'abc', headers: inhHdrs }).reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 6. dispatchS3PutObject with header digest keys inherited
+  for (const k of ['contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5', 'content_md5', 'content_md5_declared', 'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header', 'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header', 'content-length', 'Content-Length']) {
+    const hdrsObj = Object.create({ [k]: 'val' });
+    assert.equal(dispatchS3PutObject({ payload: 'abc', headers: hdrsObj }).reason, 'MALFORMED_HEADER_SYNTAX');
+  }
+
+  // 7. validateS3MultipartSemantics with ETag, SizeBytes, size inherited on part
+  const partWithInheritedETag = Object.create({ ETag: '"0123456789abcdef0123456789abcdef"' });
+  partWithInheritedETag.part_number = 1;
+  partWithInheritedETag.size_bytes = 5242880;
+  assert.throws(() => validateS3MultipartSemantics({ parts: [partWithInheritedETag] }));
+
+  const partWithInheritedSizeBytes = Object.create({ SizeBytes: 5242880 });
+  partWithInheritedSizeBytes.part_number = 1;
+  partWithInheritedSizeBytes.etag = '"0123456789abcdef0123456789abcdef"';
+  assert.throws(() => validateS3MultipartSemantics({ parts: [partWithInheritedSizeBytes] }));
+
+  // 8. dispatchS3Error and dispatchS3PutObject with valid and invalid header shapes
+  const sampleBuf = Buffer.from('TEST_ERROR_PAYLOAD');
+  const sampleSha = computePayloadSha256(sampleBuf);
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: { 'x-amz-content-sha256': sampleSha } }).http_status, 200);
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: { 'x-amz-content-sha256': '0'.repeat(64) } }).http_status, 400);
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: { 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' } }).reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, headers: { 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' } }).reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, headers: 'invalid_string_hdrs' }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, headers: new Date() }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, headers: ['arr'] }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: { 'content-length': 6000000000 } }).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: 'invalid_string_hdrs' }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: new Date() }).reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(dispatchS3Error({ payloadBytes: sampleBuf, headers: ['arr'] }).reason, 'MALFORMED_HEADER_SYNTAX');
+  // 9. dispatchS3CompleteMultipartUpload options wrapper branches
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: Object.create({ parts: [] }) }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ get manifest() { return {}; } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: validManifest, storedParts: Object.create({ '1': validStoredParts[0] }) }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: validManifest, get storedParts() { return validStoredParts; } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload('invalid_string_manifest').reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload(['invalid_array_manifest']).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload(Object.create(null)).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ get parts() { return []; } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: validManifest.parts, get total_parts() { return 2; } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: validManifest.parts, total_size_bytes: 'invalid_type' }, validStoredParts).reason, 'TotalSizeMismatch');
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: validManifest.parts, get total_size_bytes() { return 100; } }, validStoredParts).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  // 10. payloadOptionKeys branch coverage for dispatchS3PutObject and dispatchS3Error
+  for (const k of ['payload', 'payloadBytes', 'body', 'allow_unsigned_payload', 'is_presigned', 'content_length', 'contentLength', 'content_length_bytes', 'size_bytes', 'size', 'content-length', 'Content-Length']) {
+    const inheritedObj = Object.create({ [k]: 'val' });
+    assert.equal(dispatchS3PutObject(inheritedObj).reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(dispatchS3Error(inheritedObj).reason, 'MALFORMED_PAYLOAD_TYPE');
+  }
+
+  // 11. Stored part and manifest part with inherited properties in dispatchS3CompleteMultipartUpload
+  for (const k of ['part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size']) {
+    const inhPart = Object.create({ [k]: 1 });
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [validManifest.parts[0]] }, [inhPart]).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [validManifest.parts[0]] }, { '1': inhPart }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [inhPart] }, validStoredParts).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  }
+
+  // 12. digestKeys prototype pollution coverage for dispatchS3PutObject and dispatchS3Error
+  for (const k of ['contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5', 'content_md5', 'content_md5_declared', 'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header', 'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header']) {
+    try {
+      Object.prototype[k] = 'polluted-digest';
+      assert.equal(dispatchS3PutObject({ payload: 'valid' }).http_status, 400);
+      assert.equal(dispatchS3Error({ payload: 'valid' }).http_status, 400);
+    } finally {
+      delete Object.prototype[k];
+    }
   }
 });
