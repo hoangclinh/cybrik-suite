@@ -117,6 +117,13 @@
     },
     "path_formatting": {
       "$ref": "#/$defs/pathFormatting"
+    },
+    "evidence_references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
+      }
     }
   },
   "if": {
@@ -585,6 +592,13 @@
         },
         "path_formatting": {
           "$ref": "#/$defs/pathFormatting"
+        },
+        "evidence_references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
+          }
         }
       },
       "if": {

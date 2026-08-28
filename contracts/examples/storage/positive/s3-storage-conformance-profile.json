@@ -38,6 +38,10 @@
   ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
+  "evidence_references": [
+    "urn:cybrik:evidence:storage:s3:conformance:v1:core-operations",
+    "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"
+  ],
   "required_error_codes": [
     "BadDigest",
     "InvalidDigest",

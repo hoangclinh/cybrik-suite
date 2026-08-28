@@ -397,13 +397,11 @@ export function isMalformedPayloadType(payload) {
   if (typeof payload !== 'object') return true;
   if (types.isProxy(payload)) return true;
   if (Buffer.isBuffer(payload)) {
-    if (payload.constructor !== Buffer && payload.constructor !== Uint8Array) return true;
     const proto = Object.getPrototypeOf(payload);
     if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) return true;
     return false;
   }
-  if (payload instanceof Uint8Array) {
-    if (payload.constructor !== Uint8Array && payload.constructor !== Buffer) return true;
+  if (types.isUint8Array(payload)) {
     const proto = Object.getPrototypeOf(payload);
     if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) return true;
     if (Object.prototype.toString.call(payload) !== '[object Uint8Array]') return true;
@@ -517,6 +515,7 @@ export const S3_PROBE_KEYS = [
 ];
 
 export function getOwn(obj, prop) {
+  if (types.isProxy(obj)) return undefined;
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
   try {
     const desc = Object.getOwnPropertyDescriptor(obj, prop);
@@ -660,7 +659,9 @@ export function snapshotOwnDataDescriptors(obj) {
 }
 
 export function createSafePlainSnapshot(obj) {
-  if (types.isProxy(obj)) return null;
+  if (types.isProxy(obj) || hasAnyAccessorsOrProxy(obj)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
   if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
     return obj;
   }
@@ -669,32 +670,43 @@ export function createSafePlainSnapshot(obj) {
   }
   if (Array.isArray(obj)) {
     const arr = [];
-    try {
-      const descLen = Object.getOwnPropertyDescriptor(obj, 'length');
-      const len = (descLen && descLen.get === undefined && descLen.set === undefined && typeof descLen.value === 'number')
-        ? descLen.value
-        : (typeof obj.length === 'number' ? obj.length : 0);
-      for (let i = 0; i < len; i++) {
-        const desc = Object.getOwnPropertyDescriptor(obj, i);
-        if (desc && desc.get === undefined && desc.set === undefined) {
-          const val = desc.value;
-          arr.push((val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val);
-        }
+    const descLen = Object.getOwnPropertyDescriptor(obj, 'length');
+    if (descLen && (descLen.get !== undefined || descLen.set !== undefined)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    const len = (descLen && typeof descLen.value === 'number')
+      ? descLen.value
+      : (typeof obj.length === 'number' ? obj.length : 0);
+    for (let i = 0; i < len; i++) {
+      const desc = Object.getOwnPropertyDescriptor(obj, i);
+      if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
       }
-    } catch {}
+      if (desc) {
+        const val = desc.value;
+        if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+          throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+        }
+        arr.push((val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val);
+      }
+    }
     return arr;
   }
   const snapshot = Object.create(null);
-  try {
-    const keys = Reflect.ownKeys(obj);
-    for (const key of keys) {
-      const desc = Object.getOwnPropertyDescriptor(obj, key);
-      if (desc && desc.get === undefined && desc.set === undefined) {
-        const val = desc.value;
-        snapshot[key] = (val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val;
-      }
+  const keys = Reflect.ownKeys(obj);
+  for (const key of keys) {
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
     }
-  } catch {}
+    if (desc) {
+      const val = desc.value;
+      if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+      }
+      snapshot[key] = (val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val;
+    }
+  }
   return snapshot;
 }
 
@@ -855,9 +867,18 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       hasPrototypeChainAccessor(optionsOrPayload, 'size') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'content-length') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'Content-Length') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'expected_error') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'error_condition') ||
       (typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array && Object.getPrototypeOf(optionsOrPayload) === Uint8Array.prototype) && 'headers' in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers'))
     ) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+
+    if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array && Object.getPrototypeOf(optionsOrPayload) === Uint8Array.prototype)) {
+      const req = optionsOrPayload;
+      if (types.isProxy(req.expected_error) || types.isProxy(req.error_condition) || (req.expected_error && typeof req.expected_error === 'object' && types.isProxy(req.expected_error.error_condition))) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
     }
 
     if (hasOversizedDeclaredLength(optionsOrPayload)) {
@@ -917,6 +938,10 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       }
       for (const k in hdrs) {
         if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+        }
+        const valDesc = Object.getOwnPropertyDescriptor(hdrs, k);
+        if (!valDesc || valDesc.get !== undefined || valDesc.set !== undefined || types.isProxy(valDesc.value) || (typeof valDesc.value === 'object' && valDesc.value !== null)) {
           return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
         }
       }
@@ -1010,6 +1035,9 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
   const expError = (optionsOrPayload && typeof optionsOrPayload === 'object')
     ? getOwn(optionsOrPayload, 'expected_error')
     : undefined;
+  if (expError !== undefined && (types.isProxy(expError) || hasOwnAccessors(expError))) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+  }
   const expErrorCond = expError && typeof expError === 'object'
     ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
     : undefined;
@@ -1251,10 +1279,21 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       if (('size_bytes' in p && !Object.prototype.hasOwnProperty.call(p, 'size_bytes')) || ('SizeBytes' in p && !Object.prototype.hasOwnProperty.call(p, 'SizeBytes')) || ('size' in p && !Object.prototype.hasOwnProperty.call(p, 'size'))) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
+      for (const prop of ['part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size', 'sha256', 'checksum_sha256']) {
+        if (Object.prototype.hasOwnProperty.call(p, prop)) {
+          const pd = Object.getOwnPropertyDescriptor(p, prop);
+          if (!pd || pd.get !== undefined || pd.set !== undefined || types.isProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
+            return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
+          }
+        }
+      }
       const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber');
       const pEtag = getOwn(p, 'etag') ?? getOwn(p, 'ETag');
       const pSize = getOwn(p, 'size_bytes') ?? getOwn(p, 'SizeBytes') ?? getOwn(p, 'size');
 
+      if (pNum === undefined || pNum === null) {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingPartNumber' };
+      }
       if (typeof pNum !== 'number' || pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
         return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'InvalidPartNumber' };
       }
@@ -1276,7 +1315,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
       }
 
-      if (pSize !== undefined && (typeof pSize !== 'number' || pSize < 0)) {
+      if (pSize !== undefined && (typeof pSize !== 'number' || !Number.isInteger(pSize) || pSize < 0)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
       }
     }
@@ -1305,7 +1344,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 
     let storedMap;
     if (Array.isArray(storedParts)) {
-      if (storedParts.constructor !== Array || Object.getPrototypeOf(storedParts) !== Array.prototype || types.isProxy(storedParts)) {
+      if (Object.getPrototypeOf(storedParts) !== Array.prototype || types.isProxy(storedParts)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
       storedMap = new Map();
@@ -1336,7 +1375,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         }
       }
     } else if (storedParts instanceof Map) {
-      if (Object.getPrototypeOf(storedParts) !== Map.prototype || storedParts.constructor !== Map || hasOwnAccessors(storedParts) || types.isProxy(storedParts)) {
+      if (!types.isMap(storedParts) || Object.getPrototypeOf(storedParts) !== Map.prototype || hasOwnAccessors(storedParts) || types.isProxy(storedParts)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
       storedMap = new Map();
@@ -1523,9 +1562,18 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       hasPrototypeChainAccessor(conditionOrOptions, 'payloadBytes') ||
       hasPrototypeChainAccessor(conditionOrOptions, 'body') ||
       hasPrototypeChainAccessor(conditionOrOptions, 'code') ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'expected_error') ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'error_condition') ||
       (typeof conditionOrOptions === 'object' && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array && Object.getPrototypeOf(conditionOrOptions) === Uint8Array.prototype) && 'headers' in conditionOrOptions && !Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers'))
     ) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+
+    if (conditionOrOptions && typeof conditionOrOptions === 'object' && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array && Object.getPrototypeOf(conditionOrOptions) === Uint8Array.prototype)) {
+      const req = conditionOrOptions;
+      if (types.isProxy(req.expected_error) || types.isProxy(req.error_condition) || (req.expected_error && typeof req.expected_error === 'object' && types.isProxy(req.expected_error.error_condition))) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
     }
 
     if (hasOversizedDeclaredLength(conditionOrOptions)) {
@@ -1644,6 +1692,16 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
               reason: 'MALFORMED_HEADER_SYNTAX',
             };
           }
+          const valDesc = Object.getOwnPropertyDescriptor(hdrs, k);
+          if (!valDesc || valDesc.get !== undefined || valDesc.set !== undefined || types.isProxy(valDesc.value) || (typeof valDesc.value === 'object' && valDesc.value !== null)) {
+            return {
+              http_status: 400,
+              error_code: 'InvalidDigest',
+              status: 400,
+              code: 'InvalidDigest',
+              reason: 'MALFORMED_HEADER_SYNTAX',
+            };
+          }
         }
         headersObj = hdrs;
         if (hasOversizedDeclaredLength(conditionOrOptions, headersObj)) {
@@ -1708,6 +1766,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     const expError = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
       ? getOwn(conditionOrOptions, 'expected_error')
       : undefined;
+    if (expError !== undefined && (types.isProxy(expError) || hasOwnAccessors(expError))) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'MALFORMED_PAYLOAD_TYPE',
+      };
+    }
     const expErrorCond = expError && typeof expError === 'object'
       ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
       : undefined;
@@ -2180,6 +2247,14 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
 
 export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybeSha) {
   if (
+    (payloadOrCondition !== null && typeof payloadOrCondition === 'object' && types.isProxy(payloadOrCondition)) ||
+    (maybeHeader !== null && typeof maybeHeader === 'object' && types.isProxy(maybeHeader)) ||
+    (maybeSha !== null && typeof maybeSha === 'object' && types.isProxy(maybeSha)) ||
+    (payloadOrCondition !== null && typeof payloadOrCondition === 'object' && (types.isProxy(getOwn(payloadOrCondition, 'expected_error')) || types.isProxy(getOwn(payloadOrCondition, 'payloadBytes')) || types.isProxy(getOwn(payloadOrCondition, 'payload'))))
+  ) {
+    throw new Error('Accessor properties or Proxy objects are prohibited in verifyDigestErrorDispatch');
+  }
+  if (
     arguments.length >= 2 ||
     (payloadOrCondition && typeof payloadOrCondition === 'object' && ('payloadBytes' in payloadOrCondition || ('contentMd5Header' in payloadOrCondition && !('http_status' in payloadOrCondition) && !('error_code' in payloadOrCondition))))
   ) {
@@ -2234,6 +2309,14 @@ export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybe
 }
 
 export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, maybeSha) {
+  if (
+    (headerOrCondition !== null && typeof headerOrCondition === 'object' && types.isProxy(headerOrCondition)) ||
+    (maybeHeader !== null && typeof maybeHeader === 'object' && types.isProxy(maybeHeader)) ||
+    (maybeSha !== null && typeof maybeSha === 'object' && types.isProxy(maybeSha)) ||
+    (headerOrCondition !== null && typeof headerOrCondition === 'object' && (types.isProxy(getOwn(headerOrCondition, 'headers')) || types.isProxy(getOwn(headerOrCondition, 'expected_error')) || types.isProxy(getOwn(headerOrCondition, 'payloadBytes')) || types.isProxy(getOwn(headerOrCondition, 'payload'))))
+  ) {
+    throw new Error('Accessor properties or Proxy objects are prohibited in verifyMalformedHeaderDispatch');
+  }
   if (
     arguments.length >= 2 ||
     (headerOrCondition && typeof headerOrCondition === 'object' && ('payloadBytes' in headerOrCondition || ('contentMd5Header' in headerOrCondition && !('http_status' in headerOrCondition) && !('error_code' in headerOrCondition))))
@@ -2388,6 +2471,7 @@ export function validateS3MultipartSemantics(manifest) {
 
     const MIN_NON_FINAL_PART_SIZE = 5 * 1024 * 1024; // 5 MiB = 5,242,880 bytes
     const MAX_PART_SIZE = 5 * 1024 * 1024 * 1024; // 5 GiB = 5,368,709,120 bytes
+    const S3_PART_ETAG_REGEX = /^"[a-fA-F0-9]{32}(?:-[0-9]{1,5})?"$/;
 
     for (let i = 0; i < parts.length; i++) {
       if (!Object.prototype.hasOwnProperty.call(parts, i)) {
@@ -2417,6 +2501,7 @@ export function validateS3MultipartSemantics(manifest) {
         ('PartNumber' in part && !Object.prototype.hasOwnProperty.call(part, 'PartNumber')) ||
         ('ETag' in part && !Object.prototype.hasOwnProperty.call(part, 'ETag')) ||
         ('SizeBytes' in part && !Object.prototype.hasOwnProperty.call(part, 'SizeBytes')) ||
+        ('Size' in part && !Object.prototype.hasOwnProperty.call(part, 'Size')) ||
         ('size' in part && !Object.prototype.hasOwnProperty.call(part, 'size')) ||
         hasPrototypeChainAccessor(part, 'part_number') ||
         hasPrototypeChainAccessor(part, 'PartNumber') ||
@@ -2424,6 +2509,7 @@ export function validateS3MultipartSemantics(manifest) {
         hasPrototypeChainAccessor(part, 'ETag') ||
         hasPrototypeChainAccessor(part, 'size_bytes') ||
         hasPrototypeChainAccessor(part, 'SizeBytes') ||
+        hasPrototypeChainAccessor(part, 'Size') ||
         hasPrototypeChainAccessor(part, 'size')
       ) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
@@ -2431,34 +2517,52 @@ export function validateS3MultipartSemantics(manifest) {
       if (!isPlainOrNull(part)) {
         throw new Error('Semantic error: multipart upload manifest part must be a plain object (InvalidPart)');
       }
-
-      const pNum = getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber');
-      if (typeof pNum === 'number') {
-        if (pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
-          throw new Error(
-            `Semantic error: multipart upload manifest part number ${pNum} is out of bounds [1, 10000] (InvalidArgument)`
-          );
+      for (const prop of ['part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size', 'sha256', 'checksum_sha256']) {
+        if (Object.prototype.hasOwnProperty.call(part, prop)) {
+          const pd = Object.getOwnPropertyDescriptor(part, prop);
+          if (!pd || pd.get !== undefined || pd.set !== undefined || types.isProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
+            throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+          }
         }
-        if (seenParts.has(pNum) || pNum <= prevPartNumber) {
-          throw new Error(
-            `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${pNum} after ${prevPartNumber || pNum}) (InvalidPartOrder)`
-          );
-        }
-        seenParts.add(pNum);
-        prevPartNumber = pNum;
       }
 
+      const pNum = getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber');
+      if (pNum === undefined || pNum === null || typeof pNum !== 'number' || !Number.isInteger(pNum) || !Number.isFinite(pNum)) {
+        throw new Error('Semantic error: multipart upload manifest part is missing valid part_number (InvalidPart)');
+      }
+      if (pNum < 1 || pNum > 10000) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part number ${pNum} is out of bounds [1, 10000] (InvalidArgument)`
+        );
+      }
+      if (seenParts.has(pNum) || pNum <= prevPartNumber) {
+        throw new Error(
+          `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${pNum} after ${prevPartNumber || pNum}) (InvalidPartOrder)`
+        );
+      }
+      seenParts.add(pNum);
+      prevPartNumber = pNum;
+    }
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const pNum = getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber');
       const pEtag = getOwn(part, 'etag') ?? getOwn(part, 'ETag');
-      if (pEtag === undefined || typeof pEtag !== 'string' || !pEtag) {
+      if (pEtag === undefined || pEtag === null || typeof pEtag !== 'string' || !pEtag) {
         throw new Error(`Semantic error: multipart upload manifest part ${pNum} is missing valid etag (InvalidPart)`);
       }
 
-      if (!/^"[a-fA-F0-9]{32}(-[0-9]+)?"$/.test(pEtag) && !/^"[a-zA-Z0-9_-]+"$/.test(pEtag)) {
+      if (!S3_PART_ETAG_REGEX.test(pEtag)) {
         throw new Error(`Semantic error: multipart upload manifest part ${pNum} has invalid etag format (InvalidPart)`);
       }
 
-      const sBytes = getOwn(part, 'size_bytes') ?? getOwn(part, 'SizeBytes') ?? getOwn(part, 'size');
-      if (typeof sBytes === 'number') {
+      const sBytes = getOwn(part, 'size_bytes') ?? getOwn(part, 'SizeBytes') ?? getOwn(part, 'size') ?? getOwn(part, 'Size');
+      if (sBytes !== undefined && sBytes !== null) {
+        if (typeof sBytes !== 'number' || !Number.isInteger(sBytes) || !Number.isFinite(sBytes)) {
+          throw new Error(
+            `Semantic error: multipart upload manifest part ${pNum} size (${sBytes}) must be a valid non-negative integer (InvalidPart)`
+          );
+        }
         if (sBytes < 0) {
           throw new Error(
             `Semantic error: multipart upload manifest part ${pNum} size (${sBytes} bytes) cannot be negative (InvalidPart)`
@@ -2641,6 +2745,42 @@ export function validateS3ConformanceProfileSemantics(profile) {
     }
   }
 
+  const opsList = Array.isArray(safeProfile.required_operations)
+    ? safeProfile.required_operations
+    : (Array.isArray(safeProfile.supported_features) ? safeProfile.supported_features : null);
+  const is19OpsAdvertised = Array.isArray(opsList) &&
+    opsList.length === 19 &&
+    S3_19_CLOSED_OPS.every(op => opsList.includes(op));
+
+  if (isLockSupported || is19OpsAdvertised) {
+    const evidenceRefs = new Set();
+    if (Array.isArray(safeProfile.evidence_references)) {
+      for (const ref of safeProfile.evidence_references) {
+        if (typeof ref === 'string') evidenceRefs.add(ref);
+      }
+    }
+    if (Array.isArray(safeProfile.conformance_evidence)) {
+      for (const item of safeProfile.conformance_evidence) {
+        if (typeof item === 'string') evidenceRefs.add(item);
+        else if (item && typeof item.test_identifier === 'string') evidenceRefs.add(item.test_identifier);
+      }
+    }
+
+    const hasCoreOps = evidenceRefs.has('urn:cybrik:evidence:storage:s3:conformance:v1:core-operations');
+    const hasObjectLock = evidenceRefs.has('urn:cybrik:evidence:storage:s3:conformance:v1:object-lock');
+    if (!hasCoreOps || !hasObjectLock) {
+      if (!hasCoreOps && !hasObjectLock) {
+        throw new Error("Semantic error: storage conformance profile with Object Lock / 19 operations requires both general storage conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations' and Object Lock evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'");
+      }
+      if (!hasCoreOps) {
+        throw new Error("Semantic error: storage conformance profile with Object Lock / 19 operations requires general storage conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations'");
+      }
+      if (!hasObjectLock) {
+        throw new Error("Semantic error: storage conformance profile with Object Lock / 19 operations requires Object Lock evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'");
+      }
+    }
+  }
+
   return true;
 }
 
@@ -2680,14 +2820,54 @@ export function validateOfflineInstallSemantics(data) {
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
   }
+  const checkNestedProxyOrAccessor = (val) => {
+    if (!val || (typeof val !== 'object' && typeof val !== 'function')) return;
+    if (types.isProxy(val)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+    }
+    if (Array.isArray(val)) {
+      for (let i = 0; i < val.length; i++) {
+        if (Object.prototype.hasOwnProperty.call(val, i)) {
+          const d = Object.getOwnPropertyDescriptor(val, i);
+          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+            throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+          }
+          if (d && 'value' in d && d.value && typeof d.value === 'object') {
+            checkNestedProxyOrAccessor(d.value);
+          }
+        }
+      }
+    } else {
+      for (const k of Reflect.ownKeys(val)) {
+        if (val === Object.prototype && k === '__proto__') continue;
+        const d = Object.getOwnPropertyDescriptor(val, k);
+        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+          throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+        }
+        if (d && 'value' in d && d.value && typeof d.value === 'object') {
+          checkNestedProxyOrAccessor(d.value);
+        }
+      }
+    }
+  };
+  checkNestedProxyOrAccessor(data);
   const safeData = createSafePlainSnapshot(data);
   if (!safeData) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
+  if (data.operator_trust_root && !safeData.operator_trust_root) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
+  if (data.detached_signature && !safeData.detached_signature) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
   }
   if (safeData && safeData.operator_trust_root && safeData.detached_signature) {
     const rootFp = safeData.operator_trust_root.public_key_fingerprint;
     const sigFp = safeData.detached_signature.key_fingerprint;
-    if (rootFp && sigFp && rootFp !== sigFp) {
+    if (!rootFp || typeof rootFp !== 'string' || !sigFp || typeof sigFp !== 'string') {
+      throw new Error('Semantic error: offline manifest missing valid signing key fingerprint or contains prohibited proxy');
+    }
+    if (rootFp !== sigFp) {
       throw new Error(`Semantic error: offline manifest detached_signature.key_fingerprint ('${sigFp}') does not match operator_trust_root.public_key_fingerprint ('${rootFp}')`);
     }
   }
@@ -2760,8 +2940,45 @@ export function validatePlatformSemantics(data, schemaId) {
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
+  const checkNestedProxyOrAccessor = (val) => {
+    if (!val || (typeof val !== 'object' && typeof val !== 'function')) return;
+    if (types.isProxy(val)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    if (Array.isArray(val)) {
+      for (let i = 0; i < val.length; i++) {
+        if (Object.prototype.hasOwnProperty.call(val, i)) {
+          const d = Object.getOwnPropertyDescriptor(val, i);
+          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+            throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+          }
+          if (d && 'value' in d && d.value && typeof d.value === 'object') {
+            checkNestedProxyOrAccessor(d.value);
+          }
+        }
+      }
+    } else {
+      for (const k of Reflect.ownKeys(val)) {
+        if (val === Object.prototype && k === '__proto__') continue;
+        const d = Object.getOwnPropertyDescriptor(val, k);
+        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+          throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+        }
+        if (d && 'value' in d && d.value && typeof d.value === 'object') {
+          checkNestedProxyOrAccessor(d.value);
+        }
+      }
+    }
+  };
+  checkNestedProxyOrAccessor(data);
   const safeData = createSafePlainSnapshot(data);
   if (!safeData) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
+  if (data.advertisement_response && !safeData.advertisement_response) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
+  if (data.agreed_capability_lease && !safeData.agreed_capability_lease) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
@@ -3202,6 +3419,18 @@ export function validatePlatformSemantics(data, schemaId) {
                 throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
               }
             }
+          }
+        }
+
+        if (isNegotiation && (immutableStorageRequired || isLockDeclared || featureSet.size >= 19)) {
+          const generalStorageRefs = (storageCap.evidence_references || []).filter(
+            ref => ref !== canonicalLockUrn &&
+            !ref.toLowerCase().includes('object-lock') &&
+            !ref.toLowerCase().includes('object_lock') &&
+            !ref.toLowerCase().includes('objectlock')
+          );
+          if (generalStorageRefs.length === 0) {
+            throw new Error(`Semantic error: 19-op storage profile advertisement lacks general storage conformance evidence`);
           }
         }
       }
