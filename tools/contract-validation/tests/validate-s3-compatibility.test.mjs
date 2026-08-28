@@ -2573,6 +2573,9 @@ test('strict PutObject SHA256 validation, safe storedParts array lookup, multipa
     { reason: 'MissingXAmzContentSHA256', code: 'InvalidDigest', status: 400 },
     { reason: 'TooManyParts', code: 'InvalidArgument', status: 400 },
     { reason: 'InvalidPartNumber', code: 'InvalidArgument', status: 400 },
+    { reason: 'MissingPartNumber', code: 'InvalidPart', status: 400 },
+    { reason: 'MissingManifestPartETag', code: 'InvalidPart', status: 400 },
+    { reason: 'InvalidPartSize', code: 'InvalidPart', status: 400 },
     { reason: 'PartSizeExceeded', code: 'EntityTooLarge', status: 400 },
     { reason: 'TotalSizeExceeded', code: 'EntityTooLarge', status: 400 },
   ];
@@ -13447,7 +13450,40 @@ test('adversarial regression: part missing part_number and string size_bytes fai
   assert.equal(resNullPartNum.error_code, 'InvalidPart');
   assert.equal(resNullPartNum.reason, 'MissingPartNumber');
 
-  // 4. dispatchS3CompleteMultipartUpload: string or float size_bytes returns HTTP 400 InvalidPart
+  const resObjPartNum = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: { id: 1 }, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] },
+    validStoredParts
+  );
+  assert.equal(resObjPartNum.http_status, 400);
+  assert.equal(resObjPartNum.error_code, 'InvalidPart');
+  assert.equal(resObjPartNum.reason, 'MissingPartNumber');
+
+  const resObjPartNumUpper = dispatchS3CompleteMultipartUpload(
+    { parts: [{ PartNumber: {}, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] },
+    validStoredParts
+  );
+  assert.equal(resObjPartNumUpper.http_status, 400);
+  assert.equal(resObjPartNumUpper.error_code, 'InvalidPart');
+  assert.equal(resObjPartNumUpper.reason, 'MissingPartNumber');
+
+  // dispatchS3CompleteMultipartUpload: object-valued etag / ETag returns MissingManifestPartETag
+  const resObjEtag = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: { hash: '0123' }, size_bytes: 5242880 }] },
+    validStoredParts
+  );
+  assert.equal(resObjEtag.http_status, 400);
+  assert.equal(resObjEtag.error_code, 'InvalidPart');
+  assert.equal(resObjEtag.reason, 'MissingManifestPartETag');
+
+  const resObjEtagUpper = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, ETag: {}, size_bytes: 5242880 }] },
+    validStoredParts
+  );
+  assert.equal(resObjEtagUpper.http_status, 400);
+  assert.equal(resObjEtagUpper.error_code, 'InvalidPart');
+  assert.equal(resObjEtagUpper.reason, 'MissingManifestPartETag');
+
+  // 4. dispatchS3CompleteMultipartUpload: string, float, or object-valued size_bytes / SizeBytes / size returns HTTP 400 InvalidPart (InvalidPartSize)
   const resStrSize = dispatchS3CompleteMultipartUpload(
     { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: '5242880' }] },
     validStoredParts
@@ -13463,6 +13499,46 @@ test('adversarial regression: part missing part_number and string size_bytes fai
   assert.equal(resFloatSize.http_status, 400);
   assert.equal(resFloatSize.error_code, 'InvalidPart');
   assert.equal(resFloatSize.reason, 'InvalidPartSize');
+
+  const resObjSize = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: { val: 5242880 } }] },
+    validStoredParts
+  );
+  assert.equal(resObjSize.http_status, 400);
+  assert.equal(resObjSize.error_code, 'InvalidPart');
+  assert.equal(resObjSize.reason, 'InvalidPartSize');
+
+  const resObjSizeBytes = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', SizeBytes: {} }] },
+    validStoredParts
+  );
+  assert.equal(resObjSizeBytes.http_status, 400);
+  assert.equal(resObjSizeBytes.error_code, 'InvalidPart');
+  assert.equal(resObjSizeBytes.reason, 'InvalidPartSize');
+
+  const resObjSizeProp = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size: {} }] },
+    validStoredParts
+  );
+  assert.equal(resObjSizeProp.http_status, 400);
+  assert.equal(resObjSizeProp.error_code, 'InvalidPart');
+  assert.equal(resObjSizeProp.reason, 'InvalidPartSize');
+
+  const resNegativeSize = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: -1 }] },
+    validStoredParts
+  );
+  assert.equal(resNegativeSize.http_status, 400);
+  assert.equal(resNegativeSize.error_code, 'InvalidPart');
+  assert.equal(resNegativeSize.reason, 'InvalidPartSize');
+
+  const resNullSize = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: null }] },
+    validStoredParts
+  );
+  assert.equal(resNullSize.http_status, 400);
+  assert.equal(resNullSize.error_code, 'InvalidPart');
+  assert.equal(resNullSize.reason, 'InvalidPartSize');
 
   // Stored parts with string or float size_bytes returns HTTP 400 InvalidPart
   const resStoredStrSize = dispatchS3CompleteMultipartUpload(
@@ -15289,6 +15365,23 @@ test('OPEN-2 exhaustive 22-shape spoofed view matrix across CompleteMultipartUpl
     { name: 'DataView', create: () => new DataView(new ArrayBuffer(8)) },
   ];
 
+  const targetPrototypes = [
+    { protoName: 'Uint8Array.prototype', proto: Uint8Array.prototype },
+    { protoName: 'Buffer.prototype', proto: Buffer.prototype },
+  ];
+
+  const spoofedMatrix = [];
+  for (const variant of nonUint8Variants) {
+    for (const target of targetPrototypes) {
+      spoofedMatrix.push({
+        name: `${variant.name} -> ${target.protoName}`,
+        createView: () => Object.setPrototypeOf(variant.create(), target.proto),
+      });
+    }
+  }
+
+  assert.equal(spoofedMatrix.length, 22, 'Matrix must contain exactly 22 distinct spoofed views');
+
   const validManifest = {
     parts: [
       {
@@ -15300,85 +15393,80 @@ test('OPEN-2 exhaustive 22-shape spoofed view matrix across CompleteMultipartUpl
   };
 
   let testedShapes = 0;
-  for (const variant of nonUint8Variants) {
-    const u8Spoofed = Object.setPrototypeOf(variant.create(), Uint8Array.prototype);
-    const bufSpoofed = Object.setPrototypeOf(variant.create(), Buffer.prototype);
+  for (const entry of spoofedMatrix) {
+    const view = entry.createView();
+    testedShapes++;
 
-    for (const view of [u8Spoofed, bufSpoofed]) {
-      testedShapes++;
+    // 1. dispatchS3CompleteMultipartUpload(view) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE)
+    const res1 = dispatchS3CompleteMultipartUpload(view);
+    assert.equal(res1.http_status, 400);
+    assert.equal(res1.error_code, 'InvalidPart');
+    assert.ok(
+      res1.reason === 'INVALID_MULTIPART_MANIFEST_STRUCTURE' || res1.reason === 'MALFORMED_PAYLOAD_TYPE',
+      `res1.reason should be INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE, got ${res1.reason}`
+    );
 
-      // 1. dispatchS3CompleteMultipartUpload(view) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE)
-      const res1 = dispatchS3CompleteMultipartUpload(view);
-      assert.equal(res1.http_status, 400);
-      assert.equal(res1.error_code, 'InvalidPart');
-      assert.ok(
-        res1.reason === 'INVALID_MULTIPART_MANIFEST_STRUCTURE' || res1.reason === 'MALFORMED_PAYLOAD_TYPE',
-        `res1.reason should be INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE, got ${res1.reason}`
-      );
+    // 2. dispatchS3CompleteMultipartUpload({ manifest: view }) -> HTTP 400 InvalidPart
+    const res2 = dispatchS3CompleteMultipartUpload({ manifest: view });
+    assert.equal(res2.http_status, 400);
+    assert.equal(res2.error_code, 'InvalidPart');
 
-      // 2. dispatchS3CompleteMultipartUpload({ manifest: view }) -> HTTP 400 InvalidPart
-      const res2 = dispatchS3CompleteMultipartUpload({ manifest: view });
-      assert.equal(res2.http_status, 400);
-      assert.equal(res2.error_code, 'InvalidPart');
+    // 3. dispatchS3CompleteMultipartUpload({ parts: [view] }) -> HTTP 400 InvalidPart
+    const res3 = dispatchS3CompleteMultipartUpload({ parts: [view] });
+    assert.equal(res3.http_status, 400);
+    assert.equal(res3.error_code, 'InvalidPart');
 
-      // 3. dispatchS3CompleteMultipartUpload({ parts: [view] }) -> HTTP 400 InvalidPart
-      const res3 = dispatchS3CompleteMultipartUpload({ parts: [view] });
-      assert.equal(res3.http_status, 400);
-      assert.equal(res3.error_code, 'InvalidPart');
+    // 4. dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> HTTP 400 InvalidPart (InvalidPartSize)
+    const res4 = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] });
+    assert.equal(res4.http_status, 400, `${entry.name}: form 16 http_status`);
+    assert.equal(res4.error_code, 'InvalidPart', `${entry.name}: form 16 error_code`);
+    assert.equal(res4.reason, 'InvalidPartSize', `${entry.name}: form 16 reason`);
 
-      // 4. dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> HTTP 400 InvalidPart
-      const res4 = dispatchS3CompleteMultipartUpload({
+    // 5. dispatchS3CompleteMultipartUpload(validManifest, view) (direct storedParts) -> HTTP 400 InvalidPart
+    const res5 = dispatchS3CompleteMultipartUpload(validManifest, view);
+    assert.equal(res5.http_status, 400);
+    assert.equal(res5.error_code, 'InvalidPart');
+
+    // 6. dispatchS3CompleteMultipartUpload(validManifest, [view]) (storedParts array element) -> HTTP 400 InvalidPart
+    const res6 = dispatchS3CompleteMultipartUpload(validManifest, [view]);
+    assert.equal(res6.http_status, 400);
+    assert.equal(res6.error_code, 'InvalidPart');
+
+    // 7. dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]])) (storedParts Map element) -> HTTP 400 InvalidPart
+    const res7 = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]]));
+    assert.equal(res7.http_status, 400);
+    assert.equal(res7.error_code, 'InvalidPart');
+
+    // 8. validateS3MultipartSemantics(view) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+    assert.throws(
+      () => validateS3MultipartSemantics(view),
+      /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
+      'validateS3MultipartSemantics must reject spoofed view directly'
+    );
+
+    // 9. validateS3MultipartSemantics({ parts: [view] }) -> throws InvalidPart
+    assert.throws(
+      () => validateS3MultipartSemantics({ parts: [view] }),
+      /InvalidPart/,
+      'validateS3MultipartSemantics must reject spoofed view in parts array'
+    );
+
+    // 10. validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> throws InvalidPart
+    assert.throws(
+      () => validateS3MultipartSemantics({
         parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }],
-      });
-      assert.equal(res4.http_status, 400);
-      assert.equal(res4.error_code, 'InvalidPart');
+      }),
+      /InvalidPart/,
+      'validateS3MultipartSemantics must reject spoofed view in part size_bytes'
+    );
 
-      // 5. dispatchS3CompleteMultipartUpload(validManifest, view) (direct storedParts) -> HTTP 400 InvalidPart
-      const res5 = dispatchS3CompleteMultipartUpload(validManifest, view);
-      assert.equal(res5.http_status, 400);
-      assert.equal(res5.error_code, 'InvalidPart');
-
-      // 6. dispatchS3CompleteMultipartUpload(validManifest, [view]) (storedParts array element) -> HTTP 400 InvalidPart
-      const res6 = dispatchS3CompleteMultipartUpload(validManifest, [view]);
-      assert.equal(res6.http_status, 400);
-      assert.equal(res6.error_code, 'InvalidPart');
-
-      // 7. dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]])) (storedParts Map element) -> HTTP 400 InvalidPart
-      const res7 = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]]));
-      assert.equal(res7.http_status, 400);
-      assert.equal(res7.error_code, 'InvalidPart');
-
-      // 8. validateS3MultipartSemantics(view) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
-      assert.throws(
-        () => validateS3MultipartSemantics(view),
-        /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
-        'validateS3MultipartSemantics must reject spoofed view directly'
-      );
-
-      // 9. validateS3MultipartSemantics({ parts: [view] }) -> throws InvalidPart
-      assert.throws(
-        () => validateS3MultipartSemantics({ parts: [view] }),
-        /InvalidPart/,
-        'validateS3MultipartSemantics must reject spoofed view in parts array'
-      );
-
-      // 10. validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> throws InvalidPart
-      assert.throws(
-        () => validateS3MultipartSemantics({
-          parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }],
-        }),
-        /InvalidPart/,
-        'validateS3MultipartSemantics must reject spoofed view in part size_bytes'
-      );
-
-      // 11. validateS3MultipartSemantics({ payload: view }) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
-      assert.throws(
-        () => validateS3MultipartSemantics({ payload: view }),
-        /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
-        'validateS3MultipartSemantics must reject spoofed view in payload wrapper'
-      );
-    }
+    // 11. validateS3MultipartSemantics({ payload: view }) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+    assert.throws(
+      () => validateS3MultipartSemantics({ payload: view }),
+      /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
+      'validateS3MultipartSemantics must reject spoofed view in payload wrapper'
+    );
   }
 
-  assert.equal(testedShapes, 22, 'Must have tested exactly 22 spoofed view shapes');
+  assert.equal(testedShapes, 22, 'Matrix must contain exactly 22 distinct spoofed views');
 });

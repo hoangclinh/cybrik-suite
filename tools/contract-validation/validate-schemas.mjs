@@ -1439,15 +1439,32 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       }
       for (const prop of Reflect.ownKeys(p)) {
         const pd = Object.getOwnPropertyDescriptor(p, prop);
-        if (!pd || pd.get !== undefined || pd.set !== undefined || types.isProxy(pd.value) || hasAnyAccessorsOrProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
+        if (!pd || pd.get !== undefined || pd.set !== undefined) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
+        }
+        if (prop === 'size_bytes' || prop === 'SizeBytes' || prop === 'size') {
+          if (pd.value !== undefined && (pd.value === null || typeof pd.value === 'object' || typeof pd.value !== 'number' || !Number.isInteger(pd.value) || pd.value < 0)) {
+            return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
+          }
+        } else if (prop === 'part_number' || prop === 'PartNumber') {
+          if (pd.value === undefined || pd.value === null || (typeof pd.value === 'object' && pd.value !== null)) {
+            return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingPartNumber' };
+          }
+        } else if (prop === 'etag' || prop === 'ETag') {
+          if (pd.value === undefined || pd.value === null || typeof pd.value !== 'string' || !pd.value || (typeof pd.value === 'object' && pd.value !== null)) {
+            return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
+          }
+        } else {
+          if (types.isProxy(pd.value) || hasAnyAccessorsOrProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
+            return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
+          }
         }
       }
       const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber');
       const pEtag = getOwn(p, 'etag') ?? getOwn(p, 'ETag');
       const pSize = getOwn(p, 'size_bytes') ?? getOwn(p, 'SizeBytes') ?? getOwn(p, 'size');
 
-      if (pNum === undefined || pNum === null) {
+      if (pNum === undefined || pNum === null || (typeof pNum === 'object' && pNum !== null)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingPartNumber' };
       }
       if (typeof pNum !== 'number' || pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
@@ -1464,14 +1481,14 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       }
       prevNum = pNum;
 
-      if (pEtag === undefined || typeof pEtag !== 'string' || !pEtag) {
+      if (pEtag === undefined || typeof pEtag !== 'string' || !pEtag || (typeof pEtag === 'object' && pEtag !== null)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
       }
       if (!/^"[a-fA-F0-9]{32}(-[0-9]+)?"$/.test(pEtag) && !/^"[a-zA-Z0-9_-]+"$/.test(pEtag)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
       }
 
-      if (pSize !== undefined && (typeof pSize !== 'number' || !Number.isInteger(pSize) || pSize < 0)) {
+      if (pSize !== undefined && (pSize === null || typeof pSize === 'object' || typeof pSize !== 'number' || !Number.isInteger(pSize) || pSize < 0)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
       }
     }
@@ -2157,6 +2174,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'MissingStoredPartETag' ||
       norm === 'InvalidPartSize' ||
       norm === 'INVALID_PART_SIZE' ||
+      norm === 'MissingPartNumber' ||
+      norm === 'MISSING_PART_NUMBER' ||
       norm === 'TOTAL_PARTS_MISMATCH' ||
       norm === 'TotalPartsMismatch' ||
       norm === 'TOTAL_SIZE_BYTES_MISMATCH' ||
@@ -2172,15 +2191,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           ? 'InvalidETagFormat'
           : (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH')
             ? 'ETagMismatch'
-            : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize'
+            : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize' || norm === 'MissingPartNumber'
                 ? norm
                 : (norm === 'INVALID_PART_SIZE'
                     ? 'InvalidPartSize'
-                    : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
-                        ? 'TotalPartsMismatch'
-                        : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch' || norm === 'TotalSizeMismatch'
-                            ? 'TotalSizeMismatch'
-                            : 'PartNotFound')))),
+                    : (norm === 'MISSING_PART_NUMBER'
+                        ? 'MissingPartNumber'
+                        : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
+                            ? 'TotalPartsMismatch'
+                            : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch' || norm === 'TotalSizeMismatch'
+                                ? 'TotalSizeMismatch'
+                                : 'PartNotFound'))))),
       };
     }
     if (
@@ -2346,6 +2367,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'MissingStoredPartETag' ||
       reason === 'InvalidPartSize' ||
       reason === 'INVALID_PART_SIZE' ||
+      reason === 'MissingPartNumber' ||
+      reason === 'MISSING_PART_NUMBER' ||
       reason === 'TOTAL_PARTS_MISMATCH' ||
       reason === 'TotalPartsMismatch' ||
       reason === 'TOTAL_SIZE_BYTES_MISMATCH' ||
@@ -2359,13 +2382,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         code: 'InvalidPart',
         reason: (reason === 'InvalidETagFormat' || reason === 'INVALID_ETAG_FORMAT')
           ? 'InvalidETagFormat'
-          : (reason === 'INVALID_PART_SIZE')
-            ? 'InvalidPartSize'
-            : (reason === 'TOTAL_PARTS_MISMATCH' || reason === 'TotalPartsMismatch'
-                ? 'TotalPartsMismatch'
-                : (reason === 'TOTAL_SIZE_BYTES_MISMATCH' || reason === 'TotalSizeBytesMismatch' || reason === 'TotalSizeMismatch'
-                    ? 'TotalSizeMismatch'
-                    : (reason || 'PartNotFound'))),
+          : (reason === 'MissingStoredPartState' || reason === 'MissingManifestPartETag' || reason === 'MissingStoredPartETag' || reason === 'InvalidPartSize' || reason === 'MissingPartNumber'
+              ? reason
+              : (reason === 'INVALID_PART_SIZE'
+                  ? 'InvalidPartSize'
+                  : (reason === 'MISSING_PART_NUMBER'
+                      ? 'MissingPartNumber'
+                      : (reason === 'TOTAL_PARTS_MISMATCH' || reason === 'TotalPartsMismatch'
+                          ? 'TotalPartsMismatch'
+                          : (reason === 'TOTAL_SIZE_BYTES_MISMATCH' || reason === 'TotalSizeBytesMismatch' || reason === 'TotalSizeMismatch'
+                              ? 'TotalSizeMismatch'
+                              : (reason || 'PartNotFound')))))),
       };
     }
     if (
