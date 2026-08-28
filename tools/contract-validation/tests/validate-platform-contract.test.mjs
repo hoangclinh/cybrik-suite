@@ -92,7 +92,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
   'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set', schemaPath: '#/properties/capability_set/required', params: { missingProperty: 'artifact_update_mechanism' }, message: "must have required property 'artifact_update_mechanism'" },
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' }
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!manifest\\.(?:json|sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!manifest\\.(?:json|sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' }
 };
 
 test('validate negative platform fixtures', () => {
@@ -6326,5 +6326,168 @@ test('in-memory validation: storage_object_lock capability_name strictly enforce
   assert.throws(
     () => validatePlatformSemantics(fullBadDigest, pcaSchemaId),
     /target_profile_digest/
+  );
+});
+
+test('offline manifest with artifacts[].path = "manifest.sig" or "manifest.json" fails schema and semantic validation (OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const sampleManifest = JSON.parse(
+    readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8')
+  );
+
+  // 1. Root manifest.sig in artifacts[].path fails schema validation and semantic validation
+  const manifestWithSig = JSON.parse(JSON.stringify(sampleManifest));
+  manifestWithSig.artifacts = [
+    {
+      name: 'signature-artifact',
+      path: 'manifest.sig',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 64,
+    },
+  ];
+
+  const validSigSchema = ajv.validate(schemaId, manifestWithSig);
+  assert.equal(validSigSchema, false, 'manifest with artifacts[].path = "manifest.sig" must fail schema validation');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath === '/artifacts/0/path'),
+    'Schema validation must report pattern failure on artifacts[0].path for manifest.sig'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(manifestWithSig, schemaId),
+    /Semantic error: root manifest file 'manifest\.sig' must not be listed in artifacts/,
+    'Semantic validation must reject manifest.sig in artifacts'
+  );
+
+  // 2. Root manifest.json in artifacts[].path fails schema validation and semantic validation
+  const manifestWithJson = JSON.parse(JSON.stringify(sampleManifest));
+  manifestWithJson.artifacts = [
+    {
+      name: 'manifest-json-artifact',
+      path: 'manifest.json',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 1024,
+    },
+  ];
+
+  const validJsonSchema = ajv.validate(schemaId, manifestWithJson);
+  assert.equal(validJsonSchema, false, 'manifest with artifacts[].path = "manifest.json" must fail schema validation');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'pattern' && e.instancePath === '/artifacts/0/path'),
+    'Schema validation must report pattern failure on artifacts[0].path for manifest.json'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(manifestWithJson, schemaId),
+    /Semantic error: root manifest file 'manifest\.json' must not be listed in artifacts/,
+    'Semantic validation must reject manifest.json in artifacts'
+  );
+
+  // 3. Multi-artifact list containing forbidden root files fails
+  const manifestMulti = JSON.parse(JSON.stringify(sampleManifest));
+  manifestMulti.artifacts = [
+    {
+      name: 'image-1',
+      path: 'images/image-1.tar',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 1024,
+    },
+    {
+      name: 'root-sig',
+      path: 'manifest.sig',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 64,
+    },
+  ];
+  assert.equal(ajv.validate(schemaId, manifestMulti), false);
+  assert.throws(
+    () => validatePlatformSemantics(manifestMulti, schemaId),
+    /Semantic error: root manifest file 'manifest\.sig' must not be listed in artifacts/
+  );
+
+  // 4. Nested subdirectories containing manifest.json or manifest.sig are valid
+  const manifestNested = JSON.parse(JSON.stringify(sampleManifest));
+  manifestNested.artifacts = [
+    {
+      name: 'nested-manifest-json',
+      path: 'submodule/manifest.json',
+      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      size_bytes: 512,
+    },
+  ];
+  manifestNested.update_station_workflow.preflight_steps[0].target = 'submodule/manifest.json';
+  manifestNested.update_station_workflow.apply_steps[0].target = 'images/image-1.tar';
+  assert.equal(ajv.validate(schemaId, manifestNested), true, 'Nested submodule/manifest.json should pass schema validation');
+  assert.doesNotThrow(() => validatePlatformSemantics(manifestNested, schemaId));
+});
+
+test('private-cloud-v1 degraded storage handshake without Object Lock succeeds when immutable_storage_required is false (OPEN-1 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+  assert.ok(existsSync(privateCloudPath), 'private-cloud-v1 profile must exist');
+  const privateCloudData = JSON.parse(readFileSync(privateCloudPath, 'utf8'));
+  assert.equal(
+    privateCloudData.slots?.storage?.specification?.immutable_storage_required,
+    false,
+    'private-cloud-v1 must declare immutable_storage_required: false'
+  );
+  const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+
+  // 1. Degraded storage handshake without Object Lock against private-cloud-v1 succeeds
+  const degradedHandshake = JSON.parse(JSON.stringify(sample));
+  degradedHandshake.target_profile_id = 'private-cloud-v1';
+  degradedHandshake.target_profile_digest = privateCloudDigest;
+  if (degradedHandshake.advertisement_response) {
+    degradedHandshake.advertisement_response.target_profile_digest = privateCloudDigest;
+  }
+  degradedHandshake.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  degradedHandshake.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  degradedHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+
+  // Configure storage capability as degraded without Object Lock requirement
+  const storageCap = degradedHandshake.agreed_capability_lease.negotiated_optional_capabilities.find(
+    c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage'
+  );
+  assert.ok(storageCap, 'Storage capability must exist in sample');
+  storageCap.capability_name = 'storage_standard';
+  storageCap.slot_id = 'storage';
+  storageCap.disposition = 'GRANTED_DEGRADED';
+  storageCap.active_mode = 'standard_storage_without_object_lock';
+  storageCap.fallback_applied = 'FEATURE_DISABLED_GRACEFUL';
+
+  const reqStorage = degradedHandshake.negotiation_request.requested_optional_capabilities.find(
+    c => c.capability_name === 'storage_object_lock' || c.slot_id === 'storage'
+  );
+  if (reqStorage) {
+    reqStorage.capability_name = 'storage_standard';
+    reqStorage.slot_id = 'storage';
+  }
+
+  const validSchema = ajv.validate(schemaId, degradedHandshake);
+  assert.ok(validSchema, 'private-cloud-v1 degraded storage handshake must pass schema validation: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(degradedHandshake, schemaId),
+    'private-cloud-v1 degraded storage handshake without Object Lock must succeed when immutable_storage_required is false'
+  );
+
+  // 2. In contrast, targeting onprem-standard-v1 (immutable_storage_required: true) with degraded storage fails
+  const onpremStandardPath = join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json');
+  const onpremStandardData = JSON.parse(readFileSync(onpremStandardPath, 'utf8'));
+  assert.equal(onpremStandardData.slots?.storage?.specification?.immutable_storage_required, true);
+  const onpremStandardDigest = createHash('sha256').update(readFileSync(onpremStandardPath)).digest('hex');
+
+  const invalidHandshake = JSON.parse(JSON.stringify(degradedHandshake));
+  invalidHandshake.target_profile_id = 'onprem-standard-v1';
+  invalidHandshake.target_profile_digest = onpremStandardDigest;
+  if (invalidHandshake.advertisement_response) {
+    invalidHandshake.advertisement_response.target_profile_digest = onpremStandardDigest;
+  }
+  invalidHandshake.agreed_capability_lease.target_profile_id = 'onprem-standard-v1';
+  invalidHandshake.agreed_capability_lease.target_profile_digest = onpremStandardDigest;
+
+  assert.throws(
+    () => validatePlatformSemantics(invalidHandshake, schemaId),
+    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+    'Degraded storage against onprem-standard-v1 must be rejected because immutable_storage_required is true'
   );
 });

@@ -4610,3 +4610,185 @@ test('validateS3MultipartSemantics throws Semantic error on non-plain prototype 
     /Semantic error: multipart manifest part part_number must be an own property \(inherited part_number prohibited\)/
   );
 });
+
+test('dispatchS3CompleteMultipartUpload rejects direct Array manifests with HTTP 400 InvalidArgument (OPEN-2 / OPEN-5)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+  const validPart = { part_number: 1, etag: validEtag, size_bytes: 5242880 };
+  const validStoredMap = new Map([[1, { part_number: 1, etag: validEtag, size_bytes: 5242880 }]]);
+
+  // 1. Direct non-empty Array passed as manifestOrOptions
+  const directArray = [validPart];
+  const resDirectArray = dispatchS3CompleteMultipartUpload(directArray, validStoredMap);
+  assert.equal(resDirectArray.http_status, 400);
+  assert.equal(resDirectArray.error_code, 'InvalidArgument');
+  assert.equal(resDirectArray.status, 400);
+  assert.equal(resDirectArray.code, 'InvalidArgument');
+
+  // 2. Direct empty Array passed as manifestOrOptions
+  const resDirectEmpty = dispatchS3CompleteMultipartUpload([], validStoredMap);
+  assert.equal(resDirectEmpty.http_status, 400);
+  assert.equal(resDirectEmpty.error_code, 'InvalidArgument');
+  assert.equal(resDirectEmpty.status, 400);
+  assert.equal(resDirectEmpty.code, 'InvalidArgument');
+
+  // 3. Direct multi-element Array passed without storedParts
+  const multiPartArray = [
+    { part_number: 1, etag: validEtag, size_bytes: 5242880 },
+    { part_number: 2, etag: validEtag, size_bytes: 5242880 },
+  ];
+  const resMultiArray = dispatchS3CompleteMultipartUpload(multiPartArray);
+  assert.equal(resMultiArray.http_status, 400);
+  assert.equal(resMultiArray.error_code, 'InvalidArgument');
+  assert.equal(resMultiArray.status, 400);
+  assert.equal(resMultiArray.code, 'InvalidArgument');
+});
+
+test('dispatchS3CompleteMultipartUpload rejects storedParts with unreferenced null, primitive, function, or non-plain entries with HTTP 400 InvalidPart (OPEN-2 / OPEN-5)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+  const manifest = {
+    parts: [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }],
+  };
+  const validPart = { part_number: 1, etag: validEtag, size_bytes: 5242880 };
+
+  // 1. Map storedParts containing unreferenced null entry
+  const mapWithNull = new Map([
+    [1, validPart],
+    [2, null],
+  ]);
+  const resMapNull = dispatchS3CompleteMultipartUpload(manifest, mapWithNull);
+  assert.equal(resMapNull.http_status, 400);
+  assert.equal(resMapNull.error_code, 'InvalidPart');
+  assert.equal(resMapNull.status, 400);
+  assert.equal(resMapNull.code, 'InvalidPart');
+
+  // 2. Map storedParts containing unreferenced primitive number entry
+  const mapWithNumber = new Map([
+    [1, validPart],
+    [2, 12345],
+  ]);
+  const resMapNum = dispatchS3CompleteMultipartUpload(manifest, mapWithNumber);
+  assert.equal(resMapNum.http_status, 400);
+  assert.equal(resMapNum.error_code, 'InvalidPart');
+  assert.equal(resMapNum.status, 400);
+  assert.equal(resMapNum.code, 'InvalidPart');
+
+  // 3. Map storedParts containing unreferenced primitive string entry
+  const mapWithString = new Map([
+    [1, validPart],
+    [2, 'invalid-primitive-part'],
+  ]);
+  const resMapStr = dispatchS3CompleteMultipartUpload(manifest, mapWithString);
+  assert.equal(resMapStr.http_status, 400);
+  assert.equal(resMapStr.error_code, 'InvalidPart');
+  assert.equal(resMapStr.status, 400);
+  assert.equal(resMapStr.code, 'InvalidPart');
+
+  // 4. Map storedParts containing unreferenced primitive boolean entry
+  const mapWithBool = new Map([
+    [1, validPart],
+    [2, true],
+  ]);
+  const resMapBool = dispatchS3CompleteMultipartUpload(manifest, mapWithBool);
+  assert.equal(resMapBool.http_status, 400);
+  assert.equal(resMapBool.error_code, 'InvalidPart');
+  assert.equal(resMapBool.status, 400);
+  assert.equal(resMapBool.code, 'InvalidPart');
+
+  // 5. Map storedParts containing unreferenced function entry
+  const mapWithFunc = new Map([
+    [1, validPart],
+    [2, () => ({ etag: validEtag, size_bytes: 5242880 })],
+  ]);
+  const resMapFunc = dispatchS3CompleteMultipartUpload(manifest, mapWithFunc);
+  assert.equal(resMapFunc.http_status, 400);
+  assert.equal(resMapFunc.error_code, 'InvalidPart');
+  assert.equal(resMapFunc.status, 400);
+  assert.equal(resMapFunc.code, 'InvalidPart');
+
+  // 6. Map storedParts containing unreferenced non-plain prototype entry
+  const mapWithNonPlain = new Map([
+    [1, validPart],
+    [2, Object.create({ part_number: 2, etag: validEtag, size_bytes: 5242880 })],
+  ]);
+  const resMapNonPlain = dispatchS3CompleteMultipartUpload(manifest, mapWithNonPlain);
+  assert.equal(resMapNonPlain.http_status, 400);
+  assert.equal(resMapNonPlain.error_code, 'InvalidPart');
+  assert.equal(resMapNonPlain.status, 400);
+  assert.equal(resMapNonPlain.code, 'InvalidPart');
+
+  // 7. Object storedParts containing unreferenced null entry
+  const objWithNull = {
+    1: validPart,
+    2: null,
+  };
+  const resObjNull = dispatchS3CompleteMultipartUpload(manifest, objWithNull);
+  assert.equal(resObjNull.http_status, 400);
+  assert.equal(resObjNull.error_code, 'InvalidPart');
+  assert.equal(resObjNull.status, 400);
+  assert.equal(resObjNull.code, 'InvalidPart');
+
+  // 8. Object storedParts containing unreferenced primitive number entry
+  const objWithNumber = {
+    1: validPart,
+    2: 99999,
+  };
+  const resObjNum = dispatchS3CompleteMultipartUpload(manifest, objWithNumber);
+  assert.equal(resObjNum.http_status, 400);
+  assert.equal(resObjNum.error_code, 'InvalidPart');
+  assert.equal(resObjNum.status, 400);
+  assert.equal(resObjNum.code, 'InvalidPart');
+
+  // 9. Object storedParts containing unreferenced primitive string entry
+  const objWithString = {
+    1: validPart,
+    2: 'not-a-part-object',
+  };
+  const resObjStr = dispatchS3CompleteMultipartUpload(manifest, objWithString);
+  assert.equal(resObjStr.http_status, 400);
+  assert.equal(resObjStr.error_code, 'InvalidPart');
+  assert.equal(resObjStr.status, 400);
+  assert.equal(resObjStr.code, 'InvalidPart');
+
+  // 10. Object storedParts containing unreferenced function entry
+  const objWithFunc = {
+    1: validPart,
+    2: function () {},
+  };
+  const resObjFunc = dispatchS3CompleteMultipartUpload(manifest, objWithFunc);
+  assert.equal(resObjFunc.http_status, 400);
+  assert.equal(resObjFunc.error_code, 'InvalidPart');
+  assert.equal(resObjFunc.status, 400);
+  assert.equal(resObjFunc.code, 'InvalidPart');
+
+  // 11. Object storedParts containing unreferenced non-plain prototype entry
+  const objWithNonPlain = {
+    1: validPart,
+    2: Object.create(validPart),
+  };
+  const resObjNonPlain = dispatchS3CompleteMultipartUpload(manifest, objWithNonPlain);
+  assert.equal(resObjNonPlain.http_status, 400);
+  assert.equal(resObjNonPlain.error_code, 'InvalidPart');
+  assert.equal(resObjNonPlain.status, 400);
+  assert.equal(resObjNonPlain.code, 'InvalidPart');
+
+  // 12. Array storedParts containing unreferenced null / primitive / function / non-plain
+  const arrWithNull = [validPart, null];
+  const resArrNull = dispatchS3CompleteMultipartUpload(manifest, arrWithNull);
+  assert.equal(resArrNull.http_status, 400);
+  assert.equal(resArrNull.error_code, 'InvalidPart');
+
+  const arrWithPrimitive = [validPart, 42];
+  const resArrPrim = dispatchS3CompleteMultipartUpload(manifest, arrWithPrimitive);
+  assert.equal(resArrPrim.http_status, 400);
+  assert.equal(resArrPrim.error_code, 'InvalidPart');
+
+  const arrWithFunc = [validPart, () => {}];
+  const resArrFunc = dispatchS3CompleteMultipartUpload(manifest, arrWithFunc);
+  assert.equal(resArrFunc.http_status, 400);
+  assert.equal(resArrFunc.error_code, 'InvalidPart');
+
+  const arrWithNonPlain = [validPart, Object.create(validPart)];
+  const resArrNonPlain = dispatchS3CompleteMultipartUpload(manifest, arrWithNonPlain);
+  assert.equal(resArrNonPlain.http_status, 400);
+  assert.equal(resArrNonPlain.error_code, 'InvalidPart');
+});

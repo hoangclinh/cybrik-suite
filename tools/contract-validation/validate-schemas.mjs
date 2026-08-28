@@ -531,8 +531,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   let storedParts;
 
   if (Array.isArray(manifestOrOptions)) {
-    manifest = { parts: manifestOrOptions };
-    storedParts = maybeStoredParts;
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: manifestOrOptions.length === 0 ? 'EmptyPartsList' : 'InvalidArgument' };
   } else if (!isPlainOrNull(manifestOrOptions)) {
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeWrapper' };
   } else if ('manifest' in manifestOrOptions) {
@@ -612,23 +611,32 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     for (let idx = 0; idx < storedParts.length; idx++) {
       if (Object.prototype.hasOwnProperty.call(storedParts, idx)) {
         const p = storedParts[idx];
-        if (p && typeof p === 'object' && !isPlainOrNull(p)) {
+        if (!p || typeof p !== 'object') {
+          return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+        }
+        if (!isPlainOrNull(p)) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
         }
-        const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1)) : (idx + 1);
+        const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1);
         storedMap.set(pNum, p);
       }
     }
   } else if (storedParts instanceof Map) {
     for (const [k, v] of storedParts.entries()) {
-      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+      if (!v || typeof v !== 'object') {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+      }
+      if (!isPlainOrNull(v)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
       }
     }
     storedMap = storedParts;
   } else {
     for (const [k, v] of Object.entries(storedParts || {})) {
-      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+      if (!v || typeof v !== 'object') {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+      }
+      if (!isPlainOrNull(v)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
       }
     }
@@ -2121,11 +2129,16 @@ export function validatePlatformSemantics(data, schemaId) {
     if (data.artifacts) {
       const paths = new Set();
       for (const art of data.artifacts) {
-        const norm = posix.normalize(art.path);
-        if (paths.has(norm)) {
-          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
+        if (art && typeof art.path === 'string') {
+          const norm = posix.normalize(art.path);
+          if (norm === 'manifest.json' || norm === 'manifest.sig') {
+            throw new Error(`Semantic error: root manifest file '${norm}' must not be listed in artifacts`);
+          }
+          if (paths.has(norm)) {
+            throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
+          }
+          paths.add(norm);
         }
-        paths.add(norm);
       }
     }
     if (data.update_station_workflow) {
@@ -2393,7 +2406,7 @@ for (const file of platformPositives) {
 }
 
 const EXPECTED_PLATFORM_NEGATIVES = {
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' },
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!manifest\\.(?:json|sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!manifest\\.(?:json|sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' },
   'invalid-bare-tier-profile.json': { keyword: 'pattern', instancePath: '/profile_id', schemaPath: '#/properties/profile_id/pattern', params: { pattern: '^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$' }, message: 'must match pattern "^(?!^[tT][012]$)[a-z0-9][a-z0-9-_]+$"' },
   'invalid-empty-trust-root-offline-manifest.json': { keyword: 'required', instancePath: '', schemaPath: '#/required', params: { missingProperty: 'operator_trust_root' }, message: "must have required property 'operator_trust_root'" },
   'invalid-leading-zero-semver.json': { keyword: 'pattern', instancePath: '/profile_version', schemaPath: '#/properties/profile_version/pattern', params: { pattern: '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$' }, message: 'must match pattern "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"' },
