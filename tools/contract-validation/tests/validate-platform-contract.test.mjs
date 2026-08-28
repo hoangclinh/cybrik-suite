@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateOfflineInstallSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors } from '../validate-schemas.mjs';
 
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -12681,7 +12681,7 @@ test('safe plain snapshot extraction, descriptor-level extraction, and prototype
   const u8 = new Uint8Array([1, 2, 3]);
   assert.equal(createSafePlainSnapshot(u8), u8);
   const snapProxy = createSafePlainSnapshot(new Proxy({ a: 1 }, {}));
-  assert.equal(Object.getPrototypeOf(snapProxy), null);
+  assert.equal(snapProxy, null);
 
   // 4. snapshotOwnDataDescriptors
   assert.deepEqual(snapshotOwnDataDescriptors(null), Object.create(null));
@@ -13295,4 +13295,84 @@ test('branch coverage: comprehensive S3 multipart, put object, and error dispatc
       delete Object.prototype[k];
     }
   }
+});
+
+test('proxy-first rejection and robust platform snapshots for OPEN-5', () => {
+  let trapCount = 0;
+  const trapHandler = {
+    get(target, prop, receiver) {
+      trapCount++;
+      return Reflect.get(target, prop, receiver);
+    },
+    has(target, prop) {
+      trapCount++;
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      trapCount++;
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    getPrototypeOf(target) {
+      trapCount++;
+      return Reflect.getPrototypeOf(target);
+    },
+    ownKeys(target) {
+      trapCount++;
+      return Reflect.ownKeys(target);
+    }
+  };
+
+  const sampleTarget = {
+    target_profile_id: 'regulated-cloud-v1',
+    target_profile_digest: 'a'.repeat(64),
+    claim_type: 'FULL_PROFILE_CONFORMANCE_DECLARATION'
+  };
+
+  // 1. validatePlatformSemantics Proxy-first check with 0 traps
+  trapCount = 0;
+  const proxyPlatform = new Proxy(sampleTarget, trapHandler);
+  assert.throws(
+    () => validatePlatformSemantics(proxyPlatform, 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json'),
+    /accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.equal(trapCount, 0, 'validatePlatformSemantics must reject Proxy with 0 traps invoked');
+
+  // 2. validateOfflineInstallSemantics Proxy-first check with 0 traps
+  trapCount = 0;
+  const proxyOffline = new Proxy({}, trapHandler);
+  assert.throws(
+    () => validateOfflineInstallSemantics(proxyOffline),
+    /accessor properties or Proxy objects are prohibited in offline install manifest/
+  );
+  assert.equal(trapCount, 0, 'validateOfflineInstallSemantics must reject Proxy with 0 traps invoked');
+
+  // 3. validateS3ConformanceProfileSemantics Proxy-first check with 0 traps
+  trapCount = 0;
+  const proxyS3Profile = new Proxy({}, trapHandler);
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(proxyS3Profile),
+    /accessor properties or Proxy objects are prohibited in storage conformance profile/
+  );
+  assert.equal(trapCount, 0, 'validateS3ConformanceProfileSemantics must reject Proxy with 0 traps invoked');
+
+  // 4. validateS3MultipartSemantics Proxy-first check with 0 traps
+  trapCount = 0;
+  const proxyMultipart = new Proxy({}, trapHandler);
+  assert.throws(
+    () => validateS3MultipartSemantics(proxyMultipart),
+    /multipart upload manifest structure is invalid or malformed/
+  );
+  assert.equal(trapCount, 0, 'validateS3MultipartSemantics must reject Proxy with 0 traps invoked');
+
+  // 5. hasAnyAccessorsOrProxy Proxy-first check with 0 traps
+  trapCount = 0;
+  const proxyAny = new Proxy({}, trapHandler);
+  assert.equal(hasAnyAccessorsOrProxy(proxyAny), true);
+  assert.equal(trapCount, 0, 'hasAnyAccessorsOrProxy must return true on Proxy with 0 traps invoked');
+
+  // 6. createSafePlainSnapshot Proxy-first check with 0 traps returning null
+  trapCount = 0;
+  const proxySnapshot = new Proxy({ a: 1 }, trapHandler);
+  assert.equal(createSafePlainSnapshot(proxySnapshot), null);
+  assert.equal(trapCount, 0, 'createSafePlainSnapshot must return null on Proxy with 0 traps invoked');
 });

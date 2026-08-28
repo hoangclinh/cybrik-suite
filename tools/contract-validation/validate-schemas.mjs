@@ -475,6 +475,7 @@ export function hasPrototypeChainAccessor(obj, prop) {
     if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
     let curr = Object.getPrototypeOf(obj);
     while (curr) {
+      if (types.isProxy(curr)) return true;
       const desc = Object.getOwnPropertyDescriptor(curr, prop);
       if (desc && (desc.get !== undefined || desc.set !== undefined)) {
         return true;
@@ -488,9 +489,9 @@ export function hasPrototypeChainAccessor(obj, prop) {
 }
 
 export function getOwnDataValue(obj, key) {
+  if (types.isProxy(obj)) return undefined;
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
   try {
-    if (types.isProxy(obj)) return undefined;
     const desc = Object.getOwnPropertyDescriptor(obj, key);
     if (desc && desc.get === undefined && desc.set === undefined) {
       return desc.value;
@@ -502,9 +503,9 @@ export function getOwnDataValue(obj, key) {
 }
 
 export function hasAnyAccessorsOrProxy(obj) {
+  if (types.isProxy(obj)) return true;
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
   try {
-    if (types.isProxy(obj)) return true;
     if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
     let curr = obj;
     while (curr) {
@@ -531,6 +532,9 @@ export function hasAnyAccessorsOrProxy(obj) {
 }
 
 export function snapshotOwnDataDescriptors(obj) {
+  if (types.isProxy(obj)) {
+    return Object.create(null);
+  }
   const dict = Object.create(null);
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) {
     return dict;
@@ -551,18 +555,12 @@ export function snapshotOwnDataDescriptors(obj) {
 }
 
 export function createSafePlainSnapshot(obj) {
+  if (types.isProxy(obj)) return null;
   if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
     return obj;
   }
   if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) {
     return obj;
-  }
-  try {
-    if (types.isProxy(obj)) {
-      return Object.create(null);
-    }
-  } catch {
-    return Object.create(null);
   }
   if (Array.isArray(obj)) {
     const arr = [];
@@ -596,9 +594,9 @@ export function createSafePlainSnapshot(obj) {
 }
 
 export function isPlainOrNull(o) {
+  if (types.isProxy(o)) return false;
   if (o === null || typeof o !== 'object') return false;
   try {
-    if (types.isProxy(o)) return false;
     const proto = Object.getPrototypeOf(o);
     return proto === Object.prototype || proto === null;
   } catch {
@@ -2168,6 +2166,10 @@ export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, ma
 
 export function validateS3MultipartSemantics(manifest) {
   try {
+    if (types.isProxy(manifest)) {
+      throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+    }
+
     if (!manifest || typeof manifest !== 'object') {
       throw new Error('Semantic error: multipart manifest must be an object (InvalidPart)');
     }
@@ -2431,6 +2433,9 @@ export const S3_CANONICAL_ERROR_CODES = [
 ];
 
 export function validateS3ConformanceProfileSemantics(profile) {
+  if (types.isProxy(profile)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in storage conformance profile');
+  }
   if (!profile || typeof profile !== 'object') {
     throw new Error('Semantic error: storage conformance profile must be an object');
   }
@@ -2438,6 +2443,9 @@ export function validateS3ConformanceProfileSemantics(profile) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in storage conformance profile');
   }
   const safeProfile = createSafePlainSnapshot(profile);
+  if (!safeProfile) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in storage conformance profile');
+  }
 
   const isLockSupported = safeProfile.object_lock_supported === true || safeProfile.mandatory_operations?.object_lock === true;
   const isLockUnsupported = safeProfile.object_lock_supported === false || safeProfile.mandatory_operations?.object_lock === false;
@@ -2527,11 +2535,17 @@ const CORE_MANDATORY_SLOTS = [
 ];
 
 export function validateOfflineInstallSemantics(data) {
+  if (types.isProxy(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
   if (!data || typeof data !== 'object') return;
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
   }
   const safeData = createSafePlainSnapshot(data);
+  if (!safeData) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
   if (safeData && safeData.operator_trust_root && safeData.detached_signature) {
     const rootFp = safeData.operator_trust_root.public_key_fingerprint;
     const sigFp = safeData.detached_signature.key_fingerprint;
@@ -2601,11 +2615,17 @@ export function validateOfflineInstallSemantics(data) {
 }
 
 export function validatePlatformSemantics(data, schemaId) {
+  if (types.isProxy(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
   if (!data || (typeof data !== 'object' && typeof data !== 'function')) return;
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
   const safeData = createSafePlainSnapshot(data);
+  if (!safeData) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = safeData.advertisement_response || safeData;
     const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!safeData.agreed_capability_lease;
