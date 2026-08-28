@@ -113,15 +113,14 @@ To allow platform environments to auto-discover capabilities without manual hard
 The `artifact_update_mechanism` capability defines an offline update manifest (`cybrik.offline-install-update-manifest.v1.schema.json`) requiring:
 - `release_tag`
 - `operator_trust_root` (key ID, fingerprint, algorithm)
-- `detached_signature` declaration (algorithm `ed25519`, `signature_file: "manifest.sig"`, key fingerprint)
 - Array of `artifacts` with strict hex SHA-256 validation and unique paths.
 - `canonicalization_scheme`: strictly required to be "RFC_8785_JCS".
-- Canonical Signature Recipe: Offline install/update bundles use a detached Ed25519 signature file (`manifest.sig` / `detached_signature`) placed alongside the manifest archive. The detached signature is computed as the exact 64-byte Ed25519 signature over the canonical JSON (RFC 8785 JSON Canonicalization Scheme - JCS) representation of the complete `manifest.json` object and verified against the `operator_trust_root` public key. In-band bundle signatures and signature envelopes are strictly forbidden to ensure deterministic bit-for-bit manifest payload hashing.
+- Canonical Signature Recipe: The `bundle_signature` MUST be computed as the detached cryptographic signature over the canonical JSON (RFC 8785 JSON Canonicalization Scheme - JCS) representation of the offline manifest object omitting the `bundle_signature` field itself, verified against the `operator_trust_root` public key.
 - `migration_reversibility_guaranteed: true`
 - `rollback_procedure_reference`
 - `update_station_workflow`
 
-As a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT` under OPEN-1 (which remains open), static validation in the contract suite validates manifest schema structure and canonical path invariants; operational cryptographic verification of the detached `manifest.sig` signature against live operator trust roots is executed at installation/update time by the update-station runtime.
+As a `PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT` under OPEN-1 (which remains open), static validation in the contract suite validates manifest schema structure and canonical path invariants; operational cryptographic verification of `bundle_signature` against live operator trust roots is executed at installation/update time by the update-station runtime.
 
 ## 8. Normative Two-Phase Validation Requirement
 

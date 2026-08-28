@@ -87,7 +87,7 @@
     "required_operations": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/s3Operation"
+        "$ref": "#/$defs/s3OperationName"
       },
       "minItems": 17,
       "uniqueItems": true
@@ -128,7 +128,7 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "s3Operation": {
+    "s3OperationName": {
       "type": "string",
       "enum": [
         "PutObject",
@@ -139,16 +139,21 @@
         "ListObjectsV2",
         "HeadBucket",
         "CreateBucket",
-        "PutObjectRetention",
-        "GetObjectRetention",
-        "PutObjectLegalHold",
-        "GetObjectLegalHold",
         "CreateMultipartUpload",
         "UploadPart",
         "CompleteMultipartUpload",
         "AbortMultipartUpload",
-        "ListParts"
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold"
       ]
+    },
+    "s3Operation": {
+      "$ref": "#/$defs/s3OperationName"
     },
     "retentionMode": {
       "type": "string",
@@ -313,7 +318,7 @@
         "required_operations": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/s3Operation"
+            "$ref": "#/$defs/s3OperationName"
           },
           "minItems": 17,
           "uniqueItems": true

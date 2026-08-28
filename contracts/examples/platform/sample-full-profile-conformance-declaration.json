@@ -65,15 +65,17 @@
         "ListObjectsV2",
         "HeadBucket",
         "CreateBucket",
-        "PutObjectRetention",
-        "GetObjectRetention",
-        "PutObjectLegalHold",
-        "GetObjectLegalHold",
         "CreateMultipartUpload",
         "UploadPart",
         "CompleteMultipartUpload",
         "AbortMultipartUpload",
-        "ListParts"
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold"
       ],
       "degradation_fallback": "NONE",
       "evidence_references": ["urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"]

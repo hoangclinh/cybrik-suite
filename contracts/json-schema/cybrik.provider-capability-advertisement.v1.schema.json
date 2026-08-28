@@ -20,15 +20,17 @@
         "ListObjectsV2",
         "HeadBucket",
         "CreateBucket",
-        "PutObjectRetention",
-        "GetObjectRetention",
-        "PutObjectLegalHold",
-        "GetObjectLegalHold",
         "CreateMultipartUpload",
         "UploadPart",
         "CompleteMultipartUpload",
         "AbortMultipartUpload",
-        "ListParts"
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold"
       ]
     },
     "capabilityDescriptor": {

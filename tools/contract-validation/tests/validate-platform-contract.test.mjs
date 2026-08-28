@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, computePayloadMd5, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -1747,8 +1747,8 @@ test('canonical S3 dispatch helpers: dispatchS3Error, computePayloadMd5, isMalfo
   assert.equal(computePayloadMd5(buf), expectedMd5);
   assert.equal(computePayloadMd5('TEST_PAYLOAD_FOR_MD5_CANONICAL'), expectedMd5);
   assert.equal(computePayloadMd5(new Uint8Array(buf)), expectedMd5);
-  assert.equal(computePayloadMd5(null), createHash('md5').update(Buffer.alloc(0)).digest('base64'));
-  assert.equal(computePayloadMd5(undefined), createHash('md5').update(Buffer.alloc(0)).digest('base64'));
+  assert.throws(() => computePayloadMd5(null), TypeError);
+  assert.throws(() => computePayloadMd5(undefined), TypeError);
 
   // 2. isMalformedBase64Md5
   assert.equal(isMalformedBase64Md5(expectedMd5), false);
@@ -1796,6 +1796,47 @@ test('canonical S3 dispatch helpers: dispatchS3Error, computePayloadMd5, isMalfo
   const twoArgMalformed = dispatchS3Error(buf, 'bad-header-val');
   assert.equal(twoArgMalformed.http_status, 400);
   assert.equal(twoArgMalformed.error_code, 'InvalidDigest');
+
+  // 6. Function, Date, and Uint16Array return InvalidDigest (MALFORMED_PAYLOAD_TYPE) in dispatchS3Error and dispatchS3PutObject
+  const badTypes = [
+    () => 'func_payload',
+    new Date(),
+    new Uint16Array([1, 2, 3])
+  ];
+
+  for (const bad of badTypes) {
+    // dispatchS3Error direct, positional, and options
+    const errDirect = dispatchS3Error(bad);
+    assert.equal(errDirect.http_status, 400);
+    assert.equal(errDirect.error_code, 'InvalidDigest');
+    assert.equal(errDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const errPos = dispatchS3Error(bad, expectedMd5);
+    assert.equal(errPos.http_status, 400);
+    assert.equal(errPos.error_code, 'InvalidDigest');
+    assert.equal(errPos.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const errOpt = dispatchS3Error({ payload: bad, contentMd5Header: expectedMd5 });
+    assert.equal(errOpt.http_status, 400);
+    assert.equal(errOpt.error_code, 'InvalidDigest');
+    assert.equal(errOpt.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // dispatchS3PutObject direct, positional, and options
+    const putDirect = dispatchS3PutObject(bad);
+    assert.equal(putDirect.http_status, 400);
+    assert.equal(putDirect.error_code, 'InvalidDigest');
+    assert.equal(putDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const putPos = dispatchS3PutObject(bad, expectedMd5, 'UNSIGNED-PAYLOAD');
+    assert.equal(putPos.http_status, 400);
+    assert.equal(putPos.error_code, 'InvalidDigest');
+    assert.equal(putPos.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const putOpt = dispatchS3PutObject({ payload: bad, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+    assert.equal(putOpt.http_status, 400);
+    assert.equal(putOpt.error_code, 'InvalidDigest');
+    assert.equal(putOpt.reason, 'MALFORMED_PAYLOAD_TYPE');
+  }
 });
 
 test('in-memory validation: reject HEALTH_PROBE with remote WAN target or POST method in offline manifest (OPEN-1)', () => {
@@ -6695,4 +6736,73 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
     /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
     'Full profile declaration with DeleteBucket must fail semantic validation'
   );
+});
+
+test('Platform Contract Slot 5: 15-op baseline and 19-op full lock closed sets specification (OPEN-2 / OPEN-5)', () => {
+  // 15-operation baseline includes 8 CRUD, 5 Multipart, and 2 Versioning operations
+  const BASELINE_15_OPS = [
+    'PutObject',
+    'GetObject',
+    'HeadObject',
+    'DeleteObject',
+    'DeleteObjects',
+    'ListObjectsV2',
+    'HeadBucket',
+    'CreateBucket',
+    'CreateMultipartUpload',
+    'UploadPart',
+    'CompleteMultipartUpload',
+    'AbortMultipartUpload',
+    'ListParts',
+    'PutBucketVersioning',
+    'GetBucketVersioning',
+  ];
+
+  // 4 Object Lock / Retention operations
+  const OBJECT_LOCK_4_OPS = [
+    'PutObjectRetention',
+    'GetObjectRetention',
+    'PutObjectLegalHold',
+    'GetObjectLegalHold',
+  ];
+
+  // 19-operation full lock closed set: 15 baseline + 4 object lock operations
+  const FULL_LOCK_19_OPS = [
+    ...BASELINE_15_OPS,
+    ...OBJECT_LOCK_4_OPS,
+  ];
+
+  // 1. Cardinality and uniqueness invariants
+  assert.equal(BASELINE_15_OPS.length, 15, 'Baseline set must contain exactly 15 operations');
+  assert.equal(new Set(BASELINE_15_OPS).size, 15, 'Baseline operations must be distinct');
+  assert.equal(OBJECT_LOCK_4_OPS.length, 4, 'Object Lock set must contain exactly 4 operations');
+  assert.equal(new Set(OBJECT_LOCK_4_OPS).size, 4, 'Object Lock operations must be distinct');
+  assert.equal(FULL_LOCK_19_OPS.length, 19, 'Full lock set must contain exactly 19 operations');
+  assert.equal(new Set(FULL_LOCK_19_OPS).size, 19, 'Full lock operations must be distinct');
+
+  // 2. Versioning operations are included in 15-op baseline
+  assert.ok(BASELINE_15_OPS.includes('PutBucketVersioning'), 'Baseline must include PutBucketVersioning');
+  assert.ok(BASELINE_15_OPS.includes('GetBucketVersioning'), 'Baseline must include GetBucketVersioning');
+
+  // 3. Object Lock operations are disjoint from 15-op baseline
+  for (const lockOp of OBJECT_LOCK_4_OPS) {
+    assert.ok(!BASELINE_15_OPS.includes(lockOp), `15-op baseline must not contain Object Lock operation '${lockOp}'`);
+    assert.ok(FULL_LOCK_19_OPS.includes(lockOp), `19-op full lock set must contain Object Lock operation '${lockOp}'`);
+  }
+
+  // 4. Union and difference set closure
+  const baselineSet = new Set(BASELINE_15_OPS);
+  const fullLockSet = new Set(FULL_LOCK_19_OPS);
+  for (const op of BASELINE_15_OPS) {
+    assert.ok(fullLockSet.has(op), `19-op set must contain baseline operation '${op}'`);
+  }
+  const diffOps = FULL_LOCK_19_OPS.filter(op => !baselineSet.has(op));
+  assert.deepEqual(diffOps.sort(), [...OBJECT_LOCK_4_OPS].sort(), 'Difference between 19-op and 15-op sets must be exactly 4 Object Lock operations');
+
+  // 5. Excluded operations are rejected from both closed sets
+  const excludedOps = ['DeleteBucket', 'ListBuckets', 'RestoreObjectTier', 'PutObjectAclUnsupported', 'SelectObjectContent'];
+  for (const excl of excludedOps) {
+    assert.ok(!baselineSet.has(excl), `15-op baseline must reject excluded operation '${excl}'`);
+    assert.ok(!fullLockSet.has(excl), `19-op full lock set must reject excluded operation '${excl}'`);
+  }
 });

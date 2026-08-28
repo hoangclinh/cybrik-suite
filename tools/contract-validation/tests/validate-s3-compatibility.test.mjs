@@ -66,6 +66,36 @@ const S3_URI_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Uri`;
 const PATH_STYLE_URL_DEF_ID = `${S3_SCHEMA_ID}#/$defs/pathStyleUrl`;
 const S3_OP_DEF_ID = `${S3_SCHEMA_ID}#/$defs/s3Operation`;
 
+const BASELINE_15_S3_OPERATIONS = [
+  'PutObject',
+  'GetObject',
+  'HeadObject',
+  'DeleteObject',
+  'DeleteObjects',
+  'ListObjectsV2',
+  'HeadBucket',
+  'CreateBucket',
+  'CreateMultipartUpload',
+  'UploadPart',
+  'CompleteMultipartUpload',
+  'AbortMultipartUpload',
+  'ListParts',
+  'PutBucketVersioning',
+  'GetBucketVersioning',
+];
+
+const OBJECT_LOCK_4_S3_OPERATIONS = [
+  'PutObjectRetention',
+  'GetObjectRetention',
+  'PutObjectLegalHold',
+  'GetObjectLegalHold',
+];
+
+const CLOSED_19_S3_OPERATIONS = [
+  ...BASELINE_15_S3_OPERATIONS,
+  ...OBJECT_LOCK_4_S3_OPERATIONS,
+];
+
 const CLOSED_17_S3_OPERATIONS = [
   'PutObject',
   'GetObject',
@@ -259,11 +289,52 @@ test('validate negative storage fixtures (single-defect isolation and dispatch e
   }
 });
 
-test('cover all 17 S3 operations in closed operations catalog', () => {
+test('Platform Contract Slot 5: 15-op baseline (including PutBucketVersioning, GetBucketVersioning) and 19-op full lock closed sets', () => {
+  // 1. Cardinality and uniqueness invariants
+  assert.equal(BASELINE_15_S3_OPERATIONS.length, 15, 'Baseline set must contain exactly 15 operations');
+  assert.equal(new Set(BASELINE_15_S3_OPERATIONS).size, 15, 'Baseline operations must be distinct');
+  assert.equal(OBJECT_LOCK_4_S3_OPERATIONS.length, 4, 'Object Lock set must contain exactly 4 operations');
+  assert.equal(new Set(OBJECT_LOCK_4_S3_OPERATIONS).size, 4, 'Object Lock operations must be distinct');
+  assert.equal(CLOSED_19_S3_OPERATIONS.length, 19, 'Full lock set must contain exactly 19 operations');
+  assert.equal(new Set(CLOSED_19_S3_OPERATIONS).size, 19, 'Full lock operations must be distinct');
+
+  // 2. 15-op baseline includes PutBucketVersioning and GetBucketVersioning
+  assert.ok(BASELINE_15_S3_OPERATIONS.includes('PutBucketVersioning'), '15-op baseline must include PutBucketVersioning');
+  assert.ok(BASELINE_15_S3_OPERATIONS.includes('GetBucketVersioning'), '15-op baseline must include GetBucketVersioning');
+
+  // 3. 15-op baseline includes 8 CRUD operations and 5 Multipart operations
+  const CRUD_8 = ['PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects', 'ListObjectsV2', 'HeadBucket', 'CreateBucket'];
+  const MULTIPART_5 = ['CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload', 'AbortMultipartUpload', 'ListParts'];
+  const VERSIONING_2 = ['PutBucketVersioning', 'GetBucketVersioning'];
+
+  for (const op of [...CRUD_8, ...MULTIPART_5, ...VERSIONING_2]) {
+    assert.ok(BASELINE_15_S3_OPERATIONS.includes(op), `15-op baseline must contain '${op}'`);
+  }
+
+  // 4. 19-op full lock closed set contains 15 baseline + 4 Object Lock operations
+  for (const op of BASELINE_15_S3_OPERATIONS) {
+    assert.ok(CLOSED_19_S3_OPERATIONS.includes(op), `19-op full lock set must contain baseline op '${op}'`);
+  }
+  for (const op of OBJECT_LOCK_4_S3_OPERATIONS) {
+    assert.ok(CLOSED_19_S3_OPERATIONS.includes(op), `19-op full lock set must contain lock op '${op}'`);
+    assert.ok(!BASELINE_15_S3_OPERATIONS.includes(op), `15-op baseline must not contain lock op '${op}'`);
+  }
+
+  // 5. Excluded non-S3 operations rejected from both 15-op and 19-op closed sets
+  const baselineSet = new Set(BASELINE_15_S3_OPERATIONS);
+  const fullLockSet = new Set(CLOSED_19_S3_OPERATIONS);
+  const excludedOps = ['DeleteBucket', 'ListBuckets', 'RestoreObjectTier', 'PutObjectAclUnsupported', 'SelectObjectContent'];
+  for (const excl of excludedOps) {
+    assert.ok(!baselineSet.has(excl), `15-op baseline must reject '${excl}'`);
+    assert.ok(!fullLockSet.has(excl), `19-op full lock set must reject '${excl}'`);
+  }
+});
+
+test('cover all 19 S3 operations in closed operations catalog', () => {
   const validateOp = ajv.getSchema(S3_OP_DEF_ID);
   assert.ok(validateOp, `Missing schema for ${S3_OP_DEF_ID}`);
 
-  for (const op of CLOSED_17_S3_OPERATIONS) {
+  for (const op of CLOSED_19_S3_OPERATIONS) {
     assert.ok(validateOp(op), `Operation '${op}' must be valid in s3Operation definition`);
   }
 
@@ -272,11 +343,11 @@ test('cover all 17 S3 operations in closed operations catalog', () => {
   assert.equal(validateOp.errors.length, 1);
   assert.ok(!validateOp('RestoreObjectTier'));
   assert.equal(validateOp.errors.length, 1);
-  assert.ok(!validateOp('PutBucketVersioning'));
-  assert.equal(validateOp.errors.length, 1);
-  assert.ok(!validateOp('GetBucketVersioning'));
-  assert.equal(validateOp.errors.length, 1);
   assert.ok(!validateOp('ListBuckets'));
+  assert.equal(validateOp.errors.length, 1);
+  assert.ok(!validateOp('DeleteBucket'));
+  assert.equal(validateOp.errors.length, 1);
+  assert.ok(!validateOp('SelectObjectContent'));
   assert.equal(validateOp.errors.length, 1);
 });
 
@@ -1604,7 +1675,8 @@ test('dispatchS3PutObject with valid MD5 but mismatched x-amz-content-sha256 rej
   assert.equal(isMalformedSha256(12345), true);
   assert.equal(isMalformedSha256('abc'), true);
   assert.equal(computePayloadSha256('hello'), createHash('sha256').update('hello').digest('hex'));
-  assert.equal(computePayloadSha256(null), createHash('sha256').update(Buffer.alloc(0)).digest('hex'));
+  assert.throws(() => computePayloadSha256(null), TypeError);
+  assert.throws(() => computePayloadSha256(undefined), TypeError);
 });
 
 test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismatch returns HTTP 400 InvalidPart (OPEN-2 / Finding 4)', () => {
@@ -4812,22 +4884,26 @@ test('payload type-gating across computePayloadSha256, computePayloadMd5, dispat
   assert.equal(computePayloadMd5(validPayloadUint8), validMd5);
 
   // 2. Invalid types throw TypeError in computePayloadSha256 and computePayloadMd5
-  const invalidPayloads = [
+  const nonTypePayloads = [null, undefined];
+  const malformedPayloads = [
     { key: 'object' },
     12345,
     true,
     ['array', 'item'],
     () => 'func',
     Symbol('sym'),
+    new Date(),
+    new Uint16Array([1, 2, 3]),
+    new Uint32Array([10, 20]),
   ];
 
-  for (const inv of invalidPayloads) {
+  for (const inv of [...nonTypePayloads, ...malformedPayloads]) {
     assert.throws(() => computePayloadSha256(inv), TypeError);
     assert.throws(() => computePayloadMd5(inv), TypeError);
   }
 
   // 3. dispatchS3PutObject fails closed with HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
-  for (const inv of invalidPayloads) {
+  for (const inv of malformedPayloads) {
     const resPutObj = dispatchS3PutObject({ payload: inv, 'x-amz-content-sha256': validSha });
     assert.equal(resPutObj.http_status, 400);
     assert.equal(resPutObj.error_code, 'InvalidDigest');
@@ -4840,7 +4916,7 @@ test('payload type-gating across computePayloadSha256, computePayloadMd5, dispat
   }
 
   // 4. dispatchS3Error fails closed with HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
-  for (const inv of invalidPayloads) {
+  for (const inv of malformedPayloads) {
     const resErrObj = dispatchS3Error({ payload: inv, contentMd5Header: validMd5 });
     assert.equal(resErrObj.http_status, 400);
     assert.equal(resErrObj.error_code, 'InvalidDigest');
@@ -4867,6 +4943,9 @@ test('regression: structured object payloads fail closed with HTTP 400 InvalidDi
     12345,
     true,
     false,
+    () => 'func_bad',
+    new Date(),
+    new Uint16Array([4, 5, 6]),
   ];
 
   const validMd5 = '1B2M2Y8AsgTpgAmY7PhCfg==';
@@ -4971,4 +5050,11 @@ test('regression: structured object payloads fail closed with HTTP 400 InvalidDi
   assert.equal(resErrCond.status, 400);
   assert.equal(resErrCond.code, 'InvalidDigest');
   assert.equal(resErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 10. dispatchS3Error with non-plain prototype options returns MALFORMED_HEADER_SYNTAX
+  const nonPlainCondition = Object.create({ reason: 'MALFORMED_PAYLOAD_TYPE' });
+  const resNonPlain = dispatchS3Error(nonPlainCondition);
+  assert.equal(resNonPlain.http_status, 400);
+  assert.equal(resNonPlain.error_code, 'InvalidDigest');
+  assert.equal(resNonPlain.reason, 'MALFORMED_HEADER_SYNTAX');
 });

@@ -56,10 +56,12 @@ Platform Contract Slot 5 (`storage`) provides the durable object persistence lay
 |   |  - GetObject        |  |  - CreateBucket    |  |  - UploadPart      |   |
 |   |  - HeadObject       |  |  - ListObjectsV2   |  |  - CompleteMPU     |   |
 |   |  - DeleteObject     |  +--------------------+  |  - AbortMPU        |   |
-|   |  - DeleteObjects    |                          |  - ListParts       |   |
-|   +---------------------+  +--------------------+  +--------------------+   |
-|                            |  WORM / Lock (4)   |                           |
-|                            |  - PutObjRetention |                           |
+|   |  - DeleteObjects    |  | Bucket Vers. (2)   |  |  - ListParts       |   |
+|   +---------------------+  |  - PutBucketVers.  |  +--------------------+   |
+|                            |  - GetBucketVers.  |                           |
+|                            +--------------------+                           |
+|                            |  WORM / Lock (4)   |  15-Op Baseline (Non-Lock)|
+|                            |  - PutObjRetention |  19-Op with Object Lock   |
 |                            |  - GetObjRetention |                           |
 |                            |  - PutObjLegalHold |                           |
 |                            |  - GetObjLegalHold |                           |
@@ -68,7 +70,7 @@ Platform Contract Slot 5 (`storage`) provides the durable object persistence lay
 |   Wire Invariants:                                                          |
 |   * Path-Style Addressing Mandatory  * AWS SigV4 (AWS4-HMAC-SHA256)         |
 |   * Strict RFC 3986 URL Encoding     * Strict Checksum & Digest Validation  |
-|   * Normative S3 XML Error Schema    * Strong Read-After-Write Consistency  |
+|   * Strict Payload Type Gating       * Normative S3 XML Error Schema        |
 +-----------------------------------------------------------------------------+
 ```
 
@@ -78,11 +80,11 @@ Platform Contract Slot 5 (`storage`) provides the durable object persistence lay
 
 A conforming Platform Contract Slot 5 storage provider MUST satisfy the following core invariants:
 
-* **`INV-S3-01` (Exact 17 Mandatory Operations)**: The provider MUST implement exactly the 17 required operations specified in §4. No subset omission is permitted.
+* **`INV-S3-01` (Closed Operation Inventory — 15-Op Baseline / 19 Ops with Object Lock)**: The provider MUST implement the closed operation vocabulary reconciled with accepted Platform Contract Proposal §5: exactly the 15-operation baseline (8 CRUD/Bucket: `PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`; 5 Multipart: `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`; 2 Bucket Versioning: `PutBucketVersioning`, `GetBucketVersioning`) on non-immutable deployment profiles, and exactly 19 operations when Object Lock is included (adding `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`). No unapproved subset omission or surplus operation is permitted.
 * **`INV-S3-02` (Mandatory Path-Style Addressing)**: The provider MUST support path-style request routing (`https://{endpoint}/{bucket}/{key}`) without requiring DNS-level virtual-host bucket resolution.
 * **`INV-S3-03` (AWS SigV4 Authentication)**: The provider MUST authenticate requests signed with `AWS4-HMAC-SHA256` in compliance with AWS Signature Version 4.
 * **`INV-S3-04` (Strict RFC 3986 URL Path Encoding & Normalized Object Keys)**: Request URI paths MUST adhere to RFC 3986 unreserved character preservation and uppercase percent-encoding rules. All `s3://` URIs and path-style URLs MUST conform to normalized object keys without dot-segments (`..`, `/.`), repeated slashes (`//`), or trailing slashes (`/`).
-* **`INV-S3-05` (Strict End-to-End Digest Verification & Strict Error Dispatch)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers. The `x-amz-content-sha256` header is unconditionally mandatory on all `PutObject` requests (missing header returns HTTP 400 `InvalidDigest`). The `x-amz-content-sha256` header value must strictly match exact lowercase 64-hex SHA-256 (`^[a-f0-9]{64}$`) or `'UNSIGNED-PAYLOAD'` (case-sensitive, no leading/trailing whitespace, no uppercase). `STREAMING-*` SHA-256 headers (e.g. `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`) are malformed header syntax not part of this closed subset and MUST be rejected with HTTP 400 `InvalidDigest` (`UNSUPPORTED_STREAMING_PAYLOAD_SHA256`). On `PutObject`, the provider MUST compute the payload SHA-256 digest and verify it against `x-amz-content-sha256` (when not `'UNSIGNED-PAYLOAD'`) as well as verifying `Content-MD5` (when provided), failing closed strictly with `BadDigest` (HTTP 400) on payload digest mismatch and `InvalidDigest` (HTTP 400) on malformed digest headers or missing mandatory `x-amz-content-sha256`. Returning `InvalidArgument` or `AccessDenied` in lieu of `BadDigest`/`InvalidDigest` is strictly forbidden. On `CompleteMultipartUpload`, every referenced part in the completion manifest MUST exist and its declared ETag MUST match the stored part ETag recorded during `UploadPart` via exact string matching (without quote stripping or normalization); any missing part or stored-ETag mismatch MUST be rejected with HTTP 400 `InvalidPart`.
+* **`INV-S3-05` (Strict End-to-End Digest Verification, Payload Type Gating & Strict Error Dispatch)**: The provider MUST compute and validate payload digests against `Content-MD5` and `x-amz-content-sha256` headers. Payload inputs across storage operations and digest calculations MUST be strictly type-gated (`string`, `Buffer`, `Uint8Array` only; `null`/`undefined`/`Date`/`Uint16Array`/`Function` fail closed with `TypeError` in digest helper routines and HTTP 400 `InvalidDigest` / `MALFORMED_PAYLOAD_TYPE` in dispatchers). The `x-amz-content-sha256` header is unconditionally mandatory on all `PutObject` requests (missing header returns HTTP 400 `InvalidDigest`). The `x-amz-content-sha256` header value must strictly match exact lowercase 64-hex SHA-256 (`^[a-f0-9]{64}$`) or `'UNSIGNED-PAYLOAD'` (case-sensitive, no leading/trailing whitespace, no uppercase). `STREAMING-*` SHA-256 headers (e.g. `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`) are malformed header syntax not part of this closed subset and MUST be rejected with HTTP 400 `InvalidDigest` (`UNSUPPORTED_STREAMING_PAYLOAD_SHA256`). On `PutObject`, the provider MUST compute the payload SHA-256 digest and verify it against `x-amz-content-sha256` (when not `'UNSIGNED-PAYLOAD'`) as well as verifying `Content-MD5` (when provided), failing closed strictly with `BadDigest` (HTTP 400) on payload digest mismatch and `InvalidDigest` (HTTP 400) on malformed digest headers, invalid payload types (`MALFORMED_PAYLOAD_TYPE`), or missing mandatory `x-amz-content-sha256`. Returning `InvalidArgument` or `AccessDenied` in lieu of `BadDigest`/`InvalidDigest` is strictly forbidden. On `CompleteMultipartUpload`, every referenced part in the completion manifest MUST exist and its declared ETag MUST match the stored part ETag recorded during `UploadPart` via exact string matching (without quote stripping or normalization); any missing part or stored-ETag mismatch MUST be rejected with HTTP 400 `InvalidPart`.
 * **`INV-S3-06` (Version-Level Object Lock Immutability & Version-Scoped Evidence)**: The provider MUST enforce WORM retention on individual object versions in both `COMPLIANCE` and `GOVERNANCE` modes, preventing premature deletion or overwrite of protected version IDs until the retain-until date expires. Every retention and legal-hold evidence assertion (`objectRetentionCompliance`) MUST strictly bind to an explicit non-empty `version_id`. Key-level or unversioned evidence assertions are strictly prohibited.
 * **`INV-S3-07` (Legal Hold Independence)**: Legal hold status MUST operate independently of retention expiration dates, preventing version deletion while `Status=ON`.
 * **`INV-S3-08` (Standard Error Taxonomy & Canonical Error Code Declaration)**: Errors MUST return standard HTTP status codes and the normative S3 XML error envelope conforming to the 13-error taxonomy. Storage conformance profiles MUST declare exactly all 13 canonical S3 error codes.
@@ -91,29 +93,31 @@ A conforming Platform Contract Slot 5 storage provider MUST satisfy the followin
 
 ---
 
-## 4. Required Operations Inventory (Exact 17 Operations)
+## 4. Required Operations Inventory (15-Operation Baseline / 19 Operations with Object Lock)
 
-The Platform Contract Slot 5 interface consists of exactly 17 mandatory operations, categorized into four functional groups:
+The Platform Contract Slot 5 interface vocabulary consists of a 15-operation closed baseline on non-immutable profiles and extends to 19 operations when Object Lock is included, categorized into five functional groups:
 
-| # | Operation Identifier | HTTP Verb & Path Pattern | Functional Category | Purpose / Architectural Consumer |
-|---|---|---|---|---|
-| 1 | `PutObject` | `PUT /{bucket}/{key+}` | Object CRUD | Write object data, metadata, and checksums |
-| 2 | `GetObject` | `GET /{bucket}/{key+}` | Object CRUD | Read object payload and user metadata |
-| 3 | `HeadObject` | `HEAD /{bucket}/{key+}` | Object CRUD | Retrieve object headers, ETag, and metadata |
-| 4 | `DeleteObject` | `DELETE /{bucket}/{key+}` | Object CRUD | Remove an object version or place a delete marker |
-| 5 | `DeleteObjects` | `POST /{bucket}?delete` | Object CRUD | Multi-object batch deletion in a single request |
-| 6 | `HeadBucket` | `HEAD /{bucket}` | Bucket / Listing | Verify bucket existence and caller access |
-| 7 | `CreateBucket` | `PUT /{bucket}` | Bucket / Listing | Create a storage bucket with Object Lock support |
-| 8 | `ListObjectsV2` | `GET /{bucket}?list-type=2` | Bucket / Listing | Paginated listing of objects by prefix and delimiter |
-| 9 | `CreateMultipartUpload` | `POST /{bucket}/{key+}?uploads` | Multipart Upload | Initiate a multi-part segmented upload session |
-| 10 | `UploadPart` | `PUT /{bucket}/{key+}?uploadId={id}&partNumber={n}` | Multipart Upload | Upload an individual bounded part segment |
-| 11 | `CompleteMultipartUpload` | `POST /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Assemble uploaded parts into a single coherent object |
-| 12 | `AbortMultipartUpload` | `DELETE /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Cancel session and reclaim allocated part storage |
-| 13 | `ListParts` | `GET /{bucket}/{key+}?uploadId={id}` | Multipart Upload | List uploaded parts for an in-progress upload session |
-| 14 | `PutObjectRetention` | `PUT /{bucket}/{key+}?retention` | WORM / Object Lock | Set retention mode and `RetainUntilDate` on a version |
-| 15 | `GetObjectRetention` | `GET /{bucket}/{key+}?retention` | WORM / Object Lock | Query current retention configuration of a version |
-| 16 | `PutObjectLegalHold` | `PUT /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Apply or lift an indefinite legal hold on a version |
-| 17 | `GetObjectLegalHold` | `GET /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Query current legal hold status of a version |
+| # | Operation Identifier | HTTP Verb & Path Pattern | Functional Category | Purpose / Architectural Consumer | Profile Applicability |
+|---|---|---|---|---|---|
+| 1 | `PutObject` | `PUT /{bucket}/{key+}` | Object CRUD | Write object data, metadata, and checksums | Baseline (All Profiles) |
+| 2 | `GetObject` | `GET /{bucket}/{key+}` | Object CRUD | Read object payload and user metadata | Baseline (All Profiles) |
+| 3 | `HeadObject` | `HEAD /{bucket}/{key+}` | Object CRUD | Retrieve object headers, ETag, and metadata | Baseline (All Profiles) |
+| 4 | `DeleteObject` | `DELETE /{bucket}/{key+}` | Object CRUD | Remove an object version or place a delete marker | Baseline (All Profiles) |
+| 5 | `DeleteObjects` | `POST /{bucket}?delete` | Object CRUD | Multi-object batch deletion in a single request | Baseline (All Profiles) |
+| 6 | `HeadBucket` | `HEAD /{bucket}` | Bucket / Listing | Verify bucket existence and caller access | Baseline (All Profiles) |
+| 7 | `CreateBucket` | `PUT /{bucket}` | Bucket / Listing | Create a storage bucket with Object Lock support | Baseline (All Profiles) |
+| 8 | `ListObjectsV2` | `GET /{bucket}?list-type=2` | Bucket / Listing | Paginated listing of objects by prefix and delimiter | Baseline (All Profiles) |
+| 9 | `CreateMultipartUpload` | `POST /{bucket}/{key+}?uploads` | Multipart Upload | Initiate a multi-part segmented upload session | Baseline (All Profiles) |
+| 10 | `UploadPart` | `PUT /{bucket}/{key+}?uploadId={id}&partNumber={n}` | Multipart Upload | Upload an individual bounded part segment | Baseline (All Profiles) |
+| 11 | `CompleteMultipartUpload` | `POST /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Assemble uploaded parts into a single coherent object | Baseline (All Profiles) |
+| 12 | `AbortMultipartUpload` | `DELETE /{bucket}/{key+}?uploadId={id}` | Multipart Upload | Cancel session and reclaim allocated part storage | Baseline (All Profiles) |
+| 13 | `ListParts` | `GET /{bucket}/{key+}?uploadId={id}` | Multipart Upload | List uploaded parts for an in-progress upload session | Baseline (All Profiles) |
+| 14 | `PutBucketVersioning` | `PUT /{bucket}?versioning` | Bucket Versioning | Enable or suspend version tracking on a bucket | Baseline (All Profiles) |
+| 15 | `GetBucketVersioning` | `GET /{bucket}?versioning` | Bucket Versioning | Retrieve version tracking status on a bucket | Baseline (All Profiles) |
+| 16 | `PutObjectRetention` | `PUT /{bucket}/{key+}?retention` | WORM / Object Lock | Set retention mode and `RetainUntilDate` on a version | Object Lock / Immutable Profiles |
+| 17 | `GetObjectRetention` | `GET /{bucket}/{key+}?retention` | WORM / Object Lock | Query current retention configuration of a version | Object Lock / Immutable Profiles |
+| 18 | `PutObjectLegalHold` | `PUT /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Apply or lift an indefinite legal hold on a version | Object Lock / Immutable Profiles |
+| 19 | `GetObjectLegalHold` | `GET /{bucket}/{key+}?legal-hold` | WORM / Object Lock | Query current legal hold status of a version | Object Lock / Immutable Profiles |
 
 ---
 
@@ -536,7 +540,69 @@ Lists the parts that have been uploaded for a specific active multipart upload s
 
 ---
 
-### 5.14 Operation 14: `PutObjectRetention`
+### 5.14 Operation 14: `PutBucketVersioning`
+
+Configures or toggles the versioning state of an existing storage bucket.
+
+* **HTTP Method**: `PUT`
+* **Resource Path**: `/{bucket}?versioning`
+* **Query Parameters**:
+  * `versioning`: Directive sub-resource flag.
+* **Required Headers**:
+  * `Host`: Storage endpoint host.
+  * `Authorization`: AWS SigV4 signature string.
+  * `x-amz-date` or `Date`: ISO 8601 UTC timestamp.
+  * `Content-Type`: `application/xml`
+* **Optional Headers**:
+  * `Content-MD5`: Base64 MD5 of the XML body.
+* **Request Body**: XML document conforming to `VersioningConfiguration`:
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Status>Enabled</Status>
+  </VersioningConfiguration>
+  ```
+  *(Allowed `Status` values: `Enabled` | `Suspended`)*
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Body**: Empty.
+* **Failure Modes**:
+  * `400 Bad Request` (`InvalidArgument`): Malformed XML payload or invalid status value.
+  * `403 Forbidden` (`AccessDenied`): Missing bucket management permissions or attempting to suspend versioning on an Object Lock enabled bucket.
+  * `404 Not Found` (`NoSuchBucket`): Target bucket does not exist.
+
+---
+
+### 5.15 Operation 15: `GetBucketVersioning`
+
+Retrieves the active versioning configuration status of a storage bucket.
+
+* **HTTP Method**: `GET`
+* **Resource Path**: `/{bucket}?versioning`
+* **Query Parameters**:
+  * `versioning`: Directive sub-resource flag.
+* **Required Headers**:
+  * `Host`: Storage endpoint host.
+  * `Authorization`: AWS SigV4 signature string.
+  * `x-amz-date` or `Date`: ISO 8601 UTC timestamp.
+* **Success Response**:
+  * **HTTP Status**: `200 OK`
+  * **Response Headers**: `Content-Type: application/xml`
+  * **Response Body**: XML document returning `VersioningConfiguration`:
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+      <Status>Enabled</Status>
+    </VersioningConfiguration>
+    ```
+    *(If versioning has never been configured on the bucket, returns an empty `<VersioningConfiguration xmlns="..."/>` element or empty body with 200 OK).*
+* **Failure Modes**:
+  * `403 Forbidden` (`AccessDenied`): Missing read permissions.
+  * `404 Not Found` (`NoSuchBucket`): Target bucket does not exist.
+
+---
+
+### 5.16 Operation 16: `PutObjectRetention`
 
 Configures or extends the WORM retention configuration for a specific object version. In conformance with version-scoped WORM immutability, retention configuration MUST bind to an explicit object version ID.
 
@@ -568,7 +634,7 @@ Configures or extends the WORM retention configuration for a specific object ver
 
 ---
 
-### 5.15 Operation 15: `GetObjectRetention`
+### 5.17 Operation 17: `GetObjectRetention`
 
 Queries the active WORM retention configuration of a specific object version.
 
@@ -586,7 +652,7 @@ Queries the active WORM retention configuration of a specific object version.
 
 ---
 
-### 5.16 Operation 16: `PutObjectLegalHold`
+### 5.18 Operation 18: `PutObjectLegalHold`
 
 Applies or releases an indefinite legal hold on a specific object version.
 
@@ -616,7 +682,7 @@ Applies or releases an indefinite legal hold on a specific object version.
 
 ---
 
-### 5.17 Operation 17: `GetObjectLegalHold`
+### 5.19 Operation 19: `GetObjectLegalHold`
 
 Retrieves the legal hold status of a specific object version.
 
@@ -859,15 +925,17 @@ Conforming storage providers MUST strictly differentiate between digest calculat
    * **Error Code**: `<Code>InvalidDigest</Code>`.
    * **Strict Error Dispatch**: Storage providers MUST return HTTP 400 with `<Code>InvalidDigest</Code>`. Providers MUST NOT return `InvalidArgument` for malformed digest header values.
 
-### 8.2 Payload Digest Validation (`Content-MD5` and `x-amz-content-sha256`), Raw Octet Hashing & Part Integrity Verification
-* **Payload Type Gating**: Payload inputs MUST be raw octet buffers (`Buffer` / `Uint8Array`) or UTF-8 `string`. Plain objects, numbers, booleans, arrays, or other structured non-byte types MUST fail closed with HTTP 400 `<Code>InvalidDigest</Code>` (`MALFORMED_PAYLOAD_TYPE`).
+### 8.2 Payload Digest Validation (`Content-MD5` and `x-amz-content-sha256`), Raw Octet Hashing, Payload Type Gating & Part Integrity Verification
+* **Payload Type Gating & Permitted Types**: Payload inputs across storage operations and digest calculations MUST be strictly type-gated. Only `string` (evaluated strictly as raw UTF-8 octets without speculative decoding), `Buffer`, and `Uint8Array` are permitted payload representations. Any unsupported or invalid types—specifically including `null`, `undefined` (when a payload argument is passed or expected), `Date`, `Uint16Array`, `Function`, plain object, number, boolean, array, or other structured non-byte types—MUST fail closed:
+  - In low-level digest calculation routines (`computePayloadSha256`, `computePayloadMd5`), throw a strict `TypeError` with message `"Invalid payload type: payload must be a string, Buffer, or Uint8Array"`.
+  - In protocol dispatch and request validation pipelines (`dispatchS3PutObject`, `dispatchS3Error`), fail closed immediately with HTTP 400 `<Code>InvalidDigest</Code>` and reason `MALFORMED_PAYLOAD_TYPE`.
 * **Raw UTF-8 Octet Payload Hashing**: Cryptographic digest computation (for `x-amz-content-sha256` SHA-256 validation and `Content-MD5` / `ETag` MD5 calculation) MUST evaluate string and text payloads strictly as raw UTF-8 octets ($C \to \text{UTF-8}(C)$) without heuristic Base64 interpretation or speculative payload sniffing. Implementations MUST NOT inspect string payloads for Base64 characteristics or decode Base64-encoded strings into binary byte buffers prior to computing digests. Strings MUST be converted to raw bytes using strict UTF-8 encoding, ensuring deterministic, bit-for-bit digest reproducibility across all platform planes and clients.
 * **Own-Property Resolution on Headers & Payload Digest Inputs**: All request header lookups (including `x-amz-content-sha256`, `Content-MD5`, and custom metadata headers) and payload digest properties MUST be resolved strictly as direct own properties (`Object.prototype.hasOwnProperty.call(...)`). Prototype-inherited headers, prototype-poisoned header dictionaries, or prototype-inherited payload fields MUST be treated as absent or malformed and fail closed immediately with HTTP 400 `<Code>InvalidDigest</Code>` (`MALFORMED_HEADER_SYNTAX`).
 * **`PutObject` Payload Digest Verification**: On `PutObject`, the server MUST verify the received payload against the 64-character lowercase hexadecimal SHA-256 digest provided in `x-amz-content-sha256` (or profile-authorized `'UNSIGNED-PAYLOAD'`) and the Base64 MD5 digest provided in `Content-MD5` (when provided).
   * The `x-amz-content-sha256` header is **unconditionally mandatory** on all `PutObject` requests. Missing or omitted `x-amz-content-sha256` header MUST be rejected strictly with HTTP 400 `<Code>InvalidDigest</Code>`.
   * The `x-amz-content-sha256` header value must strictly match exact lowercase 64-hex SHA-256 (`^[a-f0-9]{64}$`) or `'UNSIGNED-PAYLOAD'` (case-sensitive, no leading/trailing whitespace, no uppercase).
   * `STREAMING-*` SHA-256 headers (e.g. `STREAMING-AWS4-HMAC-SHA256-PAYLOAD`, `STREAMING-AWS4-ECDSA-P256-SHA256-PAYLOAD`, and any streaming payload auth variants) are malformed header syntax not part of this closed subset; `STREAMING-*` SHA-256 header validation is executed unconditionally before any MD5 validation or payload digest comparisons, immediately returning HTTP 400 `<Code>InvalidDigest</Code>` (`UNSUPPORTED_STREAMING_PAYLOAD_SHA256`). Storage providers MUST NOT evaluate MD5 or compute payload digests when a `STREAMING-*` SHA-256 header is encountered; rather, the request MUST fail closed immediately during initial header validation with HTTP 400 `<Code>InvalidDigest</Code>`. Storage providers MUST NOT return `BadDigest` or `InvalidArgument` for streaming header sentinels because streaming payload framing is rejected at header ingestion prior to payload verification.
-  * Syntactically invalid digest header values (e.g., missing mandatory header on `PutObject`, non-hex characters, uppercase characters, or length $\neq 64$ in SHA-256 headers, unsupported `STREAMING-*` payload headers, or malformed Base64 in `Content-MD5`) or invalid payload types (plain objects, numbers, booleans, arrays, or other structured non-byte types triggering `MALFORMED_PAYLOAD_TYPE`) MUST be rejected strictly with HTTP 400 `<Code>InvalidDigest</Code>`. Storage providers MUST NOT return `InvalidArgument` for malformed digest headers or invalid payload types.
+  * Syntactically invalid digest header values (e.g., missing mandatory header on `PutObject`, non-hex characters, uppercase characters, or length $\neq 64$ in SHA-256 headers, unsupported `STREAMING-*` payload headers, or malformed Base64 in `Content-MD5`) or invalid payload types (`null`, `undefined`, `Date`, `Uint16Array`, `Function`, plain objects, numbers, booleans, arrays, or other structured non-byte types triggering `MALFORMED_PAYLOAD_TYPE` / `TypeError`) MUST be rejected strictly with HTTP 400 `<Code>InvalidDigest</Code>`. Storage providers MUST NOT return `InvalidArgument` for malformed digest headers or invalid payload types.
   * Calculated digest mismatches against the received payload bytes MUST be rejected strictly with HTTP 400 `<Code>BadDigest</Code>`. Specifically, both `XAmzContentSHA256Mismatch` and `PAYLOAD_SHA256_MISMATCH` (as well as `PAYLOAD_DIGEST_MISMATCH`) map strictly to HTTP 400 `<Code>BadDigest</Code>`. Storage providers MUST NOT return `AccessDenied` or `InvalidArgument` in lieu of `BadDigest` for payload digest discrepancies.
 * **`CompleteMultipartUpload` Part Integrity & `InvalidPart` Handling**: During `CompleteMultipartUpload`, the storage provider MUST verify each part listed in the completion manifest against previously uploaded parts for the upload session.
   * If a referenced part was not uploaded (missing part) or if the part's declared ETag in the manifest does not match the stored part ETag recorded during `UploadPart` via exact string matching (without quote stripping or normalization), the provider MUST reject the completion request with HTTP 400 `<Code>InvalidPart</Code>`.
@@ -925,7 +993,7 @@ Conforming providers MUST implement and return exactly the 13 error codes define
 | # | Error Code (`<Code>`) | HTTP Status | Trigger Condition / Semantic Meaning |
 |---|---|---|---|
 | 1 | `BadDigest` | `400 Bad Request` | The `Content-MD5` or payload checksum calculated by the server does not match the digest value specified in the request header (including `XAmzContentSHA256Mismatch` and `PAYLOAD_SHA256_MISMATCH`). Strictly mandated for all payload digest mismatches (providers MUST NOT return `InvalidArgument` or `AccessDenied`). |
-| 2 | `InvalidDigest` | `400 Bad Request` | The `Content-MD5` or digest header value is malformed (e.g., non-base64 characters or decoded length $\neq 16$ bytes for MD5, malformed/uppercase/whitespace SHA-256 string, or unsupported `STREAMING-*` payload headers such as `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` triggering `UNSUPPORTED_STREAMING_PAYLOAD_SHA256`), mandatory `x-amz-content-sha256` header is missing on `PutObject`, payload inputs fail type gating (plain objects, numbers, booleans, arrays, or other structured non-byte types failing raw octet buffer or UTF-8 string requirement, triggering `MALFORMED_PAYLOAD_TYPE`), or headers/payload inputs fail own-property resolution (inherited headers or payload properties triggering `MALFORMED_HEADER_SYNTAX`). `STREAMING-*` SHA-256 header validation is executed unconditionally before any MD5 validation or payload digest comparisons, immediately returning HTTP 400 `InvalidDigest` (`UNSUPPORTED_STREAMING_PAYLOAD_SHA256`). Strictly mandated for malformed digest strings, unsupported streaming payload sentinels, missing `x-amz-content-sha256`, invalid payload types (`MALFORMED_PAYLOAD_TYPE`), or prototype-inherited headers (providers MUST NOT return `InvalidArgument` or `BadDigest`). |
+| 2 | `InvalidDigest` | `400 Bad Request` | The `Content-MD5` or digest header value is malformed (e.g., non-base64 characters or decoded length $\neq 16$ bytes for MD5, malformed/uppercase/whitespace SHA-256 string, or unsupported `STREAMING-*` payload headers such as `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` triggering `UNSUPPORTED_STREAMING_PAYLOAD_SHA256`), mandatory `x-amz-content-sha256` header is missing on `PutObject`, payload inputs fail type gating (`null`, `undefined`, `Date`, `Uint16Array`, `Function`, plain objects, numbers, booleans, arrays, or other structured non-byte types failing raw octet buffer or UTF-8 string requirement, triggering `TypeError` in helper routines or `MALFORMED_PAYLOAD_TYPE` in dispatchers), or headers/payload inputs fail own-property resolution (inherited headers or payload properties triggering `MALFORMED_HEADER_SYNTAX`). `STREAMING-*` SHA-256 header validation is executed unconditionally before any MD5 validation or payload digest comparisons, immediately returning HTTP 400 `InvalidDigest` (`UNSUPPORTED_STREAMING_PAYLOAD_SHA256`). Strictly mandated for malformed digest strings, unsupported streaming payload sentinels, missing `x-amz-content-sha256`, invalid payload types (`MALFORMED_PAYLOAD_TYPE`), or prototype-inherited headers (providers MUST NOT return `InvalidArgument` or `BadDigest`). |
 | 3 | `NoSuchBucket` | `404 Not Found` | The specified target bucket does not exist. |
 | 4 | `NoSuchKey` | `404 Not Found` | The specified object key does not exist in the bucket. |
 | 5 | `NoSuchUpload` | `404 Not Found` | The specified multipart `UploadId` does not exist, has been aborted, or has already completed. |
@@ -956,6 +1024,6 @@ Any implementation declaring conformance with Platform Contract Slot 5 MUST sati
 To advance this specification from `PROPOSED` to `ACCEPTED`, the following conditions MUST be met:
 
 1. **Founder Decision**: Formal review and acceptance recorded in a dedicated Founder Decision Packet.
-2. **Schema & Fixture Closure**: Schema `cybrik.storage-s3-compatibility-subset.v1.schema.json` and associated test fixtures updated to reflect the exact 17-operation closed inventory.
+2. **Schema & Fixture Closure**: Schema `cybrik.storage-s3-compatibility-subset.v1.schema.json` and associated test fixtures reconciled to reflect the 15-operation baseline (non-immutable profiles) and 19 operations when Object Lock is included.
 3. **Automated Test Validation**: 100% test pass across canonical contract validation suites (`validate:platform`, `validate:schemas`, `validate:s3`).
 4. **Provider-Neutral Verification**: Reconfirmation that the specification contains zero proprietary SDK tokens, vendor-specific lock-ins, or cloud provider hard dependencies.
