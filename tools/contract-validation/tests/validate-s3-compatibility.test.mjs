@@ -4173,7 +4173,7 @@ test('prototype input hardening: inherited payload, payloadBytes, headers, or pa
   const resProtoParts = dispatchS3CompleteMultipartUpload(protoPartsManifest, validStoredMap);
   assert.equal(resProtoParts.http_status, 400, 'Inherited parts in dispatchS3CompleteMultipartUpload must fail closed with 400');
   assert.equal(resProtoParts.error_code, 'InvalidArgument');
-  assert.equal(resProtoParts.reason, 'EmptyPartsList');
+  assert.equal(resProtoParts.reason, 'NonPlainPrototypeWrapper');
 
   // 6. dispatchS3CompleteMultipartUpload with prototype-inherited manifest wrapper
   const protoManifestWrap = Object.create({
@@ -4183,6 +4183,7 @@ test('prototype input hardening: inherited payload, payloadBytes, headers, or pa
   const resProtoWrap = dispatchS3CompleteMultipartUpload(protoManifestWrap);
   assert.equal(resProtoWrap.http_status, 400, 'Inherited manifest wrapper in dispatchS3CompleteMultipartUpload must fail closed with 400');
   assert.equal(resProtoWrap.error_code, 'InvalidArgument');
+  assert.equal(resProtoWrap.reason, 'NonPlainPrototypeWrapper');
 
   // 7. validateS3MultipartSemantics with prototype-inherited parts throws semantic error
   assert.throws(
@@ -4191,20 +4192,28 @@ test('prototype input hardening: inherited payload, payloadBytes, headers, or pa
     'validateS3MultipartSemantics must reject inherited parts array'
   );
 
-  // 8. dispatchS3CompleteMultipartUpload with prototype-inherited total_parts or total_size_bytes
-  const protoTotalParts = Object.create({ total_parts: 1 });
-  protoTotalParts.parts = validPartsList;
-  const resProtoTotalParts = dispatchS3CompleteMultipartUpload(protoTotalParts, validStoredMap);
-  assert.equal(resProtoTotalParts.http_status, 400, 'Inherited total_parts must fail closed with 400');
-  assert.equal(resProtoTotalParts.error_code, 'InvalidPart');
-  assert.equal(resProtoTotalParts.reason, 'TotalPartsMismatch');
+  // 8. dispatchS3CompleteMultipartUpload with prototype-inherited total_parts or total_size_bytes on Object.prototype
+  try {
+    Object.prototype.total_parts = 999;
+    const plainManifestTotalParts = { parts: validPartsList };
+    const resProtoTotalParts = dispatchS3CompleteMultipartUpload(plainManifestTotalParts, validStoredMap);
+    assert.equal(resProtoTotalParts.http_status, 400, 'Inherited total_parts must fail closed with 400');
+    assert.equal(resProtoTotalParts.error_code, 'InvalidPart');
+    assert.equal(resProtoTotalParts.reason, 'TotalPartsMismatch');
+  } finally {
+    delete Object.prototype.total_parts;
+  }
 
-  const protoTotalSize = Object.create({ total_size_bytes: 5242880 });
-  protoTotalSize.parts = validPartsList;
-  const resProtoTotalSize = dispatchS3CompleteMultipartUpload(protoTotalSize, validStoredMap);
-  assert.equal(resProtoTotalSize.http_status, 400, 'Inherited total_size_bytes must fail closed with 400');
-  assert.equal(resProtoTotalSize.error_code, 'InvalidPart');
-  assert.equal(resProtoTotalSize.reason, 'TotalSizeMismatch');
+  try {
+    Object.prototype.total_size_bytes = 999;
+    const plainManifestTotalSize = { parts: validPartsList };
+    const resProtoTotalSize = dispatchS3CompleteMultipartUpload(plainManifestTotalSize, validStoredMap);
+    assert.equal(resProtoTotalSize.http_status, 400, 'Inherited total_size_bytes must fail closed with 400');
+    assert.equal(resProtoTotalSize.error_code, 'InvalidPart');
+    assert.equal(resProtoTotalSize.reason, 'TotalSizeMismatch');
+  } finally {
+    delete Object.prototype.total_size_bytes;
+  }
 
   // 9. dispatchS3PutObject / dispatchS3Error with prototype-inherited sha256 or md5 direct keys
   const protoDirectSha = Object.create({ 'x-amz-content-sha256': validSha });
@@ -4310,4 +4319,294 @@ test('non-enumerable inherited prototype properties fail closed with HTTP 400 In
   assert.equal(resErrNestedMd5.http_status, 400);
   assert.equal(resErrNestedMd5.error_code, 'InvalidDigest');
   assert.equal(resErrNestedMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics plain prototype and own-only field extraction (OPEN-2 / Finding 1)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+  const validPart = { part_number: 1, etag: validEtag, size_bytes: 5242880 };
+  const validStoredMap = new Map([[1, { part_number: 1, etag: validEtag, size_bytes: 5242880 }]]);
+
+  // 1. Non-plain prototype wrapper -> NonPlainPrototypeWrapper
+  const protoWrapper = Object.create({ manifest: { parts: [validPart] }, storedParts: validStoredMap });
+  const resWrap = dispatchS3CompleteMultipartUpload(protoWrapper);
+  assert.equal(resWrap.http_status, 400);
+  assert.equal(resWrap.error_code, 'InvalidArgument');
+  assert.equal(resWrap.reason, 'NonPlainPrototypeWrapper');
+
+  // 2. Non-plain prototype manifest in wrapper -> NonPlainPrototypeManifest
+  const protoManifest = Object.create({ parts: [validPart] });
+  const resManifest = dispatchS3CompleteMultipartUpload({ manifest: protoManifest, storedParts: validStoredMap });
+  assert.equal(resManifest.http_status, 400);
+  assert.equal(resManifest.error_code, 'InvalidArgument');
+  assert.equal(resManifest.reason, 'NonPlainPrototypeManifest');
+
+  // 3. Non-plain prototype part in manifest.parts -> NonPlainPrototypePart
+  const protoPart = Object.create(validPart);
+  const resPart = dispatchS3CompleteMultipartUpload({ parts: [protoPart], storedParts: validStoredMap });
+  assert.equal(resPart.http_status, 400);
+  assert.equal(resPart.error_code, 'InvalidPart');
+  assert.equal(resPart.reason, 'NonPlainPrototypePart');
+
+  // 4. Non-plain prototype stored part in Map -> NonPlainPrototypeStoredPart
+  const protoStoredMap = new Map([[1, Object.create(validPart)]]);
+  const resStoredMap = dispatchS3CompleteMultipartUpload({ parts: [validPart], storedParts: protoStoredMap });
+  assert.equal(resStoredMap.http_status, 400);
+  assert.equal(resStoredMap.error_code, 'InvalidPart');
+  assert.equal(resStoredMap.reason, 'NonPlainPrototypeStoredPart');
+
+  // 5. Non-plain prototype stored part in Object -> NonPlainPrototypeStoredPart
+  const protoStoredObj = { 1: Object.create(validPart) };
+  const resStoredObj = dispatchS3CompleteMultipartUpload({ parts: [validPart], storedParts: protoStoredObj });
+  assert.equal(resStoredObj.http_status, 400);
+  assert.equal(resStoredObj.error_code, 'InvalidPart');
+  assert.equal(resStoredObj.reason, 'NonPlainPrototypeStoredPart');
+
+  // 6. Null-prototype objects (Object.create(null)) are valid plain objects
+  const nullProtoPart = Object.create(null);
+  nullProtoPart.part_number = 1;
+  nullProtoPart.etag = validEtag;
+  nullProtoPart.size_bytes = 5242880;
+
+  const nullProtoManifest = Object.create(null);
+  nullProtoManifest.parts = [nullProtoPart];
+
+  const nullProtoStoredPart = Object.create(null);
+  nullProtoStoredPart.part_number = 1;
+  nullProtoStoredPart.etag = validEtag;
+  nullProtoStoredPart.size_bytes = 5242880;
+
+  const nullProtoWrapper = Object.create(null);
+  nullProtoWrapper.manifest = nullProtoManifest;
+  nullProtoWrapper.storedParts = new Map([[1, nullProtoStoredPart]]);
+
+  const resNullProto = dispatchS3CompleteMultipartUpload(nullProtoWrapper);
+  assert.equal(resNullProto.http_status, 200);
+  assert.equal(resNullProto.error_code, null);
+
+  // 7. validateS3MultipartSemantics rejects non-plain parts
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [protoPart] }),
+    /Semantic error: multipart (?:upload )?manifest part/
+  );
+
+  // 8. validateS3MultipartSemantics accepts null-prototype manifest and parts
+  assert.equal(validateS3MultipartSemantics(nullProtoManifest), true);
+});
+
+test('class-instance wrapper fails closed with HTTP 400 InvalidArgument in dispatchS3CompleteMultipartUpload (OPEN-2 / Personal-B)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+  const validStoredMap = new Map([
+    [1, { part_number: 1, etag: validEtag, size_bytes: 5242880 }],
+  ]);
+
+  // 1. Class instance wrapper with getter for manifest
+  class ManifestGetterWrapper {
+    get manifest() {
+      return { parts: [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }] };
+    }
+  }
+  const resManifestGetter = dispatchS3CompleteMultipartUpload(new ManifestGetterWrapper(), validStoredMap);
+  assert.equal(resManifestGetter.http_status, 400);
+  assert.equal(resManifestGetter.error_code, 'InvalidArgument');
+  assert.equal(resManifestGetter.status, 400);
+  assert.equal(resManifestGetter.code, 'InvalidArgument');
+  assert.ok(resManifestGetter.reason === 'EmptyPartsList' || resManifestGetter.reason === 'NonPlainPrototypeWrapper');
+
+  // 2. Class instance wrapper with getter for parts
+  class PartsGetterWrapper {
+    get parts() {
+      return [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }];
+    }
+  }
+  const resPartsGetter = dispatchS3CompleteMultipartUpload(new PartsGetterWrapper(), validStoredMap);
+  assert.equal(resPartsGetter.http_status, 400);
+  assert.equal(resPartsGetter.error_code, 'InvalidArgument');
+  assert.equal(resPartsGetter.status, 400);
+  assert.equal(resPartsGetter.code, 'InvalidArgument');
+  assert.ok(resPartsGetter.reason === 'EmptyPartsList' || resPartsGetter.reason === 'NonPlainPrototypeWrapper');
+
+  // 3. Class instance wrapper with method instead of data property
+  class MethodWrapper {
+    manifest() {
+      return { parts: [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }] };
+    }
+    parts() {
+      return [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }];
+    }
+  }
+  const resMethodWrapper = dispatchS3CompleteMultipartUpload(new MethodWrapper(), validStoredMap);
+  assert.equal(resMethodWrapper.http_status, 400);
+  assert.equal(resMethodWrapper.error_code, 'InvalidArgument');
+  assert.equal(resMethodWrapper.status, 400);
+  assert.equal(resMethodWrapper.code, 'InvalidArgument');
+  assert.ok(resMethodWrapper.reason === 'EmptyPartsList' || resMethodWrapper.reason === 'NonPlainPrototypeWrapper');
+
+  // 4. Empty class instance
+  class EmptyWrapper {}
+  const resEmptyWrapper = dispatchS3CompleteMultipartUpload(new EmptyWrapper(), validStoredMap);
+  assert.equal(resEmptyWrapper.http_status, 400);
+  assert.equal(resEmptyWrapper.error_code, 'InvalidArgument');
+  assert.equal(resEmptyWrapper.status, 400);
+  assert.equal(resEmptyWrapper.code, 'InvalidArgument');
+  assert.ok(resEmptyWrapper.reason === 'EmptyPartsList' || resEmptyWrapper.reason === 'NonPlainPrototypeWrapper');
+});
+
+test('prototype-inherited part_number, etag, and size_bytes fail closed with HTTP 400 InvalidPart in dispatchS3CompleteMultipartUpload (OPEN-2 / Personal-B)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+  const validStoredMap = new Map([
+    [1, { part_number: 1, etag: validEtag, size_bytes: 5242880 }],
+  ]);
+
+  // 1. Prototype-inherited part_number on manifest part
+  const protoPartNum = Object.create({ part_number: 1, etag: validEtag });
+  const resProtoPartNum = dispatchS3CompleteMultipartUpload({ parts: [protoPartNum] }, validStoredMap);
+  assert.equal(resProtoPartNum.http_status, 400);
+  assert.equal(resProtoPartNum.error_code, 'InvalidPart');
+  assert.equal(resProtoPartNum.status, 400);
+  assert.equal(resProtoPartNum.code, 'InvalidPart');
+
+  // 2. Prototype-inherited etag on manifest part (with own part_number)
+  const protoPartEtag = Object.create({ etag: validEtag });
+  protoPartEtag.part_number = 1;
+  const resProtoPartEtag = dispatchS3CompleteMultipartUpload({ parts: [protoPartEtag] }, validStoredMap);
+  assert.equal(resProtoPartEtag.http_status, 400);
+  assert.equal(resProtoPartEtag.error_code, 'InvalidPart');
+  assert.equal(resProtoPartEtag.status, 400);
+  assert.equal(resProtoPartEtag.code, 'InvalidPart');
+
+  // 3. Prototype-inherited etag on stored part (with own size_bytes and part_number)
+  const protoStoredEtagPart = Object.create({ etag: validEtag, size_bytes: 5242880 });
+  protoStoredEtagPart.part_number = 1;
+  const storedProtoEtagMap = new Map([[1, protoStoredEtagPart]]);
+  const resProtoStoredEtag = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: validEtag }] },
+    storedProtoEtagMap
+  );
+  assert.equal(resProtoStoredEtag.http_status, 400);
+  assert.equal(resProtoStoredEtag.error_code, 'InvalidPart');
+  assert.equal(resProtoStoredEtag.status, 400);
+  assert.equal(resProtoStoredEtag.code, 'InvalidPart');
+
+  // 4. Prototype-inherited size_bytes on stored part (with own etag and part_number)
+  const protoStoredSizePart = Object.create({ size_bytes: 5242880 });
+  protoStoredSizePart.etag = validEtag;
+  protoStoredSizePart.part_number = 1;
+  const storedProtoSizeMap = new Map([[1, protoStoredSizePart]]);
+  const resProtoStoredSize = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: validEtag }] },
+    storedProtoSizeMap
+  );
+  assert.equal(resProtoStoredSize.http_status, 400);
+  assert.equal(resProtoStoredSize.error_code, 'InvalidPart');
+  assert.equal(resProtoStoredSize.status, 400);
+  assert.equal(resProtoStoredSize.code, 'InvalidPart');
+
+  // 5. Prototype-inherited etag and size_bytes on stored part in Map
+  const protoStoredPartBoth = Object.create({ etag: validEtag, size_bytes: 5242880 });
+  const storedProtoBothMap = new Map([[1, protoStoredPartBoth]]);
+  const resProtoBothStored = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: validEtag }] },
+    storedProtoBothMap
+  );
+  assert.equal(resProtoBothStored.http_status, 400);
+  assert.equal(resProtoBothStored.error_code, 'InvalidPart');
+  assert.equal(resProtoBothStored.status, 400);
+  assert.equal(resProtoBothStored.code, 'InvalidPart');
+
+  // 6. Prototype-inherited stored parts dictionary object (Object.create({ 1: { ... } }))
+  const protoStoredObj = Object.create({
+    1: { part_number: 1, etag: validEtag, size_bytes: 5242880 },
+  });
+  const resProtoStoredObj = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: validEtag }] },
+    protoStoredObj
+  );
+  assert.equal(resProtoStoredObj.http_status, 400);
+  assert.equal(resProtoStoredObj.error_code, 'InvalidPart');
+  assert.equal(resProtoStoredObj.status, 400);
+  assert.equal(resProtoStoredObj.code, 'InvalidPart');
+});
+
+test('validateS3MultipartSemantics throws Semantic error on non-plain prototype manifests and parts (OPEN-2 / Personal-B)', () => {
+  const validEtag = '"d41d8cd98f00b204e9800998ecf8427e"';
+
+  // 1. Prototype-inherited parts array on manifest
+  const protoManifestParts = Object.create({
+    parts: [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }],
+  });
+  assert.throws(
+    () => validateS3MultipartSemantics(protoManifestParts),
+    /Semantic error: multipart upload manifest parts array must be an own property \(inherited parts prohibited\)/
+  );
+
+  // 2. Prototype-inherited total_parts on manifest
+  const protoManifestTotalParts = Object.create({ total_parts: 1 });
+  protoManifestTotalParts.parts = [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }];
+  assert.throws(
+    () => validateS3MultipartSemantics(protoManifestTotalParts),
+    /Semantic error: multipart upload manifest total_parts must be an own property \(inherited total_parts prohibited\)/
+  );
+
+  // 3. Prototype-inherited total_size_bytes on manifest
+  const protoManifestTotalSize = Object.create({ total_size_bytes: 5242880 });
+  protoManifestTotalSize.parts = [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }];
+  assert.throws(
+    () => validateS3MultipartSemantics(protoManifestTotalSize),
+    /Semantic error: multipart upload manifest total_size_bytes must be an own property \(inherited total_size_bytes prohibited\)/
+  );
+
+  // 4. Prototype-inherited part_number on part
+  const protoPartNum = Object.create({ part_number: 1 });
+  protoPartNum.etag = validEtag;
+  protoPartNum.size_bytes = 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [protoPartNum] }),
+    /Semantic error: multipart manifest part part_number must be an own property \(inherited part_number prohibited\)/
+  );
+
+  // 5. Prototype-inherited etag on part
+  const protoPartEtag = Object.create({ etag: validEtag });
+  protoPartEtag.part_number = 1;
+  protoPartEtag.size_bytes = 5242880;
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [protoPartEtag] }),
+    /Semantic error: multipart manifest part etag must be an own property \(inherited etag prohibited\)/
+  );
+
+  // 6. Prototype-inherited size_bytes on part
+  const protoPartSize = Object.create({ size_bytes: 5242880 });
+  protoPartSize.part_number = 1;
+  protoPartSize.etag = validEtag;
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [protoPartSize] }),
+    /Semantic error: multipart manifest part size_bytes must be an own property \(inherited size_bytes prohibited\)/
+  );
+
+  // 7. Class-instance manifest wrapper with getter for parts
+  class ClassManifest {
+    get parts() {
+      return [{ part_number: 1, etag: validEtag, size_bytes: 5242880 }];
+    }
+  }
+  assert.throws(
+    () => validateS3MultipartSemantics(new ClassManifest()),
+    /Semantic error: multipart upload manifest parts array must be an own property \(inherited parts prohibited\)/
+  );
+
+  // 8. Class-instance part with getters on prototype
+  class ClassPart {
+    get part_number() {
+      return 1;
+    }
+    get etag() {
+      return validEtag;
+    }
+    get size_bytes() {
+      return 5242880;
+    }
+  }
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [new ClassPart()] }),
+    /Semantic error: multipart manifest part part_number must be an own property \(inherited part_number prohibited\)/
+  );
 });

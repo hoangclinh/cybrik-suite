@@ -392,6 +392,7 @@ export function isMalformedSha256(headerVal) {
 }
 
 const getOwn = (obj, key) => (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key)) ? obj[key] : undefined;
+const isPlainOrNull = (o) => o !== null && typeof o === 'object' && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
 
 export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybeSha256Header) {
   let payloadBytes;
@@ -524,34 +525,40 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 }
 
 export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeStoredParts) {
+  const isPlainOrNull = (o) => o !== null && typeof o === 'object' && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
+
   let manifest;
   let storedParts;
 
-  if (manifestOrOptions && typeof manifestOrOptions === 'object') {
-    if ('manifest' in manifestOrOptions) {
-      const manifestProp = getOwn(manifestOrOptions, 'manifest');
-      if (!manifestProp || typeof manifestProp !== 'object') {
-        return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
-      }
-      manifest = manifestProp;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
-    } else if (Array.isArray(manifestOrOptions)) {
-      manifest = { parts: manifestOrOptions };
-      storedParts = maybeStoredParts;
-    } else if ('parts' in manifestOrOptions) {
-      const partsProp = getOwn(manifestOrOptions, 'parts');
-      if (partsProp === undefined) {
-        return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
-      }
-      manifest = manifestOrOptions;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
-    } else {
-      manifest = manifestOrOptions;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
+  if (Array.isArray(manifestOrOptions)) {
+    manifest = { parts: manifestOrOptions };
+    storedParts = maybeStoredParts;
+  } else if (!isPlainOrNull(manifestOrOptions)) {
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeWrapper' };
+  } else if ('manifest' in manifestOrOptions) {
+    const manifestProp = getOwn(manifestOrOptions, 'manifest');
+    if (!manifestProp || typeof manifestProp !== 'object') {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
     }
+    if (!isPlainOrNull(manifestProp)) {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeManifest' };
+    }
+    manifest = manifestProp;
+    storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
+  } else if ('parts' in manifestOrOptions) {
+    const partsProp = getOwn(manifestOrOptions, 'parts');
+    if (partsProp === undefined) {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
+    }
+    manifest = manifestOrOptions;
+    storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
   } else {
     manifest = manifestOrOptions;
-    storedParts = maybeStoredParts;
+    storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
+  }
+
+  if (!isPlainOrNull(manifest)) {
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeManifest' };
   }
 
   const parts = getOwn(manifest, 'parts');
@@ -573,7 +580,13 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   let prevNum = 0;
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? p.part_number ?? p.PartNumber) : undefined;
+    if (!isPlainOrNull(p)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypePart' };
+    }
+    if (('part_number' in p && !Object.prototype.hasOwnProperty.call(p, 'part_number')) || ('PartNumber' in p && !Object.prototype.hasOwnProperty.call(p, 'PartNumber'))) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPart' };
+    }
+    const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber');
     if (typeof pNum !== 'number' || pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
       return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'InvalidPartNumber' };
     }
@@ -599,13 +612,26 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     for (let idx = 0; idx < storedParts.length; idx++) {
       if (Object.prototype.hasOwnProperty.call(storedParts, idx)) {
         const p = storedParts[idx];
-        const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1);
+        if (p && typeof p === 'object' && !isPlainOrNull(p)) {
+          return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
+        }
+        const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1)) : (idx + 1);
         storedMap.set(pNum, p);
       }
     }
   } else if (storedParts instanceof Map) {
+    for (const [k, v] of storedParts.entries()) {
+      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
+      }
+    }
     storedMap = storedParts;
   } else {
+    for (const [k, v] of Object.entries(storedParts || {})) {
+      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
+      }
+    }
     storedMap = new Map(Object.entries(storedParts || {}).map(([k, v]) => [Number(k), v]));
   }
 
@@ -614,9 +640,12 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   let totalSizeBytes = 0;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-    const pNum = part ? (getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber') ?? part.part_number ?? part.PartNumber) : undefined;
+    if (!isPlainOrNull(part)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypePart' };
+    }
+    const pNum = getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber');
 
-    const manifestEtag = part ? (getOwn(part, 'etag') ?? getOwn(part, 'ETag') ?? part.etag ?? part.ETag) : undefined;
+    const manifestEtag = getOwn(part, 'etag') ?? getOwn(part, 'ETag');
     if (!part || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
     }
@@ -629,8 +658,15 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     }
 
     const storedPart = storedMap.get(pNum);
-    const storedEtag = storedPart ? (getOwn(storedPart, 'etag') ?? getOwn(storedPart, 'ETag') ?? storedPart.etag ?? storedPart.ETag) : undefined;
-    if (!storedPart || typeof storedPart !== 'object' || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
+    if (!storedPart || typeof storedPart !== 'object') {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+    }
+    if (!isPlainOrNull(storedPart)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
+    }
+
+    const storedEtag = getOwn(storedPart, 'etag') ?? getOwn(storedPart, 'ETag');
+    if (typeof storedEtag !== 'string' || storedEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
     }
     if (!S3_ETAG_REGEX.test(storedEtag)) {
@@ -641,9 +677,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
     }
 
-    const rawSize = storedPart
-      ? (getOwn(storedPart, 'size_bytes') ?? getOwn(storedPart, 'size') ?? getOwn(storedPart, 'Size') ?? storedPart.size_bytes ?? storedPart.size ?? storedPart.Size)
-      : undefined;
+    const rawSize = getOwn(storedPart, 'size_bytes') ?? getOwn(storedPart, 'SizeBytes') ?? getOwn(storedPart, 'size');
     if (rawSize === undefined || typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
     }
@@ -1398,7 +1432,19 @@ export function validateS3MultipartSemantics(manifest) {
     throw new Error('Semantic error: multipart upload manifest parts array must be an own property (inherited parts prohibited)');
   }
 
-  const parts = manifest.parts;
+  if ('total_parts' in manifest && !Object.prototype.hasOwnProperty.call(manifest, 'total_parts')) {
+    throw new Error('Semantic error: multipart upload manifest total_parts must be an own property (inherited total_parts prohibited)');
+  }
+
+  if ('total_size_bytes' in manifest && !Object.prototype.hasOwnProperty.call(manifest, 'total_size_bytes')) {
+    throw new Error('Semantic error: multipart upload manifest total_size_bytes must be an own property (inherited total_size_bytes prohibited)');
+  }
+
+  if (!isPlainOrNull(manifest)) {
+    throw new Error('Semantic error: multipart upload manifest parts array must be an own property (inherited parts prohibited)');
+  }
+
+  const parts = getOwn(manifest, 'parts');
   if (!Array.isArray(parts) || parts.length === 0) {
     throw new Error('Semantic error: multipart upload manifest parts array must be non-empty');
   }
@@ -1409,9 +1455,10 @@ export function validateS3MultipartSemantics(manifest) {
     );
   }
 
-  if (manifest.total_parts !== undefined && manifest.total_parts !== null && (typeof manifest.total_parts !== 'number' || !Number.isInteger(manifest.total_parts) || manifest.total_parts !== parts.length)) {
+  const totalParts = getOwn(manifest, 'total_parts');
+  if (totalParts !== undefined && totalParts !== null && (typeof totalParts !== 'number' || !Number.isInteger(totalParts) || totalParts !== parts.length)) {
     throw new Error(
-      `Semantic error: multipart upload manifest total_parts (${manifest.total_parts}) does not match parts array length (${parts.length})`
+      `Semantic error: multipart upload manifest total_parts (${totalParts}) does not match parts array length (${parts.length})`
     );
   }
 
@@ -1424,51 +1471,69 @@ export function validateS3MultipartSemantics(manifest) {
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
-
-    if (typeof part.part_number === 'number') {
-      if (part.part_number < 1 || part.part_number > 10000 || !Number.isInteger(part.part_number)) {
-        throw new Error(
-          `Semantic error: multipart upload manifest part number ${part.part_number} is out of bounds [1, 10000] (InvalidArgument)`
-        );
-      }
-      if (seenParts.has(part.part_number) || part.part_number <= prevPartNumber) {
-        throw new Error(
-          `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${part.part_number} after ${prevPartNumber || part.part_number}) (InvalidPartOrder)`
-        );
-      }
-      seenParts.add(part.part_number);
-      prevPartNumber = part.part_number;
+    if (!part || typeof part !== 'object') {
+      throw new Error('Semantic error: multipart manifest part must be an object');
+    }
+    if ('part_number' in part && !Object.prototype.hasOwnProperty.call(part, 'part_number')) {
+      throw new Error('Semantic error: multipart manifest part part_number must be an own property (inherited part_number prohibited)');
+    }
+    if ('etag' in part && !Object.prototype.hasOwnProperty.call(part, 'etag')) {
+      throw new Error('Semantic error: multipart manifest part etag must be an own property (inherited etag prohibited)');
+    }
+    if ('size_bytes' in part && !Object.prototype.hasOwnProperty.call(part, 'size_bytes')) {
+      throw new Error('Semantic error: multipart manifest part size_bytes must be an own property (inherited size_bytes prohibited)');
+    }
+    if (!isPlainOrNull(part)) {
+      throw new Error('Semantic error: multipart upload manifest part must be a plain object');
     }
 
-    if (typeof part.size_bytes === 'number') {
-      if (part.size_bytes < 0) {
+    const pNum = getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber');
+    if (typeof pNum === 'number') {
+      if (pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
         throw new Error(
-          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) cannot be negative`
+          `Semantic error: multipart upload manifest part number ${pNum} is out of bounds [1, 10000] (InvalidArgument)`
         );
       }
-      if (part.size_bytes > 5368709120) {
+      if (seenParts.has(pNum) || pNum <= prevPartNumber) {
         throw new Error(
-          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) exceeds maximum part size of 5368709120 bytes (5 GiB) (EntityTooLarge)`
+          `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${pNum} after ${prevPartNumber || pNum}) (InvalidPartOrder)`
         );
       }
-      if (i < parts.length - 1 && part.size_bytes < 5242880) {
+      seenParts.add(pNum);
+      prevPartNumber = pNum;
+    }
+
+    const sBytes = getOwn(part, 'size_bytes') ?? getOwn(part, 'SizeBytes') ?? getOwn(part, 'size');
+    if (typeof sBytes === 'number') {
+      if (sBytes < 0) {
         throw new Error(
-          `Semantic error: multipart upload manifest part ${part.part_number} size (${part.size_bytes} bytes) is below minimum non-final part size of 5242880 bytes (5 MiB) (EntityTooSmall)`
+          `Semantic error: multipart upload manifest part ${pNum} size (${sBytes} bytes) cannot be negative`
         );
       }
-      totalSize += part.size_bytes;
+      if (sBytes > 5368709120) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part ${pNum} size (${sBytes} bytes) exceeds maximum part size of 5368709120 bytes (5 GiB) (EntityTooLarge)`
+        );
+      }
+      if (i < parts.length - 1 && sBytes < 5242880) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part ${pNum} size (${sBytes} bytes) is below minimum non-final part size of 5242880 bytes (5 MiB) (EntityTooSmall)`
+        );
+      }
+      totalSize += sBytes;
     }
   }
 
-  if (manifest.total_size_bytes !== undefined && manifest.total_size_bytes !== null && (typeof manifest.total_size_bytes !== 'number' || !Number.isInteger(manifest.total_size_bytes) || manifest.total_size_bytes !== totalSize)) {
+  const totalSizeBytes = getOwn(manifest, 'total_size_bytes');
+  if (totalSizeBytes !== undefined && totalSizeBytes !== null && (typeof totalSizeBytes !== 'number' || !Number.isInteger(totalSizeBytes) || totalSizeBytes !== totalSize)) {
     throw new Error(
-      `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes}) does not match sum of part sizes (${totalSize})`
+      `Semantic error: multipart upload manifest total_size_bytes (${totalSizeBytes}) does not match sum of part sizes (${totalSize})`
     );
   }
 
-  if (totalSize > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
+  if (totalSize > 5497558138880 || (typeof totalSizeBytes === 'number' && totalSizeBytes > 5497558138880)) {
     throw new Error(
-      `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes || totalSize} bytes) exceeds maximum total size of 5497558138880 bytes (5 TiB) (EntityTooLarge)`
+      `Semantic error: multipart upload manifest total_size_bytes (${totalSizeBytes || totalSize} bytes) exceeds maximum total size of 5497558138880 bytes (5 TiB) (EntityTooLarge)`
     );
   }
 
