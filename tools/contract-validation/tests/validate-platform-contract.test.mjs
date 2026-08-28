@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -7900,6 +7900,144 @@ test('unit regression: throwing Proxy passed to dispatchS3CompleteMultipartUploa
   assert.equal(res8.error_code, 'InvalidPart');
   assert.equal(res8.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
   assert.notEqual(res8.http_status, 200);
+
+  // 9. Pure throwing get-trap Proxy as manifest (all other traps omitted/default)
+  const throwingOnlyGetManifestProxy = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack pure get trap on ${String(prop)}`);
+    },
+  });
+
+  const res9 = dispatchS3CompleteMultipartUpload(throwingOnlyGetManifestProxy, validStoredParts);
+  assert.equal(res9.http_status, 400);
+  assert.equal(res9.error_code, 'InvalidPart');
+  assert.equal(res9.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res9.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics(throwingOnlyGetManifestProxy),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+
+  // 10. Options wrapper containing pure throwing get-trap Proxy as manifest
+  const res10 = dispatchS3CompleteMultipartUpload({
+    manifest: throwingOnlyGetManifestProxy,
+    storedParts: validStoredParts,
+  });
+  assert.equal(res10.http_status, 400);
+  assert.equal(res10.error_code, 'InvalidPart');
+  assert.equal(res10.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res10.http_status, 200);
+
+  // 11. Manifest with parts array having pure throwing get-trap Proxy
+  const throwingOnlyGetPartsArrayProxy = new Proxy([
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+  ], {
+    get(target, prop) {
+      throw new Error(`attack pure get trap on parts array ${String(prop)}`);
+    },
+  });
+  const res11 = dispatchS3CompleteMultipartUpload({
+    manifest: { parts: throwingOnlyGetPartsArrayProxy },
+    storedParts: validStoredParts,
+  });
+  assert.equal(res11.http_status, 400);
+  assert.equal(res11.error_code, 'InvalidPart');
+  assert.equal(res11.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res11.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: throwingOnlyGetPartsArrayProxy }),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+
+  // 12. Manifest with part element having pure throwing get-trap Proxy
+  const throwingOnlyGetPartElementProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack pure get trap on part element ${String(prop)}`);
+    },
+  });
+  const res12 = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [throwingOnlyGetPartElementProxy],
+      total_parts: 1,
+    },
+    storedParts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  });
+  assert.equal(res12.http_status, 400);
+  assert.equal(res12.error_code, 'InvalidPart');
+  assert.equal(res12.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res12.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [throwingOnlyGetPartElementProxy] }),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+
+  // 13. StoredParts containing pure throwing get-trap Proxy element (Array & Map)
+  const throwingOnlyGetStoredPartProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack pure get trap on stored part ${String(prop)}`);
+    },
+  });
+  const res13a = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    [throwingOnlyGetStoredPartProxy]
+  );
+  assert.equal(res13a.http_status, 400);
+  assert.equal(res13a.error_code, 'InvalidPart');
+  assert.equal(res13a.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res13a.http_status, 200);
+
+  const res13b = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    new Map([[1, throwingOnlyGetStoredPartProxy]])
+  );
+  assert.equal(res13b.http_status, 400);
+  assert.equal(res13b.error_code, 'InvalidPart');
+  assert.equal(res13b.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res13b.http_status, 200);
+
+  // 14. Manifest throwing on total_parts / total_size_bytes get trap
+  const throwingOnlyGetTotalsProxy = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+    ],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  }, {
+    get(target, prop) {
+      if (prop === 'total_parts' || prop === 'total_size_bytes') {
+        throw new Error(`attack total get trap on ${String(prop)}`);
+      }
+      return target[prop];
+    },
+  });
+  const res14 = dispatchS3CompleteMultipartUpload(throwingOnlyGetTotalsProxy, [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }]);
+  assert.equal(res14.http_status, 400);
+  assert.equal(res14.error_code, 'InvalidPart');
+  assert.equal(res14.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res14.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics(throwingOnlyGetTotalsProxy),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
 });
 
 test('harmonized fixture naming: s3_crud_19_ops_with_worm and s3_crud_15_ops_baseline storage capabilities in negotiation contracts (OPEN-2 / OPEN-5)', () => {
@@ -8008,7 +8146,84 @@ test('regression: 5 GiB PutObject payload limit returning HTTP 400 EntityTooLarg
   assert.equal(errRes2.error_code, 'EntityTooLarge');
   assert.equal(errRes2.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
 
-  // 7. Exactly 5 GiB boundary (5368709120 bytes) is permitted (returns HTTP 200)
+  // 7. Conflicting length declarations: small content_length + oversized contentLength (> 5 GiB)
+  const resConflict1 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    contentLength: 6000000000,
+  });
+  assert.equal(resConflict1.http_status, 400);
+  assert.equal(resConflict1.error_code, 'EntityTooLarge');
+  assert.equal(resConflict1.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 8. Conflicting length declarations: small content_length + oversized Content-Length header
+  const resConflict2 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    headers: { 'Content-Length': '6000000000' },
+  });
+  assert.equal(resConflict2.http_status, 400);
+  assert.equal(resConflict2.error_code, 'EntityTooLarge');
+  assert.equal(resConflict2.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 9. Conflicting length declarations: small contentLength + oversized content_length
+  const resConflict3 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    contentLength: 100,
+    content_length: 6000000000,
+  });
+  assert.equal(resConflict3.http_status, 400);
+  assert.equal(resConflict3.error_code, 'EntityTooLarge');
+  assert.equal(resConflict3.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 10. Conflicting length declarations: small content_length + oversized content_length_bytes / size_bytes
+  const resConflict4 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    content_length_bytes: 6000000000,
+  });
+  assert.equal(resConflict4.http_status, 400);
+  assert.equal(resConflict4.error_code, 'EntityTooLarge');
+  assert.equal(resConflict4.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const resConflict5 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    size_bytes: 6000000000,
+  });
+  assert.equal(resConflict5.http_status, 400);
+  assert.equal(resConflict5.error_code, 'EntityTooLarge');
+  assert.equal(resConflict5.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 11. Multibyte UTF-8 string sizing verification
+  const multibyteStr = '⚡CYBRIK🚀SOVEREIGN💎'.repeat(5);
+  const multibyteByteLen = Buffer.byteLength(multibyteStr, 'utf8');
+  assert.ok(multibyteByteLen > multibyteStr.length, 'Multibyte UTF-8 byte length must strictly exceed UTF-16 character length');
+  const multibyteSha = computePayloadSha256(multibyteStr);
+  const multibyteMd5 = computePayloadMd5(multibyteStr);
+  const multibyteSuccessRes = dispatchS3PutObject({
+    payloadBytes: multibyteStr,
+    'x-amz-content-sha256': multibyteSha,
+    contentMd5Header: multibyteMd5,
+  });
+  assert.equal(multibyteSuccessRes.http_status, 200);
+  assert.equal(multibyteSuccessRes.error_code, null);
+
+  const multibyteTooLargeRes = dispatchS3PutObject({
+    payloadBytes: multibyteStr,
+    'x-amz-content-sha256': multibyteSha,
+    error_condition: 'PAYLOAD_EXCEEDS_5GIB_LIMIT',
+  });
+  assert.equal(multibyteTooLargeRes.http_status, 400);
+  assert.equal(multibyteTooLargeRes.error_code, 'EntityTooLarge');
+  assert.equal(multibyteTooLargeRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 12. Exactly 5 GiB boundary (5368709120 bytes) is permitted (returns HTTP 200)
   const exactMaxRes = dispatchS3PutObject({
     payloadBytes: normalPayload,
     size_bytes: 5368709120,
@@ -8016,6 +8231,59 @@ test('regression: 5 GiB PutObject payload limit returning HTTP 400 EntityTooLarg
   });
   assert.equal(exactMaxRes.http_status, 200);
   assert.equal(exactMaxRes.error_code, null);
+
+  // 13. dispatchS3Error conflicting length declarations
+  const errConflict1 = dispatchS3Error({ content_length: 100, contentLength: 6000000000 });
+  assert.equal(errConflict1.http_status, 400);
+  assert.equal(errConflict1.error_code, 'EntityTooLarge');
+  assert.equal(errConflict1.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const errConflict2 = dispatchS3Error({ content_length: 100, headers: { 'Content-Length': '6000000000' } });
+  assert.equal(errConflict2.http_status, 400);
+  assert.equal(errConflict2.error_code, 'EntityTooLarge');
+  assert.equal(errConflict2.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 14. Multibyte UTF-8 payload byte length computed with Buffer.byteLength (not string code units)
+  const mbString = '🚀 🌟 ✨ こんにちは 🌍';
+  const mbSha = computePayloadSha256(mbString);
+  const mbPutRes = dispatchS3PutObject({
+    payload: mbString,
+    'x-amz-content-sha256': mbSha,
+    content_length: Buffer.byteLength(mbString, 'utf8'),
+  });
+  assert.equal(mbPutRes.http_status, 200);
+  assert.equal(mbPutRes.error_code, null);
+
+  // 15. Reconcile declared lengths: ANY declared source exceeding 5 GiB returns EntityTooLarge
+  const multiSourceRes1 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    headers: { 'Content-Length': 5368709121 },
+  });
+  assert.equal(multiSourceRes1.http_status, 400);
+  assert.equal(multiSourceRes1.error_code, 'EntityTooLarge');
+  assert.equal(multiSourceRes1.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const multiSourceRes2 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    contentLength: 100,
+    headers: { 'content-length': '5368709121' },
+  });
+  assert.equal(multiSourceRes2.http_status, 400);
+  assert.equal(multiSourceRes2.error_code, 'EntityTooLarge');
+  assert.equal(multiSourceRes2.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const multiSourceRes3 = dispatchS3PutObject({
+    payloadBytes: normalPayload,
+    'x-amz-content-sha256': normalSha,
+    content_length: 100,
+    size_bytes: 5368709121,
+  });
+  assert.equal(multiSourceRes3.http_status, 400);
+  assert.equal(multiSourceRes3.error_code, 'EntityTooLarge');
+  assert.equal(multiSourceRes3.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
 });
 
 test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest (UNSIGNED_PAYLOAD_NOT_PERMITTED) and authorized returning HTTP 200 (OPEN-2)', () => {
@@ -8033,27 +8301,53 @@ test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest
   assert.equal(unauthRes1.code, 'InvalidDigest');
   assert.equal(unauthRes1.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
-  // 2. Unauthorized UNSIGNED-PAYLOAD with unsigned_payload_permitted: false
-  const unauthRes2 = dispatchS3PutObject({
+  // 2. Adversarial regression: unauthorized UNSIGNED-PAYLOAD with aliases returning HTTP 400 InvalidDigest (UNSIGNED_PAYLOAD_NOT_PERMITTED)
+  const resAliasPermitted = dispatchS3PutObject({
     payloadBytes: payload,
     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    unsigned_payload_permitted: false,
+    unsigned_payload_permitted: true,
   });
-  assert.equal(unauthRes2.http_status, 400);
-  assert.equal(unauthRes2.error_code, 'InvalidDigest');
-  assert.equal(unauthRes2.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+  assert.equal(resAliasPermitted.http_status, 400);
+  assert.equal(resAliasPermitted.error_code, 'InvalidDigest');
+  assert.equal(resAliasPermitted.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
-  // 3. Unauthorized UNSIGNED-PAYLOAD with is_presigned: false
-  const unauthRes3 = dispatchS3PutObject({
+  const resAliasCamelAllow = dispatchS3PutObject({
     payloadBytes: payload,
     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    is_presigned: false,
+    allowUnsignedPayload: true,
   });
-  assert.equal(unauthRes3.http_status, 400);
-  assert.equal(unauthRes3.error_code, 'InvalidDigest');
-  assert.equal(unauthRes3.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+  assert.equal(resAliasCamelAllow.http_status, 400);
+  assert.equal(resAliasCamelAllow.error_code, 'InvalidDigest');
+  assert.equal(resAliasCamelAllow.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
-  // 4. Unauthorized UNSIGNED-PAYLOAD with explicit error_condition
+  const resAliasCamelPresigned = dispatchS3PutObject({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    isPresigned: true,
+  });
+  assert.equal(resAliasCamelPresigned.http_status, 400);
+  assert.equal(resAliasCamelPresigned.error_code, 'InvalidDigest');
+  assert.equal(resAliasCamelPresigned.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  const resAliasAllowUnsigned = dispatchS3PutObject({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned: true,
+  });
+  assert.equal(resAliasAllowUnsigned.http_status, 400);
+  assert.equal(resAliasAllowUnsigned.error_code, 'InvalidDigest');
+  assert.equal(resAliasAllowUnsigned.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  const resAliasUnsignedAllowed = dispatchS3PutObject({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    unsigned_payload_allowed: true,
+  });
+  assert.equal(resAliasUnsignedAllowed.http_status, 400);
+  assert.equal(resAliasUnsignedAllowed.error_code, 'InvalidDigest');
+  assert.equal(resAliasUnsignedAllowed.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 3. Unauthorized UNSIGNED-PAYLOAD with explicit error_condition
   const unauthRes4 = dispatchS3PutObject({
     payloadBytes: payload,
     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
@@ -8062,6 +8356,12 @@ test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest
   assert.equal(unauthRes4.http_status, 400);
   assert.equal(unauthRes4.error_code, 'InvalidDigest');
   assert.equal(unauthRes4.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 4. Positional arguments with UNSIGNED-PAYLOAD returns HTTP 400 InvalidDigest
+  const resPositional = dispatchS3PutObject(payload, validMd5, 'UNSIGNED-PAYLOAD');
+  assert.equal(resPositional.http_status, 400);
+  assert.equal(resPositional.error_code, 'InvalidDigest');
+  assert.equal(resPositional.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
   // 5. dispatchS3Error string trigger
   const errRes1 = dispatchS3Error('UNSIGNED_PAYLOAD_NOT_PERMITTED');
@@ -8076,16 +8376,30 @@ test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest
   assert.equal(errRes2.error_code, 'InvalidDigest');
   assert.equal(errRes2.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
-  // 7. dispatchS3Error options with shaHeader UNSIGNED-PAYLOAD and allow_unsigned_payload: false
-  const errRes3 = dispatchS3Error({
+  // 7. dispatchS3Error error_condition trigger
+  const errResCond = dispatchS3Error({ error_condition: 'UNSIGNED_PAYLOAD_NOT_PERMITTED' });
+  assert.equal(errResCond.http_status, 400);
+  assert.equal(errResCond.error_code, 'InvalidDigest');
+  assert.equal(errResCond.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 8. dispatchS3Error options with shaHeader UNSIGNED-PAYLOAD and allow_unsigned_payload: false / is_presigned: false
+  const errResFalseAllow = dispatchS3Error({
     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
     allow_unsigned_payload: false,
   });
-  assert.equal(errRes3.http_status, 400);
-  assert.equal(errRes3.error_code, 'InvalidDigest');
-  assert.equal(errRes3.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+  assert.equal(errResFalseAllow.http_status, 400);
+  assert.equal(errResFalseAllow.error_code, 'InvalidDigest');
+  assert.equal(errResFalseAllow.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
 
-  // 8. Authorized UNSIGNED-PAYLOAD with allow_unsigned_payload: true -> HTTP 200
+  const errResFalsePresigned = dispatchS3Error({
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    is_presigned: false,
+  });
+  assert.equal(errResFalsePresigned.http_status, 400);
+  assert.equal(errResFalsePresigned.error_code, 'InvalidDigest');
+  assert.equal(errResFalsePresigned.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 9. Authorized UNSIGNED-PAYLOAD with canonical allow_unsigned_payload: true -> HTTP 200
   const authRes1 = dispatchS3PutObject({
     payloadBytes: payload,
     'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
@@ -8094,7 +8408,7 @@ test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest
   assert.equal(authRes1.http_status, 200);
   assert.equal(authRes1.error_code, null);
 
-  // 9. Authorized UNSIGNED-PAYLOAD with is_presigned: true -> HTTP 200
+  // 10. Authorized UNSIGNED-PAYLOAD with canonical is_presigned: true -> HTTP 200
   const authRes2 = dispatchS3PutObject({
     payloadBytes: payload,
     contentMd5Header: validMd5,
@@ -8103,14 +8417,146 @@ test('regression: unauthorized UNSIGNED-PAYLOAD returning HTTP 400 InvalidDigest
   });
   assert.equal(authRes2.http_status, 200);
   assert.equal(authRes2.error_code, null);
+});
 
-  // 10. Authorized UNSIGNED-PAYLOAD with unsigned_payload_permitted: true -> HTTP 200
-  const authRes3 = dispatchS3PutObject({
-    payloadBytes: payload,
-    contentMd5Header: validMd5,
-    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    unsigned_payload_permitted: true,
+test('unit regression: isolated Proxy get traps in multipart manifests fail closed with HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Isolated get trap on manifest wrapper object
+  const isolatedGetManifestWrapper = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on manifest wrapper: ${String(prop)}`);
+    },
   });
-  assert.equal(authRes3.http_status, 200);
-  assert.equal(authRes3.error_code, null);
+  const res1 = dispatchS3CompleteMultipartUpload(isolatedGetManifestWrapper, validStoredParts);
+  assert.equal(res1.http_status, 400);
+  assert.equal(res1.error_code, 'InvalidPart');
+  assert.equal(res1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res1.http_status, 200);
+
+  // 2. Options wrapper containing isolated get trap Proxy as manifest
+  const res2 = dispatchS3CompleteMultipartUpload({
+    manifest: isolatedGetManifestWrapper,
+    storedParts: validStoredParts,
+  });
+  assert.equal(res2.http_status, 400);
+  assert.equal(res2.error_code, 'InvalidPart');
+  assert.equal(res2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res2.http_status, 200);
+
+  // 3. Isolated get trap on parts array inside manifest
+  const isolatedGetPartsArray = new Proxy([
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+  ], {
+    get(target, prop) {
+      throw new Error(`attack isolated get on parts array: ${String(prop)}`);
+    },
+  });
+  const res3 = dispatchS3CompleteMultipartUpload({
+    manifest: { parts: isolatedGetPartsArray, total_parts: 2 },
+    storedParts: validStoredParts,
+  });
+  assert.equal(res3.http_status, 400);
+  assert.equal(res3.error_code, 'InvalidPart');
+  assert.equal(res3.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res3.http_status, 200);
+
+  // 4. Manifest parts array containing an isolated get trap Proxy part element
+  const isolatedGetPartElement = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on part element: ${String(prop)}`);
+    },
+  });
+  const res4 = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [isolatedGetPartElement],
+      total_parts: 1,
+    },
+    storedParts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  });
+  assert.equal(res4.http_status, 400);
+  assert.equal(res4.error_code, 'InvalidPart');
+  assert.equal(res4.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res4.http_status, 200);
+
+  // 5. Isolated get trap on storedParts array
+  const isolatedGetStoredPartsArray = new Proxy(validStoredParts, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on storedParts array: ${String(prop)}`);
+    },
+  });
+  const res5a = dispatchS3CompleteMultipartUpload(validManifest, isolatedGetStoredPartsArray);
+  assert.equal(res5a.http_status, 400);
+  assert.equal(res5a.error_code, 'InvalidPart');
+  assert.equal(res5a.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res5a.http_status, 200);
+
+  // 6. Isolated get trap on storedParts plain object
+  const isolatedGetStoredPartsObj = new Proxy({
+    1: { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on storedParts object: ${String(prop)}`);
+    },
+  });
+  const res6a = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    isolatedGetStoredPartsObj
+  );
+  assert.equal(res6a.http_status, 400);
+  assert.equal(res6a.error_code, 'InvalidPart');
+  assert.equal(res6a.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res6a.http_status, 200);
+
+  // 7. Stored parts containing an isolated get trap Proxy stored part element
+  const isolatedGetStoredPartElement = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on stored part element: ${String(prop)}`);
+    },
+  });
+  const res7 = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    [isolatedGetStoredPartElement]
+  );
+  assert.equal(res7.http_status, 400);
+  assert.equal(res7.error_code, 'InvalidPart');
+  assert.equal(res7.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res7.http_status, 200);
+
+  // 8. validateS3MultipartSemantics fails closed on isolated get trap
+  assert.throws(() => {
+    validateS3MultipartSemantics(isolatedGetManifestWrapper);
+  }, /InvalidPart/);
+
+  assert.throws(() => {
+    validateS3MultipartSemantics({
+      parts: [isolatedGetPartElement],
+    });
+  }, /InvalidPart/);
 });

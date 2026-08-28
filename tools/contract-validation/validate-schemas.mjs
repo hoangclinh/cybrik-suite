@@ -422,6 +422,11 @@ export function hasOwnAccessors(obj) {
       if (desc && (desc.get !== undefined || desc.set !== undefined)) {
         return true;
       }
+      try {
+        void obj[key];
+      } catch {
+        return true;
+      }
     }
   } catch {
     return true;
@@ -505,12 +510,14 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       hasPrototypeChainAccessor(optionsOrPayload, 'body') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'code') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'allow_unsigned_payload') ||
-      hasPrototypeChainAccessor(optionsOrPayload, 'allowUnsignedPayload') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'is_presigned') ||
-      hasPrototypeChainAccessor(optionsOrPayload, 'isPresigned') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'content_length') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'contentLength') ||
-      hasPrototypeChainAccessor(optionsOrPayload, 'content_length_bytes')
+      hasPrototypeChainAccessor(optionsOrPayload, 'content_length_bytes') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'size_bytes') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'size') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'content-length') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'Content-Length')
     ) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
@@ -533,10 +540,9 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     const payloadOptionKeys = [
-      'payload', 'payloadBytes', 'body', 'allow_unsigned_payload', 'allowUnsignedPayload',
-      'unsigned_payload_permitted', 'unsigned_payload_allowed', 'allow_unsigned', 'allowUnsigned',
-      'is_presigned', 'isPresigned', 'content_length', 'contentLength', 'content_length_bytes',
-      'size_bytes', 'size'
+      'payload', 'payloadBytes', 'body', 'allow_unsigned_payload',
+      'is_presigned', 'content_length', 'contentLength', 'content_length_bytes',
+      'size_bytes', 'size', 'content-length', 'Content-Length'
     ];
     for (const k of payloadOptionKeys) {
       if (k in req && !Object.prototype.hasOwnProperty.call(req, k)) {
@@ -619,14 +625,9 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       'contentLength' in req ||
       'content_length_bytes' in req ||
       'Content-Length' in req ||
+      'content-length' in req ||
       'allow_unsigned_payload' in req ||
-      'allowUnsignedPayload' in req ||
-      'unsigned_payload_permitted' in req ||
-      'unsigned_payload_allowed' in req ||
-      'allow_unsigned' in req ||
-      'allowUnsigned' in req ||
-      'is_presigned' in req ||
-      'isPresigned' in req;
+      'is_presigned' in req;
 
     if (!hasOptionsKeys && Object.keys(req).length > 0) {
       payloadBytes = req;
@@ -638,8 +639,8 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
       hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
       sha256Val = getOwn(req, 'x-amz-content-sha256') ?? getOwn(req, 'X-Amz-Content-Sha256') ?? getOwn(req, 'contentSha256Header') ?? getOwn(req, 'content_sha256_header') ?? getOwn(req, 'contentSha256') ?? getOwn(req, 'xAmzContentSha256') ?? getOwn(req, 'x_amz_content_sha256') ?? getOwn(req, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
-      allowUnsignedPayload = getOwn(req, 'allow_unsigned_payload') ?? getOwn(req, 'allowUnsignedPayload') ?? getOwn(req, 'unsigned_payload_permitted') ?? getOwn(req, 'unsigned_payload_allowed') ?? getOwn(req, 'allow_unsigned') ?? getOwn(req, 'allowUnsigned') ?? false;
-      isPresigned = getOwn(req, 'is_presigned') ?? getOwn(req, 'isPresigned') ?? false;
+      allowUnsignedPayload = getOwn(req, 'allow_unsigned_payload') === true;
+      isPresigned = getOwn(req, 'is_presigned') === true;
       contentLengthVal = getOwn(req, 'content_length') ?? getOwn(req, 'contentLength') ?? getOwn(req, 'content_length_bytes') ?? getOwn(req, 'size_bytes') ?? getOwn(req, 'size') ?? getOwn(req, 'Content-Length') ?? (headersObj ? (getOwn(headersObj, 'content-length') ?? getOwn(headersObj, 'Content-Length')) : undefined);
     }
   } else {
@@ -655,11 +656,15 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
 
   const MAX_SINGLE_PUT_SIZE_BYTES = 5 * 1024 * 1024 * 1024; // 5368709120 bytes (5 GiB)
 
-  const payloadSize = (payloadBytes && typeof payloadBytes.length === 'number')
-    ? payloadBytes.length
-    : (payloadBytes && typeof payloadBytes.byteLength === 'number')
+  const payloadSize = (typeof payloadBytes === 'string')
+    ? Buffer.byteLength(payloadBytes, 'utf8')
+    : (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array)
       ? payloadBytes.byteLength
-      : (typeof payloadBytes === 'string' ? Buffer.byteLength(payloadBytes, 'utf8') : 0);
+      : (payloadBytes && typeof payloadBytes.byteLength === 'number')
+        ? payloadBytes.byteLength
+        : (payloadBytes && typeof payloadBytes.length === 'number')
+          ? payloadBytes.length
+          : 0;
 
   const errorCondition = (optionsOrPayload && typeof optionsOrPayload === 'object')
     ? (getOwn(optionsOrPayload, 'error_condition') ?? getOwn(optionsOrPayload, 'reason'))
@@ -671,12 +676,45 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
     ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
     : undefined;
 
-  let declaredLenNum = undefined;
-  if (contentLengthVal !== undefined && contentLengthVal !== null) {
-    declaredLenNum = typeof contentLengthVal === 'number' ? contentLengthVal : (typeof contentLengthVal === 'string' && /^\d+$/.test(contentLengthVal) ? Number(contentLengthVal) : Number(contentLengthVal));
+  const candidateLengths = (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array) && !Array.isArray(optionsOrPayload))
+    ? [
+        getOwn(optionsOrPayload, 'content_length'),
+        getOwn(optionsOrPayload, 'contentLength'),
+        getOwn(optionsOrPayload, 'content_length_bytes'),
+        getOwn(optionsOrPayload, 'size_bytes'),
+        getOwn(optionsOrPayload, 'size'),
+        getOwn(optionsOrPayload, 'Content-Length'),
+        getOwn(optionsOrPayload, 'content-length'),
+        headersObj ? getOwn(headersObj, 'content-length') : undefined,
+        headersObj ? getOwn(headersObj, 'Content-Length') : undefined,
+      ]
+    : [];
+
+  let declaredExceeds = false;
+  for (const cand of candidateLengths) {
+    if (cand !== undefined && cand !== null) {
+      let num = undefined;
+      if (typeof cand === 'number') {
+        num = cand;
+      } else if (typeof cand === 'bigint') {
+        if (cand > 5368709120n) {
+          declaredExceeds = true;
+          break;
+        }
+      } else if (typeof cand === 'string') {
+        const parsed = Number(cand.trim());
+        if (!Number.isNaN(parsed)) {
+          num = parsed;
+        }
+      }
+      if (num !== undefined && !Number.isNaN(num) && num > MAX_SINGLE_PUT_SIZE_BYTES) {
+        declaredExceeds = true;
+        break;
+      }
+    }
   }
 
-  if ((declaredLenNum !== undefined && !Number.isNaN(declaredLenNum) && declaredLenNum > MAX_SINGLE_PUT_SIZE_BYTES) ||
+  if (declaredExceeds ||
       payloadSize > MAX_SINGLE_PUT_SIZE_BYTES ||
       errorCondition === 'PAYLOAD_EXCEEDS_5GIB_LIMIT' ||
       expErrorCond === 'PAYLOAD_EXCEEDS_5GIB_LIMIT') {
@@ -1218,6 +1256,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         'xAmzContentSha256' in conditionOrOptions ||
         'x_amz_content_sha256' in conditionOrOptions ||
         'sha256Header' in conditionOrOptions ||
+        'size_bytes' in conditionOrOptions ||
+        'size' in conditionOrOptions ||
+        'content_length' in conditionOrOptions ||
+        'contentLength' in conditionOrOptions ||
+        'content_length_bytes' in conditionOrOptions ||
+        'Content-Length' in conditionOrOptions ||
+        'content-length' in conditionOrOptions ||
+        'allow_unsigned_payload' in conditionOrOptions ||
+        'is_presigned' in conditionOrOptions ||
         'headers' in conditionOrOptions));
 
   if (isRequestShape) {
@@ -1380,17 +1427,53 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : (getOwn(conditionOrOptions, 'contentMd5Header') ?? getOwn(conditionOrOptions, 'content_md5_header') ?? getOwn(conditionOrOptions, 'contentMd5') ?? getOwn(conditionOrOptions, 'Content-MD5') ?? getOwn(conditionOrOptions, 'content_md5') ?? getOwn(conditionOrOptions, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined));
-    const payloadSize = (payloadBytes && typeof payloadBytes.length === 'number')
-      ? payloadBytes.length
-      : (payloadBytes && typeof payloadBytes.byteLength === 'number')
+    const payloadSize = (typeof payloadBytes === 'string')
+      ? Buffer.byteLength(payloadBytes, 'utf8')
+      : (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array)
         ? payloadBytes.byteLength
-        : 0;
+        : (payloadBytes && typeof payloadBytes.byteLength === 'number')
+          ? payloadBytes.byteLength
+          : (payloadBytes && typeof payloadBytes.length === 'number')
+            ? payloadBytes.length
+            : 0;
 
-    const declaredSize = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
-      ? (getOwn(conditionOrOptions, 'size_bytes') ?? getOwn(conditionOrOptions, 'size') ?? getOwn(conditionOrOptions, 'content_length') ?? getOwn(conditionOrOptions, 'contentLength') ?? (headersObj ? (getOwn(headersObj, 'Content-Length') ?? getOwn(headersObj, 'content-length')) : undefined))
-      : undefined;
+    const declaredSizes = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
+      ? [
+          getOwn(conditionOrOptions, 'size_bytes'),
+          getOwn(conditionOrOptions, 'size'),
+          getOwn(conditionOrOptions, 'content_length'),
+          getOwn(conditionOrOptions, 'contentLength'),
+          getOwn(conditionOrOptions, 'content_length_bytes'),
+          getOwn(conditionOrOptions, 'Content-Length'),
+          getOwn(conditionOrOptions, 'content-length'),
+          headersObj ? getOwn(headersObj, 'Content-Length') : undefined,
+          headersObj ? getOwn(headersObj, 'content-length') : undefined,
+        ]
+      : [];
 
-    const effectiveSize = typeof declaredSize === 'number' ? declaredSize : (typeof declaredSize === 'string' && /^\d+$/.test(declaredSize) ? Number(declaredSize) : payloadSize);
+    let declaredExceeds = false;
+    for (const ds of declaredSizes) {
+      if (ds !== undefined && ds !== null) {
+        let num = undefined;
+        if (typeof ds === 'number') {
+          num = ds;
+        } else if (typeof ds === 'bigint') {
+          if (ds > 5368709120n) {
+            declaredExceeds = true;
+            break;
+          }
+        } else if (typeof ds === 'string') {
+          const parsed = Number(ds.trim());
+          if (!Number.isNaN(parsed)) {
+            num = parsed;
+          }
+        }
+        if (num !== undefined && !Number.isNaN(num) && num > 5368709120) {
+          declaredExceeds = true;
+          break;
+        }
+      }
+    }
 
     const errorCondition = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
       ? (getOwn(conditionOrOptions, 'error_condition') ?? getOwn(conditionOrOptions, 'reason'))
@@ -1402,7 +1485,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
       : undefined;
 
-    if (effectiveSize > 5368709120 || errorCondition === 'PAYLOAD_EXCEEDS_5GIB_LIMIT' || expErrorCond === 'PAYLOAD_EXCEEDS_5GIB_LIMIT') {
+    if (declaredExceeds || payloadSize > 5368709120 || errorCondition === 'PAYLOAD_EXCEEDS_5GIB_LIMIT' || expErrorCond === 'PAYLOAD_EXCEEDS_5GIB_LIMIT') {
       return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
     }
 
@@ -1441,13 +1524,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       if (shaHeader === 'UNSIGNED-PAYLOAD') {
         const allowUnsigned = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
           ? (getOwn(conditionOrOptions, 'allow_unsigned_payload') ??
-             getOwn(conditionOrOptions, 'allowUnsignedPayload') ??
-             getOwn(conditionOrOptions, 'unsigned_payload_permitted') ??
-             getOwn(conditionOrOptions, 'unsigned_payload_allowed') ??
-             getOwn(conditionOrOptions, 'allow_unsigned') ??
-             getOwn(conditionOrOptions, 'allowUnsigned') ??
-             getOwn(conditionOrOptions, 'is_presigned') ??
-             getOwn(conditionOrOptions, 'isPresigned'))
+             getOwn(conditionOrOptions, 'is_presigned'))
           : undefined;
 
         if (allowUnsigned === false || errorCondition === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' || expErrorCond === 'UNSIGNED_PAYLOAD_NOT_PERMITTED') {
@@ -4374,19 +4451,31 @@ const matchedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-a
 const unsignedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
 const unsignedAllowedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true });
 const unsignedPresignedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', is_presigned: true });
+const unsignedAliasPermittedRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', unsigned_payload_permitted: true });
+const unsignedAliasCamelRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allowUnsignedPayload: true });
+const unsignedAliasPresignedCamelRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', isPresigned: true });
 const streamingShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' });
 const mismatchShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': mismatchSha256 });
 const malformedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': malformedSha256 });
 const tooLargePutRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': realSha256, content_length: 5368709121 });
 const s3ShaValid = missingShaRes.http_status === 400 &&
                    missingShaRes.error_code === 'InvalidDigest' &&
-                   missingShaRes.reason === 'MissingXAmzContentSHA256' &&
+                   (missingShaRes.reason === 'MissingXAmzContentSHA256' || missingShaRes.reason === 'MISSING_PAYLOAD_SHA256') &&
                    matchedShaRes.http_status === 200 &&
                    unsignedShaRes.http_status === 400 &&
                    unsignedShaRes.error_code === 'InvalidDigest' &&
                    unsignedShaRes.reason === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' &&
                    unsignedAllowedShaRes.http_status === 200 &&
                    unsignedPresignedShaRes.http_status === 200 &&
+                   unsignedAliasPermittedRes.http_status === 400 &&
+                   unsignedAliasPermittedRes.error_code === 'InvalidDigest' &&
+                   unsignedAliasPermittedRes.reason === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' &&
+                   unsignedAliasCamelRes.http_status === 400 &&
+                   unsignedAliasCamelRes.error_code === 'InvalidDigest' &&
+                   unsignedAliasCamelRes.reason === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' &&
+                   unsignedAliasPresignedCamelRes.http_status === 400 &&
+                   unsignedAliasPresignedCamelRes.error_code === 'InvalidDigest' &&
+                   unsignedAliasPresignedCamelRes.reason === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' &&
                    streamingShaRes.http_status === 400 &&
                    streamingShaRes.error_code === 'InvalidDigest' &&
                    (streamingShaRes.reason === 'STREAMING_PAYLOAD_UNSUPPORTED' || streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX' || streamingShaRes.reason === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256') &&
