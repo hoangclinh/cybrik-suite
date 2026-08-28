@@ -29,6 +29,10 @@ import {
   S3_19_CLOSED_OPS,
   S3_15_OPERATIONS,
   S3_19_OPERATIONS,
+  isPlainOrNull,
+  hasPrototypeChainAccessor,
+  hasOversizedDeclaredLength,
+  validateIJson,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -1968,7 +1972,7 @@ test('validateS3MultipartSemantics exhaustive error conditions', () => {
   // 1. Non-array parts
   const nonArrayParts = JSON.parse(JSON.stringify(validManifest));
   nonArrayParts.parts = 'not-an-array';
-  assert.throws(() => validateS3MultipartSemantics(nonArrayParts), /multipart upload manifest parts array must be non-empty/);
+  assert.throws(() => validateS3MultipartSemantics(nonArrayParts), /multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
 
   // 2. Empty parts array
   const emptyParts = JSON.parse(JSON.stringify(validManifest));
@@ -8467,4 +8471,689 @@ test('regression: OPEN-5 capability with required_for_optimal: false yields ACTI
   assert.throws(() => {
     validatePlatformSemantics(invalidOptimalHandshake, pcnSchemaId);
   }, /Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability/);
+});
+
+test('schema synchronization: root and $defs.storageConformanceProfile harmonize path_formatting, required, and conditionals for OPEN-2', () => {
+  const profileDef = s3SchemaDoc.$defs.storageConformanceProfile;
+
+  // 1. Synchronized properties (including path_formatting)
+  assert.deepEqual(
+    Object.keys(s3SchemaDoc.properties).sort(),
+    Object.keys(profileDef.properties).sort(),
+    'Root and $defs.storageConformanceProfile properties must be identical'
+  );
+  assert.deepEqual(
+    s3SchemaDoc.properties.path_formatting,
+    profileDef.properties.path_formatting,
+    'path_formatting property definition must be identical between root and profile def'
+  );
+  for (const prop of Object.keys(s3SchemaDoc.properties)) {
+    assert.deepEqual(
+      s3SchemaDoc.properties[prop],
+      profileDef.properties[prop],
+      `Property '${prop}' definition must match between root and storageConformanceProfile`
+    );
+  }
+
+  // 2. Synchronized required, additionalProperties, and conditional if/then/else blocks
+  assert.deepEqual(s3SchemaDoc.required, profileDef.required, 'required fields must be identical');
+  assert.equal(s3SchemaDoc.additionalProperties, profileDef.additionalProperties, 'additionalProperties must be identical');
+  assert.deepEqual(s3SchemaDoc.if, profileDef.if, 'if conditional block must be identical');
+  assert.deepEqual(s3SchemaDoc.then, profileDef.then, 'then conditional block must be identical');
+  assert.deepEqual(s3SchemaDoc.else, profileDef.else, 'else conditional block must be identical');
+
+  // 3. Storage profile fixture with path_formatting validates on both root and profile def
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  const profileWithPathFormatting = {
+    ...baseProfile,
+    path_formatting: {
+      addressing_style: 'path_style',
+      bucket_pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$',
+      key_pattern: '^(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$',
+      sample_bucket: 'cybrik-audit-vault',
+      sample_key: 'forensics/2026/08/incident-1042-evidence.bundle',
+      sample_path_style_url: 'https://storage.internal.cybrik:9000/cybrik-audit-vault/forensics/2026/08/incident-1042-evidence.bundle',
+    },
+  };
+
+  assert.ok(
+    ajv.validate(S3_SCHEMA_ID, profileWithPathFormatting),
+    `Profile with path_formatting must pass root schema: ${ajv.errorsText()}`
+  );
+  assert.ok(
+    ajv.validate(PROFILE_DEF_ID, profileWithPathFormatting),
+    `Profile with path_formatting must pass profile def: ${ajv.errorsText()}`
+  );
+
+  // 4. Invalid path_formatting fails identically on both root and profile def
+  const profileWithInvalidPathFormatting = {
+    ...baseProfile,
+    path_formatting: {
+      addressing_style: 'virtual_hosted', // invalid: must be 'path_style'
+      bucket_pattern: '^[a-z0-9.-]+$',
+      key_pattern: '^.+$',
+    },
+  };
+
+  assert.ok(
+    !ajv.validate(S3_SCHEMA_ID, profileWithInvalidPathFormatting),
+    'Invalid path_formatting must fail root schema'
+  );
+  assert.ok(
+    !ajv.validate(PROFILE_DEF_ID, profileWithInvalidPathFormatting),
+    'Invalid path_formatting must fail profile def'
+  );
+});
+
+test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and descriptors returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_PAYLOAD_HIDDEN_LENGTH');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Proxy hiding content_length: 5368709121 from ownKeys, has, and getOwnPropertyDescriptor passed to dispatchS3PutObject
+  const hiddenLengthPutProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'x-amz-content-sha256'];
+    },
+    has(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return false;
+      }
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return undefined;
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const putRes = dispatchS3PutObject(hiddenLengthPutProxy);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'EntityTooLarge');
+  assert.equal(putRes.code, 'EntityTooLarge');
+  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 2. Proxy hiding content_length: 5368709121 from ownKeys, has, and getOwnPropertyDescriptor passed to dispatchS3Error
+  const hiddenLengthErrProxy = new Proxy({
+    payloadBytes: payload,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes'];
+    },
+    has(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return false;
+      }
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return undefined;
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const errRes = dispatchS3Error(hiddenLengthErrProxy);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'EntityTooLarge');
+  assert.equal(errRes.code, 'EntityTooLarge');
+  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 3. Proxy with headers hiding content-length: 5368709121 from ownKeys, has, and descriptors
+  const hiddenHeaderProxy = new Proxy({
+    payloadBytes: payload,
+    headers: new Proxy({
+      'x-amz-content-sha256': validSha,
+      'content-length': '5368709121',
+    }, {
+      ownKeys() {
+        return ['x-amz-content-sha256'];
+      },
+      has(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') return false;
+        return Reflect.has(target, prop);
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') return undefined;
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+      get(target, prop) {
+        return Reflect.get(target, prop);
+      },
+    }),
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'headers'];
+    },
+    has(target, prop) {
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const putHeaderRes = dispatchS3PutObject(hiddenHeaderProxy);
+  assert.equal(putHeaderRes.http_status, 400);
+  assert.equal(putHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(putHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const errHeaderRes = dispatchS3Error(hiddenHeaderProxy);
+  assert.equal(errHeaderRes.http_status, 400);
+  assert.equal(errHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(errHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+});
+
+test('regression: Proxy hiding parts from ownKeys returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) in dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Manifest Proxy where parts is hidden from ownKeys
+  const hiddenPartsManifest = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys() {
+      // Omit 'parts' from ownKeys
+      return ['total_parts', 'total_size_bytes'];
+    },
+    has(target, prop) {
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  // dispatchS3CompleteMultipartUpload returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+  const completeRes = dispatchS3CompleteMultipartUpload(hiddenPartsManifest, validStoredParts);
+  assert.equal(completeRes.http_status, 400);
+  assert.equal(completeRes.error_code, 'InvalidPart');
+  assert.equal(completeRes.code, 'InvalidPart');
+  assert.equal(completeRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // validateS3MultipartSemantics throws InvalidPart error
+  assert.throws(
+    () => validateS3MultipartSemantics(hiddenPartsManifest),
+    /InvalidPart/i
+  );
+
+  // 2. Options wrapper containing hidden-parts Proxy as manifest
+  const hiddenWrapperOptions = {
+    manifest: hiddenPartsManifest,
+    storedParts: validStoredParts,
+  };
+  const wrapperRes = dispatchS3CompleteMultipartUpload(hiddenWrapperOptions);
+  assert.equal(wrapperRes.http_status, 400);
+  assert.equal(wrapperRes.error_code, 'InvalidPart');
+  assert.equal(wrapperRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+});
+
+test('regression: path_formatting validation on $defs.storageConformanceProfile (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const profileDefId = `${s3SchemaId}#/$defs/storageConformanceProfile`;
+
+  const baseProfile = {
+    provider_identifier: 'minio-enterprise-s3',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+    object_lock_supported: true,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [
+      'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+      'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'CreateMultipartUpload',
+      'UploadPart', 'CompleteMultipartUpload', 'AbortMultipartUpload',
+      'ListParts', 'PutBucketVersioning', 'GetBucketVersioning',
+      'PutObjectRetention', 'GetObjectRetention', 'PutObjectLegalHold',
+      'GetObjectLegalHold',
+    ],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [
+      'BadDigest', 'InvalidDigest', 'NoSuchBucket', 'NoSuchKey', 'NoSuchUpload',
+      'ObjectLockConfigurationNotFoundError', 'PreconditionFailed', 'AccessDenied',
+      'EntityTooLarge', 'EntityTooSmall', 'InvalidArgument', 'InvalidPart',
+      'InvalidPartOrder',
+    ],
+  };
+
+  // 1. Profile with valid path_formatting passes $defs.storageConformanceProfile validation
+  const validProfileWithPathFormatting = {
+    ...JSON.parse(JSON.stringify(baseProfile)),
+    path_formatting: {
+      addressing_style: 'path_style',
+      bucket_pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$',
+      key_pattern: '^(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$',
+      sample_bucket: 'cybrik-audit-bucket-01',
+      sample_key: 'logs/2026/08/audit-trail.json',
+      sample_path_style_url: 'https://s3.local.invalid/cybrik-audit-bucket-01/logs/2026/08/audit-trail.json',
+    },
+  };
+  const validSchema = ajv.validate(profileDefId, validProfileWithPathFormatting);
+  assert.ok(validSchema, `Profile with valid path_formatting must pass $defs.storageConformanceProfile: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(validProfileWithPathFormatting));
+
+  // 2. Profile with invalid addressing_style in path_formatting fails $defs.storageConformanceProfile validation
+  const invalidAddressingProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  invalidAddressingProfile.path_formatting.addressing_style = 'virtual_hosted';
+  const invalidAddressingSchema = ajv.validate(profileDefId, invalidAddressingProfile);
+  assert.equal(invalidAddressingSchema, false, 'Invalid addressing_style in path_formatting must fail $defs.storageConformanceProfile');
+
+  // 3. Profile with dot-segment in sample_key fails $defs.storageConformanceProfile validation
+  const dotSegmentKeyProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  dotSegmentKeyProfile.path_formatting.sample_key = 'logs/../secret.json';
+  const dotKeySchema = ajv.validate(profileDefId, dotSegmentKeyProfile);
+  assert.equal(dotKeySchema, false, 'Dot-segment in sample_key must fail $defs.storageConformanceProfile');
+
+  // 4. Profile with invalid sample_bucket (uppercase) fails $defs.storageConformanceProfile validation
+  const badBucketProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  badBucketProfile.path_formatting.sample_bucket = 'INVALID_UPPERCASE_BUCKET';
+  const badBucketSchema = ajv.validate(profileDefId, badBucketProfile);
+  assert.equal(badBucketSchema, false, 'Uppercase sample_bucket must fail $defs.storageConformanceProfile');
+
+  // 5. Profile with invalid sample_path_style_url fails $defs.storageConformanceProfile validation
+  const badUrlProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  badUrlProfile.path_formatting.sample_path_style_url = 'not-a-valid-url';
+  const badUrlSchema = ajv.validate(profileDefId, badUrlProfile);
+  assert.equal(badUrlSchema, false, 'Malformed sample_path_style_url must fail $defs.storageConformanceProfile');
+
+  // 6. Profile without path_formatting passes $defs.storageConformanceProfile (optional property)
+  const noPathFormattingProfile = JSON.parse(JSON.stringify(baseProfile));
+  const validNoPathSchema = ajv.validate(profileDefId, noPathFormattingProfile);
+  assert.ok(validNoPathSchema, `Profile without path_formatting must pass $defs.storageConformanceProfile: ${ajv.errorsText()}`);
+});
+
+test('regression: required_for_optimal omission and degraded-by-omission lease validation (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  assert.ok(existsSync(samplePath), `Sample capability handshake missing: ${samplePath}`);
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Degraded-by-omission in semantic validator:
+  // capability with required_for_optimal: true is omitted from negotiated_optional_capabilities
+  // in an ACTIVE_DEGRADED lease where remaining capability is GRANTED_FULL with fallback NONE
+  const degradedByOmissionHandshake = JSON.parse(JSON.stringify(sample));
+  degradedByOmissionHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedByOmissionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedByOmissionHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  // Omit ai_tensor_acceleration (required_for_optimal: true), grant storage_object_lock in full
+  degradedByOmissionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  // Must pass validatePlatformSemantics (valid degraded-by-omission lease)
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(degradedByOmissionHandshake, pcnSchemaId);
+  }, 'Degraded-by-omission lease must pass validatePlatformSemantics');
+
+  // 2. Degraded-by-fallback: capability with required_for_optimal: true is degraded with fallback applied
+  const degradedByFallbackHandshake = JSON.parse(JSON.stringify(sample));
+  degradedByFallbackHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedByFallbackHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedByFallbackHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+  ];
+  degradedByFallbackHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_DEGRADED',
+      active_mode: 'cpu_quantized_emulation',
+      fallback_applied: 'CORE_EMULATION_FALLBACK',
+      notes: 'Inference latency scaled due to fallback',
+    },
+  ];
+  const validDegradedSchema = ajv.validate(pcnSchemaId, degradedByFallbackHandshake);
+  assert.ok(validDegradedSchema, `ACTIVE_DEGRADED handshake with degraded capability must pass schema: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(degradedByFallbackHandshake, pcnSchemaId);
+  });
+
+  // 3. Negative: ACTIVE_OPTIMAL lease omitting a capability with required_for_optimal: true fails semantic validation
+  const invalidOptimalOmissionHandshake = JSON.parse(JSON.stringify(degradedByOmissionHandshake));
+  invalidOptimalOmissionHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  invalidOptimalOmissionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+
+  assert.throws(() => {
+    validatePlatformSemantics(invalidOptimalOmissionHandshake, pcnSchemaId);
+  }, /Semantic error: requested optional capability 'ai_tensor_acceleration' .* is required for optimal operation but is not resolved in agreed_capability_lease/);
+
+  // 4. Negative: ACTIVE_DEGRADED lease with all requested capabilities granted full and NONE omitted fails semantic validation
+  const invalidDegradedFullHandshake = JSON.parse(JSON.stringify(sample));
+  invalidDegradedFullHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  invalidDegradedFullHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  invalidDegradedFullHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  invalidDegradedFullHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  assert.throws(() => {
+    validatePlatformSemantics(invalidDegradedFullHandshake, pcnSchemaId);
+  }, /Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback or omit a capability with required_for_optimal: true/);
+
+  // 5. Positive: ACTIVE_OPTIMAL lease omitting a capability with required_for_optimal: false passes
+  const validOptimalOmissionNonOptHandshake = JSON.parse(JSON.stringify(sample));
+  validOptimalOmissionNonOptHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  validOptimalOmissionNonOptHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  validOptimalOmissionNonOptHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  validOptimalOmissionNonOptHandshake.agreed_capability_lease.negotiated_optional_capabilities = [];
+
+  const validOptNonOptSchema = ajv.validate(pcnSchemaId, validOptimalOmissionNonOptHandshake);
+  assert.ok(validOptNonOptSchema, `ACTIVE_OPTIMAL lease omitting required_for_optimal: false capability must pass schema: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(validOptimalOmissionNonOptHandshake, pcnSchemaId);
+  }, 'ACTIVE_OPTIMAL lease omitting required_for_optimal: false capability must pass platform semantics');
+});
+
+test('unit regression: adversarial Proxy variations and branch coverage for hasOversizedDeclaredLength and hasOwnAccessors (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_BRANCH_COVERAGE');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Root proxy with hidden BigInt content_length: 5368709121n
+  const hiddenBigIntProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121n,
+  }, {
+    ownKeys() { return ['payloadBytes', 'x-amz-content-sha256']; },
+    getOwnPropertyDescriptor() { return undefined; },
+    get(target, prop) { return target[prop]; },
+  });
+  assert.equal(dispatchS3PutObject(hiddenBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenBigIntProxy).http_status, 400);
+
+  // 2. Root proxy with hidden string content_length: '5368709121'
+  const hiddenStrProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: '5368709121',
+  }, {
+    ownKeys() { return ['payloadBytes', 'x-amz-content-sha256']; },
+    getOwnPropertyDescriptor() { return undefined; },
+    get(target, prop) { return target[prop]; },
+  });
+  assert.equal(dispatchS3PutObject(hiddenStrProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenStrProxy).http_status, 400);
+
+  // 3. Headers proxy with hidden BigInt content-length: 5368709121n
+  const hiddenHeaderBigIntProxy = {
+    payloadBytes: payload,
+    headers: new Proxy({
+      'content-length': 5368709121n,
+    }, {
+      ownKeys() { return []; },
+      getOwnPropertyDescriptor() { return undefined; },
+      get(target, prop) { return target[prop]; },
+    }),
+  };
+  assert.equal(dispatchS3PutObject(hiddenHeaderBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenHeaderBigIntProxy).http_status, 400);
+
+  // 4. Headers proxy with hidden string content-length: '5368709121'
+  const hiddenHeaderStrProxy = {
+    payloadBytes: payload,
+    headers: new Proxy({
+      'content-length': '5368709121',
+    }, {
+      ownKeys() { return []; },
+      getOwnPropertyDescriptor() { return undefined; },
+      get(target, prop) { return target[prop]; },
+    }),
+  };
+  assert.equal(dispatchS3PutObject(hiddenHeaderStrProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenHeaderStrProxy).http_status, 400);
+
+  // 5. Proxy where getOwnPropertyDescriptor throws on probe keys in hasOwnAccessors
+  const throwingDescProxy = new Proxy({}, {
+    ownKeys() { return []; },
+    getOwnPropertyDescriptor(t, prop) {
+      if (prop === 'payload' || prop === 'payloadBytes') {
+        throw new Error('descriptor error');
+      }
+      return undefined;
+    },
+  });
+  assert.equal(hasOwnAccessors(throwingDescProxy), true);
+
+  // 6. Object where property read throws in getOwn
+  const throwingPropObj = {};
+  Object.defineProperty(throwingPropObj, 'testProp', {
+    configurable: true,
+    enumerable: true,
+    get() { throw new Error('getter throw'); },
+  });
+  assert.equal(getOwn(throwingPropObj, 'testProp'), undefined);
+
+  // 7. Object where hasOwnAccessors receives primitive or buffer
+  assert.equal(hasOwnAccessors(null), false);
+  assert.equal(hasOwnAccessors(123), false);
+  assert.equal(hasOwnAccessors(Buffer.from('test')), false);
+  assert.equal(hasOwnAccessors(new Uint8Array([1, 2, 3])), false);
+
+  // 8. Proxy where getPrototypeOf throws
+  const throwingProtoProxy = new Proxy({}, {
+    getPrototypeOf() { throw new Error('proto trap throw'); },
+  });
+  assert.equal(isPlainOrNull(throwingProtoProxy), false);
+  assert.equal(hasPrototypeChainAccessor(throwingProtoProxy, 'payload'), true);
+
+  // 9. Proxy where getOwnPropertyDescriptor throws on probe key in hasOwnAccessors
+  const throwingHasOwnProxy = new Proxy({}, {
+    ownKeys() { return []; },
+    getOwnPropertyDescriptor(target, prop) {
+      throw new Error('descriptor throw on probe');
+    },
+  });
+  assert.equal(hasOwnAccessors(throwingHasOwnProxy), true);
+
+  // 10. Object with accessor on S3 probe key
+  const probeAccessorObj = {};
+  Object.defineProperty(probeAccessorObj, 'payload', {
+    configurable: true,
+    enumerable: false,
+    get() { return Buffer.from('x'); },
+  });
+  assert.equal(hasOwnAccessors(probeAccessorObj), true);
+
+  // 11. Proxy with value descriptor where get trap throws in getOwn
+  const throwingGetTrapProxy = new Proxy({ val: 123 }, {
+    getOwnPropertyDescriptor(target, prop) {
+      return { value: 123, writable: true, enumerable: true, configurable: true };
+    },
+    get(target, prop) {
+      throw new Error('get trap throw in getOwn');
+    },
+  });
+  assert.throws(() => getOwn(throwingGetTrapProxy, 'val'), /Property access on 'val' threw or is invalid/);
+
+  // 12. validateIJson on malformed JSON string token
+  assert.throws(() => validateIJson('{ invalid }', 'test'), /Expected/);
+});
+
+test('comprehensive branch coverage for S3 multipart manifest and accessor safety', () => {
+  // 1. throwing descriptor in obj length keys and headers
+  assert.equal(hasOversizedDeclaredLength(new Proxy({}, {
+    getOwnPropertyDescriptor(t, p) {
+      if (p === 'content_length') throw new Error('trap');
+      return undefined;
+    }
+  })), false);
+
+  assert.equal(hasOversizedDeclaredLength({
+    headers: new Proxy({}, {
+      getOwnPropertyDescriptor(t, p) {
+        if (p === 'Content-Length') throw new Error('hdr trap');
+        return undefined;
+      }
+    })
+  }), false);
+
+  // 2. hasOwnAccessors with accessor on probe keys
+  const probeAcc = {};
+  Object.defineProperty(probeAcc, 'Content-Length', { get() { return 100; }, configurable: true, enumerable: false });
+  assert.equal(hasOwnAccessors(probeAcc), true);
+
+  // 3. dispatchS3CompleteMultipartUpload options object with manifest accessor
+  const optWithManifestGetter = {};
+  Object.defineProperty(optWithManifestGetter, 'manifest', { get() { return {}; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(optWithManifestGetter).error_code, 'InvalidPart');
+
+  // 4. dispatchS3CompleteMultipartUpload options object with storedParts accessor
+  const optWithStoredPartsGetter = { manifest: { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] } };
+  Object.defineProperty(optWithStoredPartsGetter, 'storedParts', { get() { return []; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(optWithStoredPartsGetter).error_code, 'InvalidPart');
+
+  // 5. dispatchS3CompleteMultipartUpload options object with inherited storedParts
+  const optWithInheritedStoredParts = Object.create({ storedParts: [] });
+  optWithInheritedStoredParts.manifest = { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] };
+  assert.equal(dispatchS3CompleteMultipartUpload(optWithInheritedStoredParts).error_code, 'InvalidPart');
+
+  // 6. dispatchS3CompleteMultipartUpload manifest with total_parts accessor or non-integer
+  const mfWithTpGetter = { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] };
+  Object.defineProperty(mfWithTpGetter, 'total_parts', { get() { return 1; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(mfWithTpGetter).error_code, 'InvalidPart');
+
+  const mfWithTpNonInt = { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }], total_parts: 1.5 };
+  assert.equal(dispatchS3CompleteMultipartUpload(mfWithTpNonInt).error_code, 'InvalidPart');
+
+  // 7. dispatchS3CompleteMultipartUpload throwing manifest.parts getter
+  const mfThrowingParts = {};
+  Object.defineProperty(mfThrowingParts, 'parts', { get() { throw new Error('parts trap'); }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(mfThrowingParts).error_code, 'InvalidPart');
+
+  // 8. dispatchS3CompleteMultipartUpload non-object / primitive manifest in options wrapper
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: 'string-not-object' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: [1, 2, 3] }).error_code, 'InvalidArgument');
+
+  // 9. dispatchS3CompleteMultipartUpload where part has throwing prototype
+  const partThrowingProto = new Proxy({ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }, {
+    getPrototypeOf() { throw new Error('proto trap'); }
+  });
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [partThrowingProto] }, [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 100 }]).error_code, 'InvalidPart');
+
+  // 10. dispatchS3CompleteMultipartUpload where part has part_number or etag inherited from prototype
+  const protoPart = { part_number: 1 };
+  const childPart = Object.create(protoPart);
+  childPart.etag = '"0123456789abcdef0123456789abcdef"';
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [childPart] }).error_code, 'InvalidPart');
+
+  const protoPart2 = { etag: '"0123456789abcdef0123456789abcdef"' };
+  const childPart2 = Object.create(protoPart2);
+  childPart2.part_number = 1;
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [childPart2] }).error_code, 'InvalidPart');
+
+  // 11. validateS3MultipartSemantics throwing parts getter
+  const semThrowingParts = {};
+  Object.defineProperty(semThrowingParts, 'parts', { get() { throw new Error('trap'); }, configurable: true, enumerable: true });
+  assert.throws(() => validateS3MultipartSemantics(semThrowingParts), /InvalidPart/);
+
+  // 12. validateS3MultipartSemantics part with throwing prototype
+  assert.throws(() => validateS3MultipartSemantics({ parts: [partThrowingProto] }), /InvalidPart/);
+
+  // 13. dispatchS3PutObject with structured non-byte types: symbol, RegExp, Map, Set, ArrayBuffer
+  assert.equal(dispatchS3PutObject(Symbol('test')).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject(/regex/).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject(new Map()).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject(new Set()).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3PutObject(new ArrayBuffer(16)).error_code, 'InvalidDigest');
+
+  // 14. dispatchS3CompleteMultipartUpload direct primitive or array manifest
+  assert.equal(dispatchS3CompleteMultipartUpload(null).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload('str').error_code, 'InvalidPart');
+  assert.equal(dispatchS3CompleteMultipartUpload(123).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload(true).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload(Symbol('m')).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload(100n).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload(() => {}).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3CompleteMultipartUpload([]).error_code, 'InvalidArgument');
+
+  const throwingWrapper = new Proxy({}, { getPrototypeOf() { throw new Error('wrap trap'); } });
+  assert.equal(dispatchS3CompleteMultipartUpload(throwingWrapper).error_code, 'InvalidPart');
+
+  // 15. dispatchS3CompleteMultipartUpload parts with manifestPartsDesc having accessor
+  const mfWithPartsDescGetter = {};
+  Object.defineProperty(mfWithPartsDescGetter, 'parts', { get() { return []; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(mfWithPartsDescGetter).error_code, 'InvalidPart');
+
+  // 16. dispatchS3CompleteMultipartUpload missing storedParts
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] }, null).error_code, 'InvalidPart');
 });

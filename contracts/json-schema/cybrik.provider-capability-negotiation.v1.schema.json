@@ -201,7 +201,6 @@
             "required": [
               "capability_name",
               "slot_id",
-              "required_for_optimal",
               "preferred_fallback"
             ]
           }
@@ -657,16 +656,6 @@
           "then": {
             "properties": {
               "negotiated_optional_capabilities": {
-                "contains": {
-                  "properties": {
-                    "disposition": {
-                      "const": "GRANTED_DEGRADED"
-                    }
-                  },
-                  "required": [
-                    "disposition"
-                  ]
-                },
                 "items": {
                   "if": {
                     "properties": {

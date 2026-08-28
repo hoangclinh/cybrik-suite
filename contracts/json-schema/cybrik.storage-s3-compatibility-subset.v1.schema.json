@@ -582,6 +582,9 @@
           "minItems": 13,
           "maxItems": 13,
           "uniqueItems": true
+        },
+        "path_formatting": {
+          "$ref": "#/$defs/pathFormatting"
         }
       },
       "if": {

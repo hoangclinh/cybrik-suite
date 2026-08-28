@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, hasOwnAccessors, hasOwnHeadersAccessors, getOwn, isPlainOrNull, hasPrototypeChainAccessor } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -1114,7 +1114,7 @@ test('in-memory validation: reject ACTIVE_DEGRADED lease with no degraded capabi
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 0 degraded capabilities under ACTIVE_DEGRADED
+  // Degraded-by-omission (all present capabilities GRANTED_FULL, but optimal-required capability omitted) passes schema validation
   const data1 = JSON.parse(JSON.stringify(sample));
   data1.agreed_capability_lease.negotiated_optional_capabilities = [
     {
@@ -1126,8 +1126,39 @@ test('in-memory validation: reject ACTIVE_DEGRADED lease with no degraded capabi
     }
   ];
   const valid1 = ajv.validate(schemaId, data1);
-  assert.ok(!valid1, 'Should reject ACTIVE_DEGRADED with 0 degraded capabilities');
-  assert.ok(ajv.errors.some(e => e.keyword === 'contains'), 'Should fail via contains');
+  assert.ok(valid1, 'ACTIVE_DEGRADED lease permitting degraded-by-omission should pass schema validation: ' + ajv.errorsText());
+
+  // 0 degraded capabilities and all optimal capabilities satisfied fails semantic validation
+  const dataNoDegrade = JSON.parse(JSON.stringify(sample));
+  dataNoDegrade.negotiation_status = "DEGRADED_LEASE_GRANTED";
+  dataNoDegrade.agreed_capability_lease.lease_status = "ACTIVE_DEGRADED";
+  dataNoDegrade.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_FULL",
+      active_mode: "cluster_redis",
+      fallback_applied: "NONE"
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(dataNoDegrade, schemaId),
+    /ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback or omit a capability with required_for_optimal: true/
+  );
 
   // GRANTED_DEGRADED but fallback_applied is NONE
   const data2 = JSON.parse(JSON.stringify(sample));
@@ -1646,15 +1677,12 @@ test('in-memory validation: reject immutable storage with non-GRANTED_FULL dispo
   }
 });
 
-test('in-memory validation: Object Lock evidence binding against structured URN evidence IDs (Finding 6 / OPEN-5)', () => {
+test('in-memory validation: Object Lock evidence references and conformance evidence closure (Finding 6 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 1. Valid structured URN evidence binding in object form passes semantic validation
+  // 1. Valid structured URN evidence reference backed by matching conformance evidence passes semantic validation
   const dataObj = JSON.parse(JSON.stringify(sample));
-  dataObj.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-01"
-  };
   const storeCapObj = dataObj.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapObj.evidence_references.push("urn:cybrik:evidence:test-storage-lock-01");
   dataObj.advertisement_response.conformance_evidence.push({
@@ -1666,51 +1694,25 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   });
 
   assert.doesNotThrow(() => validatePlatformSemantics(dataObj, schemaId));
+  assert.ok(ajv.validate(schemaId, dataObj), `Must pass Ajv schema: ${ajv.errorsText()}`);
 
-  // 2. Valid structured URN evidence binding in array form passes semantic validation
-  const dataArr = JSON.parse(JSON.stringify(sample));
-  dataArr.advertisement_response.evidence_bindings = [
-    {
-      capability_name: "storage_object_lock",
-      slot_id: "storage",
-      evidence_id: "urn:iso:std:iso-iec:27001:evidence:lock-01"
-    }
-  ];
-  const storeCapArr = dataArr.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapArr.evidence_references.push("urn:iso:std:iso-iec:27001:evidence:lock-01");
-  dataArr.advertisement_response.conformance_evidence.push({
-    test_identifier: "urn:iso:std:iso-iec:27001:evidence:lock-01",
-    status: "PASS",
-    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000002",
-    executed_at: "2026-08-27T12:00:00Z",
-    report_uri: "https://reports.cybrik.example/evidence/iso-lock-01.json"
-  });
-
-  assert.doesNotThrow(() => validatePlatformSemantics(dataArr, schemaId));
-
-  // 3. Object Lock evidence binding missing from storage evidence references throws
-  const dataMissingRef = JSON.parse(JSON.stringify(sample));
-  dataMissingRef.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-02"
-  };
-  dataMissingRef.advertisement_response.conformance_evidence.push({
+  // 2. Additional valid evidence reference in another capability passes semantic validation
+  const dataMulti = JSON.parse(JSON.stringify(sample));
+  const storeCapMulti = dataMulti.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapMulti.evidence_references.push("urn:cybrik:evidence:test-storage-lock-02");
+  dataMulti.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:cybrik:evidence:test-storage-lock-02",
     status: "PASS",
-    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000003",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000002",
     executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/urn-lock-02.json"
   });
 
-  assert.throws(
-    () => validatePlatformSemantics(dataMissingRef, schemaId),
-    /Object Lock evidence binding 'urn:cybrik:evidence:test-storage-lock-02'.*not found in storage evidence references/
-  );
+  assert.doesNotThrow(() => validatePlatformSemantics(dataMulti, schemaId));
+  assert.ok(ajv.validate(schemaId, dataMulti), `Must pass Ajv schema: ${ajv.errorsText()}`);
 
-  // 4. Object Lock evidence binding missing from conformance evidence throws
+  // 3. Storage evidence reference missing matching conformance evidence throws
   const dataMissingEv = JSON.parse(JSON.stringify(sample));
-  dataMissingEv.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-03"
-  };
   const storeCapMissingEv = dataMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapMissingEv.evidence_references.push("urn:cybrik:evidence:test-storage-lock-03");
 
@@ -1719,25 +1721,51 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
     /evidence_reference 'urn:cybrik:evidence:test-storage-lock-03' not found in conformance_evidence/
   );
 
-  // 5. Malformed URN in evidence binding throws
+  // 4. Conformance evidence with non-PASS status throws
+  const dataNonPassEv = JSON.parse(JSON.stringify(sample));
+  const storeCapNonPass = dataNonPassEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCapNonPass.evidence_references.push("urn:cybrik:evidence:test-storage-lock-04");
+  dataNonPassEv.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:test-storage-lock-04",
+    status: "FAIL",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000004",
+    executed_at: "2026-08-27T12:00:00Z",
+    report_uri: "https://reports.cybrik.example/evidence/fail-lock-04.json"
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataNonPassEv, schemaId),
+    /conformance evidence 'urn:cybrik:evidence:test-storage-lock-04' has non-passing status 'FAIL'/
+  );
+
+  // 5. Dangling/unreferenced conformance evidence throws
+  const dataDangling = JSON.parse(JSON.stringify(sample));
+  dataDangling.advertisement_response.conformance_evidence.push({
+    test_identifier: "urn:cybrik:evidence:test-storage-lock-dangling",
+    status: "PASS",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000005",
+    executed_at: "2026-08-27T12:00:00Z",
+    report_uri: "https://reports.cybrik.example/evidence/urn-lock-dangling.json"
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(dataDangling, schemaId),
+    /conformance_evidence contains unreferenced or dangling evidence 'urn:cybrik:evidence:test-storage-lock-dangling'/
+  );
+
+  // 6. Malformed URN in evidence references is rejected by Ajv schema
   const dataBadUrn = JSON.parse(JSON.stringify(sample));
-  dataBadUrn.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:::invalid-urn"
-  };
   const storeCapBadUrn = dataBadUrn.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapBadUrn.evidence_references.push("urn:::invalid-urn");
   dataBadUrn.advertisement_response.conformance_evidence.push({
     test_identifier: "urn:::invalid-urn",
     status: "PASS",
-    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000004",
+    evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000006",
     executed_at: "2026-08-27T12:00:00Z",
     report_uri: "https://reports.cybrik.example/evidence/bad-urn.json"
   });
-
-  assert.throws(
-    () => validatePlatformSemantics(dataBadUrn, schemaId),
-    /Object Lock evidence binding URN 'urn:::invalid-urn' is malformed/
-  );
+  const validBadUrn = ajv.validate(schemaId, dataBadUrn);
+  assert.equal(validBadUrn, false, 'Malformed URN in evidence_references must fail Ajv schema validation');
 });
 
 test('canonical S3 dispatch helpers: dispatchS3Error, computePayloadMd5, isMalformedBase64Md5 (Finding 6 / OPEN-2)', () => {
@@ -4756,20 +4784,20 @@ test('validatePlatformSemantics comprehensive error branches', () => {
   missingProfileFullDecl.target_profile_id = 'nonexistent-profile';
   assert.throws(() => validatePlatformSemantics(missingProfileFullDecl, pcaSchemaId), /target profile fixture .* not found/);
 
-  // 34. Evidence bindings missing in storage evidence references
-  const badBindingRefDoc = JSON.parse(JSON.stringify(handshakeSample));
-  badBindingRefDoc.evidence_bindings = [
-    { name: 'storage_object_lock', evidence_id: 'urn:cybrik:evidence:missing-binding' }
-  ];
-  assert.throws(() => validatePlatformSemantics(badBindingRefDoc, pcnSchemaId), /not found in storage evidence references/);
+  // 34. Dangling conformance evidence not referenced by any capability
+  const danglingConfDoc = JSON.parse(JSON.stringify(handshakeSample));
+  danglingConfDoc.advertisement_response.conformance_evidence.push({
+    test_identifier: 'urn:cybrik:evidence:dangling:extra-test',
+    status: 'PASS',
+    evidence_pack_digest: 'a100000000000000000000000000000000000000000000000000000000000099',
+    executed_at: '2026-08-27T12:00:00Z'
+  });
+  assert.throws(() => validatePlatformSemantics(danglingConfDoc, pcnSchemaId), /conformance_evidence contains unreferenced or dangling evidence/);
 
-  // 35. Evidence bindings missing in conformance evidence
+  // 35. Evidence reference missing in conformance evidence
   const badBindingConfDoc = JSON.parse(JSON.stringify(handshakeSample));
   const storeCapObj = badBindingConfDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCapObj.evidence_references.push('urn:cybrik:evidence:storage:extra-ref');
-  badBindingConfDoc.evidence_bindings = [
-    { name: 'storage_object_lock', evidence_id: 'urn:cybrik:evidence:storage:extra-ref' }
-  ];
   assert.throws(() => validatePlatformSemantics(badBindingConfDoc, pcnSchemaId), /evidence_reference 'urn:cybrik:evidence:storage:extra-ref' not found in conformance_evidence/);
 
   // 36. Lease contains surplus capability not in request
@@ -9328,4 +9356,506 @@ test('regression: OPEN-5 capability with required_for_optimal: false yields ACTI
   assert.throws(() => {
     validatePlatformSemantics(invalidOptimalHandshake, pcnSchemaId);
   }, /Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability/);
+});
+
+test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and descriptors returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_PAYLOAD_HIDDEN_LENGTH');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Proxy hiding content_length: 5368709121 from ownKeys, has, and getOwnPropertyDescriptor passed to dispatchS3PutObject
+  const hiddenLengthPutProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'x-amz-content-sha256'];
+    },
+    has(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return false;
+      }
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return undefined;
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const putRes = dispatchS3PutObject(hiddenLengthPutProxy);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'EntityTooLarge');
+  assert.equal(putRes.code, 'EntityTooLarge');
+  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 2. Proxy hiding content_length: 5368709121 from ownKeys, has, and getOwnPropertyDescriptor passed to dispatchS3Error
+  const hiddenLengthErrProxy = new Proxy({
+    payloadBytes: payload,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes'];
+    },
+    has(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return false;
+      }
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length' || prop === 'contentLength' || prop === 'size_bytes' || prop === 'size') {
+        return undefined;
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const errRes = dispatchS3Error(hiddenLengthErrProxy);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'EntityTooLarge');
+  assert.equal(errRes.code, 'EntityTooLarge');
+  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 3. Proxy with headers hiding content-length: 5368709121 from ownKeys, has, and descriptors
+  const hiddenHeaderProxy = new Proxy({
+    payloadBytes: payload,
+    headers: new Proxy({
+      'x-amz-content-sha256': validSha,
+      'content-length': '5368709121',
+    }, {
+      ownKeys() {
+        return ['x-amz-content-sha256'];
+      },
+      has(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') return false;
+        return Reflect.has(target, prop);
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') return undefined;
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+      get(target, prop) {
+        return Reflect.get(target, prop);
+      },
+    }),
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'headers'];
+    },
+    has(target, prop) {
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const putHeaderRes = dispatchS3PutObject(hiddenHeaderProxy);
+  assert.equal(putHeaderRes.http_status, 400);
+  assert.equal(putHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(putHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const errHeaderRes = dispatchS3Error(hiddenHeaderProxy);
+  assert.equal(errHeaderRes.http_status, 400);
+  assert.equal(errHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(errHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+});
+
+test('regression: Proxy hiding parts from ownKeys returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) in dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Manifest Proxy where parts is hidden from ownKeys
+  const hiddenPartsManifest = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys() {
+      // Omit 'parts' from ownKeys
+      return ['total_parts', 'total_size_bytes'];
+    },
+    has(target, prop) {
+      return Reflect.has(target, prop);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  // dispatchS3CompleteMultipartUpload returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+  const completeRes = dispatchS3CompleteMultipartUpload(hiddenPartsManifest, validStoredParts);
+  assert.equal(completeRes.http_status, 400);
+  assert.equal(completeRes.error_code, 'InvalidPart');
+  assert.equal(completeRes.code, 'InvalidPart');
+  assert.equal(completeRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // validateS3MultipartSemantics throws InvalidPart error
+  assert.throws(
+    () => validateS3MultipartSemantics(hiddenPartsManifest),
+    /InvalidPart/i
+  );
+
+  // 2. Options wrapper containing hidden-parts Proxy as manifest
+  const hiddenWrapperOptions = {
+    manifest: hiddenPartsManifest,
+    storedParts: validStoredParts,
+  };
+  const wrapperRes = dispatchS3CompleteMultipartUpload(hiddenWrapperOptions);
+  assert.equal(wrapperRes.http_status, 400);
+  assert.equal(wrapperRes.error_code, 'InvalidPart');
+  assert.equal(wrapperRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+});
+
+test('regression: path_formatting validation on $defs.storageConformanceProfile (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const profileDefId = `${s3SchemaId}#/$defs/storageConformanceProfile`;
+
+  const baseProfile = {
+    provider_identifier: 'minio-enterprise-s3',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+    object_lock_supported: true,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [
+      'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+      'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'CreateMultipartUpload',
+      'UploadPart', 'CompleteMultipartUpload', 'AbortMultipartUpload',
+      'ListParts', 'PutBucketVersioning', 'GetBucketVersioning',
+      'PutObjectRetention', 'GetObjectRetention', 'PutObjectLegalHold',
+      'GetObjectLegalHold',
+    ],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [
+      'BadDigest', 'InvalidDigest', 'NoSuchBucket', 'NoSuchKey', 'NoSuchUpload',
+      'ObjectLockConfigurationNotFoundError', 'PreconditionFailed', 'AccessDenied',
+      'EntityTooLarge', 'EntityTooSmall', 'InvalidArgument', 'InvalidPart',
+      'InvalidPartOrder',
+    ],
+  };
+
+  // 1. Profile with valid path_formatting passes $defs.storageConformanceProfile validation
+  const validProfileWithPathFormatting = {
+    ...JSON.parse(JSON.stringify(baseProfile)),
+    path_formatting: {
+      addressing_style: 'path_style',
+      bucket_pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$',
+      key_pattern: '^(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$',
+      sample_bucket: 'cybrik-audit-bucket-01',
+      sample_key: 'logs/2026/08/audit-trail.json',
+      sample_path_style_url: 'https://s3.local.invalid/cybrik-audit-bucket-01/logs/2026/08/audit-trail.json',
+    },
+  };
+  const validSchema = ajv.validate(profileDefId, validProfileWithPathFormatting);
+  assert.ok(validSchema, `Profile with valid path_formatting must pass $defs.storageConformanceProfile: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(validProfileWithPathFormatting));
+
+  // 2. Profile with invalid addressing_style in path_formatting fails $defs.storageConformanceProfile validation
+  const invalidAddressingProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  invalidAddressingProfile.path_formatting.addressing_style = 'virtual_hosted';
+  const invalidAddressingSchema = ajv.validate(profileDefId, invalidAddressingProfile);
+  assert.equal(invalidAddressingSchema, false, 'Invalid addressing_style in path_formatting must fail $defs.storageConformanceProfile');
+
+  // 3. Profile with dot-segment in sample_key fails $defs.storageConformanceProfile validation
+  const dotSegmentKeyProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  dotSegmentKeyProfile.path_formatting.sample_key = 'logs/../secret.json';
+  const dotKeySchema = ajv.validate(profileDefId, dotSegmentKeyProfile);
+  assert.equal(dotKeySchema, false, 'Dot-segment in sample_key must fail $defs.storageConformanceProfile');
+
+  // 4. Profile with invalid sample_bucket (uppercase) fails $defs.storageConformanceProfile validation
+  const badBucketProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  badBucketProfile.path_formatting.sample_bucket = 'INVALID_UPPERCASE_BUCKET';
+  const badBucketSchema = ajv.validate(profileDefId, badBucketProfile);
+  assert.equal(badBucketSchema, false, 'Uppercase sample_bucket must fail $defs.storageConformanceProfile');
+
+  // 5. Profile with invalid sample_path_style_url fails $defs.storageConformanceProfile validation
+  const badUrlProfile = JSON.parse(JSON.stringify(validProfileWithPathFormatting));
+  badUrlProfile.path_formatting.sample_path_style_url = 'not-a-valid-url';
+  const badUrlSchema = ajv.validate(profileDefId, badUrlProfile);
+  assert.equal(badUrlSchema, false, 'Malformed sample_path_style_url must fail $defs.storageConformanceProfile');
+
+  // 6. Profile without path_formatting passes $defs.storageConformanceProfile (optional property)
+  const noPathFormattingProfile = JSON.parse(JSON.stringify(baseProfile));
+  const validNoPathSchema = ajv.validate(profileDefId, noPathFormattingProfile);
+  assert.ok(validNoPathSchema, `Profile without path_formatting must pass $defs.storageConformanceProfile: ${ajv.errorsText()}`);
+});
+
+test('regression: required_for_optimal omission and degraded-by-omission lease validation (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  assert.ok(existsSync(samplePath), `Sample capability handshake missing: ${samplePath}`);
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Degraded-by-omission in semantic validator:
+  // capability with required_for_optimal: true is omitted from negotiated_optional_capabilities
+  // in an ACTIVE_DEGRADED lease where remaining capability is GRANTED_FULL with fallback NONE
+  const degradedByOmissionHandshake = JSON.parse(JSON.stringify(sample));
+  degradedByOmissionHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedByOmissionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedByOmissionHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  // Omit ai_tensor_acceleration (required_for_optimal: true), grant storage_object_lock in full
+  degradedByOmissionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  // Must pass validatePlatformSemantics (valid degraded-by-omission lease)
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(degradedByOmissionHandshake, pcnSchemaId);
+  }, 'Degraded-by-omission lease must pass validatePlatformSemantics');
+
+  // 2. Degraded-by-fallback: capability with required_for_optimal: true is degraded with fallback applied
+  const degradedByFallbackHandshake = JSON.parse(JSON.stringify(sample));
+  degradedByFallbackHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedByFallbackHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedByFallbackHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+  ];
+  degradedByFallbackHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_DEGRADED',
+      active_mode: 'cpu_quantized_emulation',
+      fallback_applied: 'CORE_EMULATION_FALLBACK',
+      notes: 'Inference latency scaled due to fallback',
+    },
+  ];
+  const validDegradedSchema = ajv.validate(pcnSchemaId, degradedByFallbackHandshake);
+  assert.ok(validDegradedSchema, `ACTIVE_DEGRADED handshake with degraded capability must pass schema: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(degradedByFallbackHandshake, pcnSchemaId);
+  });
+
+  // 3. Negative: ACTIVE_OPTIMAL lease omitting a capability with required_for_optimal: true fails semantic validation
+  const invalidOptimalOmissionHandshake = JSON.parse(JSON.stringify(degradedByOmissionHandshake));
+  invalidOptimalOmissionHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  invalidOptimalOmissionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+
+  assert.throws(() => {
+    validatePlatformSemantics(invalidOptimalOmissionHandshake, pcnSchemaId);
+  }, /Semantic error: requested optional capability 'ai_tensor_acceleration' .* is required for optimal operation but is not resolved in agreed_capability_lease/);
+
+  // 4. Negative: ACTIVE_DEGRADED lease with all requested capabilities granted full and NONE omitted fails semantic validation
+  const invalidDegradedFullHandshake = JSON.parse(JSON.stringify(sample));
+  invalidDegradedFullHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  invalidDegradedFullHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  invalidDegradedFullHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  invalidDegradedFullHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  assert.throws(() => {
+    validatePlatformSemantics(invalidDegradedFullHandshake, pcnSchemaId);
+  }, /Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback or omit a capability with required_for_optimal: true/);
+
+  // 5. Positive: ACTIVE_OPTIMAL lease omitting a capability with required_for_optimal: false passes
+  const validOptimalOmissionNonOptHandshake = JSON.parse(JSON.stringify(sample));
+  validOptimalOmissionNonOptHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  validOptimalOmissionNonOptHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  validOptimalOmissionNonOptHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  validOptimalOmissionNonOptHandshake.agreed_capability_lease.negotiated_optional_capabilities = [];
+
+  const validOptNonOptSchema = ajv.validate(pcnSchemaId, validOptimalOmissionNonOptHandshake);
+  assert.ok(validOptNonOptSchema, `ACTIVE_OPTIMAL lease omitting required_for_optimal: false capability must pass schema: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(validOptimalOmissionNonOptHandshake, pcnSchemaId);
+  }, 'ACTIVE_OPTIMAL lease omitting required_for_optimal: false capability must pass platform semantics');
+});
+
+test('unit regression: adversarial Proxy variations and branch coverage for hasOversizedDeclaredLength and hasOwnAccessors (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_BRANCH_COVERAGE');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Root proxy with hidden BigInt content_length: 5368709121n
+  const hiddenBigIntProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121n,
+  }, {
+    ownKeys() { return ['payloadBytes', 'x-amz-content-sha256']; },
+    getOwnPropertyDescriptor() { return undefined; },
+    get(target, prop) { return target[prop]; },
+  });
+  assert.equal(dispatchS3PutObject(hiddenBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenBigIntProxy).http_status, 400);
+
+  // 2. Root proxy with hidden string content_length: '5368709121'
+  const hiddenStrProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: '5368709121',
+  }, {
+    ownKeys() { return ['payloadBytes', 'x-amz-content-sha256']; },
+    getOwnPropertyDescriptor() { return undefined; },
+    get(target, prop) { return target[prop]; },
+  });
+  assert.equal(dispatchS3PutObject(hiddenStrProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenStrProxy).http_status, 400);
+
+  // 3. Headers proxy with hidden BigInt content-length: 5368709121n
+  const hiddenHeaderBigIntProxy = {
+    payloadBytes: payload,
+    headers: new Proxy({
+      'content-length': 5368709121n,
+    }, {
+      ownKeys() { return []; },
+      getOwnPropertyDescriptor() { return undefined; },
+      get(target, prop) { return target[prop]; },
+    }),
+  };
+  assert.equal(dispatchS3PutObject(hiddenHeaderBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenHeaderBigIntProxy).http_status, 400);
+
+  // 4. Headers proxy with hidden string content-length: '5368709121'
+  const hiddenHeaderStrProxy = {
+    payloadBytes: payload,
+    headers: new Proxy({
+      'content-length': '5368709121',
+    }, {
+      ownKeys() { return []; },
+      getOwnPropertyDescriptor() { return undefined; },
+      get(target, prop) { return target[prop]; },
+    }),
+  };
+  assert.equal(dispatchS3PutObject(hiddenHeaderStrProxy).http_status, 400);
+  assert.equal(dispatchS3Error(hiddenHeaderStrProxy).http_status, 400);
+
+  // 5. Proxy where getOwnPropertyDescriptor throws on probe keys in hasOwnAccessors
+  const throwingDescProxy = new Proxy({}, {
+    ownKeys() { return []; },
+    getOwnPropertyDescriptor(t, prop) {
+      if (prop === 'payload' || prop === 'payloadBytes') {
+        throw new Error('descriptor error');
+      }
+      return undefined;
+    },
+  });
+  assert.equal(hasOwnAccessors(throwingDescProxy), true);
+
+  // 6. Object where property read throws in getOwn
+  const throwingPropObj = {};
+  Object.defineProperty(throwingPropObj, 'testProp', {
+    configurable: true,
+    enumerable: true,
+    get() { throw new Error('getter throw'); },
+  });
+  assert.equal(getOwn(throwingPropObj, 'testProp'), undefined);
+
+  // 7. Object where hasOwnAccessors receives primitive or buffer
+  assert.equal(hasOwnAccessors(null), false);
+  assert.equal(hasOwnAccessors(123), false);
+  assert.equal(hasOwnAccessors(Buffer.from('test')), false);
+  assert.equal(hasOwnAccessors(new Uint8Array([1, 2, 3])), false);
+
+  // 8. Proxy where getPrototypeOf throws
+  const throwingProtoProxy = new Proxy({}, {
+    getPrototypeOf() { throw new Error('proto trap throw'); },
+  });
+  assert.equal(isPlainOrNull(throwingProtoProxy), false);
+  assert.equal(hasPrototypeChainAccessor(throwingProtoProxy, 'payload'), true);
+
+  // 9. Proxy where getOwnPropertyDescriptor throws on probe key in hasOwnAccessors
+  const throwingHasOwnProxy = new Proxy({}, {
+    ownKeys() { return []; },
+    getOwnPropertyDescriptor(target, prop) {
+      throw new Error('descriptor throw on probe');
+    },
+  });
+  assert.equal(hasOwnAccessors(throwingHasOwnProxy), true);
+
+  // 10. Object with accessor on S3 probe key
+  const probeAccessorObj = {};
+  Object.defineProperty(probeAccessorObj, 'payload', {
+    configurable: true,
+    enumerable: false,
+    get() { return Buffer.from('x'); },
+  });
+  assert.equal(hasOwnAccessors(probeAccessorObj), true);
+
+  // 11. Proxy with value descriptor where get trap throws in getOwn
+  const throwingGetTrapProxy = new Proxy({ val: 123 }, {
+    getOwnPropertyDescriptor(target, prop) {
+      return { value: 123, writable: true, enumerable: true, configurable: true };
+    },
+    get(target, prop) {
+      throw new Error('get trap throw in getOwn');
+    },
+  });
+  assert.throws(() => getOwn(throwingGetTrapProxy, 'val'), /Property access on 'val' threw or is invalid/);
+
+  // 12. validateIJson on malformed JSON string token
+  assert.throws(() => validateIJson('{ invalid }', 'test'), /Expected/);
 });
