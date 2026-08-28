@@ -427,9 +427,32 @@ export function hasOwnAccessors(obj) {
   return false;
 }
 
+export function hasOwnHeadersAccessors(obj) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  try {
+    const desc = Object.getOwnPropertyDescriptor(obj, 'headers');
+    if (desc) {
+      if (desc.get !== undefined || desc.set !== undefined) {
+        return true;
+      }
+      const val = desc.value;
+      if (val && (typeof val === 'object' || typeof val === 'function') && hasOwnAccessors(val)) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 const isPlainOrNull = (o) => o !== null && typeof o === 'object' && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
 
 export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha256Header) {
+  if (hasOwnHeadersAccessors(optionsOrPayload)) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  }
+
   if (
     optionsOrPayload === undefined ||
     optionsOrPayload === null ||
@@ -446,8 +469,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
     optionsOrPayload instanceof Set ||
     optionsOrPayload instanceof ArrayBuffer ||
     (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
-    hasOwnAccessors(optionsOrPayload) ||
-    (typeof optionsOrPayload === 'object' && hasOwnAccessors(getOwn(optionsOrPayload, 'headers')))
+    hasOwnAccessors(optionsOrPayload)
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -491,7 +513,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
       if (hasOwnAccessors(hdrs)) {
-        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
       for (const k in hdrs) {
         if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
@@ -820,6 +842,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 }
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
+  if (hasOwnHeadersAccessors(conditionOrOptions)) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  }
+
   if (
     conditionOrOptions === undefined ||
     conditionOrOptions === null ||
@@ -836,8 +862,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     conditionOrOptions instanceof Set ||
     conditionOrOptions instanceof ArrayBuffer ||
     (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
-    hasOwnAccessors(conditionOrOptions) ||
-    (typeof conditionOrOptions === 'object' && hasOwnAccessors(getOwn(conditionOrOptions, 'headers')))
+    hasOwnAccessors(conditionOrOptions)
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -958,7 +983,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             error_code: 'InvalidDigest',
             status: 400,
             code: 'InvalidDigest',
-            reason: 'MALFORMED_PAYLOAD_TYPE',
+            reason: 'MALFORMED_HEADER_SYNTAX',
           };
         }
         for (const k in hdrs) {
@@ -3868,14 +3893,22 @@ const s3FlagsValid = ['crud', 'multipart_upload', 'presigning', 'sig_v4', 'path_
 });
 H('34', s3FlagsValid, 'S3 mandatory operations boolean flags must all be const true');
 
-// 35. S3 mandated root and profile WORM support (Finding 3)
-const badObjectLock = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
+// 35. S3 root and profile conditional WORM / Object Lock support (Finding 3 / OPEN-2)
+const valid15OpsProfile = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
+const invalid15OpsWithLockTrue = { ...sampleS3Profile, object_lock_supported: true, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
+const invalid19OpsWithLockFalse = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations };
+const missingObjectLockProfile = { ...sampleS3Profile };
+delete missingObjectLockProfile.object_lock_supported;
 const singleModeProfile = { ...sampleS3Profile, retention_modes_supported: ['COMPLIANCE'] };
 const badLegalHoldProfile = { ...sampleS3Profile, legal_hold_supported: false };
-const s3WormValid = !ajv.validate(S3_PROFILE_DEF_ID, badObjectLock) && ajv.errors.some(e => e.keyword === 'const' && e.instancePath === '/object_lock_supported') &&
+const s3WormValid = ajv.validate(S3_PROFILE_DEF_ID, valid15OpsProfile) &&
+                    ajv.validate(S3_SCHEMA_ID, valid15OpsProfile) &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, invalid15OpsWithLockTrue) && ajv.errors.some(e => e.keyword === 'minItems' && e.instancePath === '/required_operations') &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, invalid19OpsWithLockFalse) && ajv.errors.some(e => e.keyword === 'maxItems' && e.instancePath === '/required_operations') &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, missingObjectLockProfile) && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'object_lock_supported') &&
                     !ajv.validate(S3_PROFILE_DEF_ID, singleModeProfile) && ajv.errors[0].keyword === 'minItems' &&
                     !ajv.validate(S3_PROFILE_DEF_ID, badLegalHoldProfile) && ajv.errors[0].keyword === 'const';
-H('35', s3WormValid, 'S3 schema must mandate root/profile WORM support (object_lock_supported: true, retention_modes_supported: minItems 2, legal_hold_supported: true)');
+H('35', s3WormValid, 'S3 schema must support conditional 15/19-op profiles (object_lock_supported boolean, retention_modes_supported: minItems 2, legal_hold_supported: true)');
 
 // 36. S3 version_id on retention evidence (Finding 3)
 const sampleRetentionRecord = readJson(join(STORAGE_EXAMPLES_DIR, 'positive/s3-object-retention-compliance.json'));
@@ -4087,11 +4120,27 @@ const errGetterRes = dispatchS3Error(getterObj);
 if (putGetterRes.http_status !== 400 || putGetterRes.error_code !== 'InvalidDigest' || putGetterRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
 if (errGetterRes.http_status !== 400 || errGetterRes.error_code !== 'InvalidDigest' || errGetterRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
 
+const headersGetterObj = { get headers() { return { 'x-amz-content-sha256': realSha256 }; }, payload: realPayloadBytes };
+const putHdrGetterRes = dispatchS3PutObject(headersGetterObj);
+const errHdrGetterRes = dispatchS3Error(headersGetterObj);
+if (putHdrGetterRes.http_status !== 400 || putHdrGetterRes.error_code !== 'InvalidDigest' || putHdrGetterRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+if (errHdrGetterRes.http_status !== 400 || errHdrGetterRes.error_code !== 'InvalidDigest' || errHdrGetterRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+
+const headersInnerGetterObj = { headers: { get 'x-amz-content-sha256'() { return realSha256; } }, payload: realPayloadBytes };
+const putHdrInnerGetterRes = dispatchS3PutObject(headersInnerGetterObj);
+const errHdrInnerGetterRes = dispatchS3Error(headersInnerGetterObj);
+if (putHdrInnerGetterRes.http_status !== 400 || putHdrInnerGetterRes.error_code !== 'InvalidDigest' || putHdrInnerGetterRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+if (errHdrInnerGetterRes.http_status !== 400 || errHdrInnerGetterRes.error_code !== 'InvalidDigest' || errHdrInnerGetterRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+
+if (hasOwnHeadersAccessors(headersGetterObj) !== true) typeGatePass = false;
+if (hasOwnHeadersAccessors(headersInnerGetterObj) !== true) typeGatePass = false;
+if (hasOwnHeadersAccessors(getterObj) !== false) typeGatePass = false;
+
 if (getOwn(getterObj, 'payload') !== undefined) typeGatePass = false;
 if (getOwn({ set payload(v) {} }, 'payload') !== undefined) typeGatePass = false;
 if (getOwn({ normal: 42 }, 'normal') !== 42) typeGatePass = false;
 
-H('37f', typeGatePass, 'payload digest calculation and S3 dispatchers must type-gate payload to string/Buffer/Uint8Array, defend against accessors, and fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE / TypeError');
+H('37f', typeGatePass, 'payload digest calculation and S3 dispatchers must type-gate payload to string/Buffer/Uint8Array, defend against accessors, and fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE / MALFORMED_HEADER_SYNTAX / TypeError');
 
 // 37g. cap.supported_features uniqueness enforcement (OPEN-2 / OPEN-5)
 let dupFeaturesCaught = false;

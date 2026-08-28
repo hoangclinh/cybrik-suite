@@ -5041,6 +5041,12 @@ test('in-memory validation: negotiation schema unconditionally enforces 13-slot 
   dataPartial.advertisement_response.claim_type = 'PARTIAL_CAPABILITY_ADVERTISEMENT';
   dataPartial.advertisement_response.advertised_capabilities.pop(); // 12 items
   assert.ok(ajv.validate(schemaId, dataPartial), 'Partial capability advertisement with 12 items should not trigger minItems: 13 schema error');
+
+  // 6. Reject duplicated distinct slots in full profile declaration via 13-slot contains closure
+  const dataDupSlot = JSON.parse(JSON.stringify(sample));
+  dataDupSlot.advertisement_response.advertised_capabilities[1].slot_id = dataDupSlot.advertisement_response.advertised_capabilities[0].slot_id;
+  assert.equal(ajv.validate(schemaId, dataDupSlot), false, 'Should reject duplicated distinct slot in negotiation full profile declaration');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'contains'), 'Should fail distinct 13-slot contains condition in negotiation schema');
 });
 
 test('1-slot FULL_PROFILE_CONFORMANCE_DECLARATION with disposition REJECTED_FAIL_CLOSED is rejected by schema and semantic validation (OPEN-5 / OPEN-2)', () => {
@@ -7259,4 +7265,130 @@ test('regression: standalone S3 conformance profile missing mandatory PutObject 
     () => validatePlatformSemantics(substituteProfile, s3SchemaId),
     /(?:missing mandatory baseline S3 operation 'PutObject'|object_lock_supported === false must not contain Object Lock operation 'PutObjectRetention')/
   );
+});
+
+test('schema-only regression: object_lock_supported: false + 15 operations passes Ajv validation on storage S3 schema (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-storage-s3-subset.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const fifteenOpsProfile = {
+    ...sample,
+    object_lock_supported: false,
+    required_operations: [
+      'PutObject',
+      'GetObject',
+      'HeadObject',
+      'DeleteObject',
+      'DeleteObjects',
+      'ListObjectsV2',
+      'HeadBucket',
+      'CreateBucket',
+      'CreateMultipartUpload',
+      'UploadPart',
+      'CompleteMultipartUpload',
+      'AbortMultipartUpload',
+      'ListParts',
+      'PutBucketVersioning',
+      'GetBucketVersioning',
+    ],
+  };
+
+  // Positive: 15-op profile with object_lock_supported: false passes Ajv schema validation
+  const valid = ajv.validate(s3SchemaId, fifteenOpsProfile);
+  assert.ok(valid, `15-op profile with object_lock_supported: false must pass Ajv validation: ${ajv.errorsText()}`);
+
+  // Negative: 19-op profile with object_lock_supported: false must fail schema validation (requires exactly 15)
+  const invalid19OpsProfile = {
+    ...fifteenOpsProfile,
+    required_operations: sample.required_operations, // 19 ops
+  };
+  const invalidValid = ajv.validate(s3SchemaId, invalid19OpsProfile);
+  assert.equal(invalidValid, false, '19-op profile with object_lock_supported: false must fail schema validation');
+
+  // Negative: 15-op profile with object_lock_supported: true must fail schema validation (requires exactly 19)
+  const invalid15WithLockTrue = {
+    ...fifteenOpsProfile,
+    object_lock_supported: true,
+  };
+  const invalidLockTrue = ajv.validate(s3SchemaId, invalid15WithLockTrue);
+  assert.equal(invalidLockTrue, false, '15-op profile with object_lock_supported: true must fail schema validation');
+});
+
+test('schema-only regression: 13-entry negotiation declaration with missing/duplicate slot fails Ajv validation (OPEN-2 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json');
+  const handshake = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // Positive: canonical handshake with FULL_PROFILE_CONFORMANCE_DECLARATION passes Ajv validation
+  assert.ok(ajv.validate(schemaId, handshake), `Canonical handshake must pass: ${ajv.errorsText()}`);
+
+  // Negative: 13 advertised_capabilities where slot 1 duplicates slot 0 (missing isolation_substrate)
+  const mutated = JSON.parse(JSON.stringify(handshake));
+  assert.equal(mutated.advertisement_response.advertised_capabilities.length, 13);
+  mutated.advertisement_response.advertised_capabilities[1].slot_id =
+    mutated.advertisement_response.advertised_capabilities[0].slot_id;
+
+  const valid = ajv.validate(schemaId, mutated);
+  assert.equal(valid, false, '13-entry negotiation declaration with duplicate slot must fail Ajv validation');
+  const hasContainsError = ajv.errors.some(e => e.keyword === 'contains');
+  assert.ok(hasContainsError, 'Should fail the distinct 13-slot contains condition');
+});
+
+test('unit regression: own headers accessor returns HTTP 400 InvalidDigest MALFORMED_HEADER_SYNTAX (OPEN-2 / OPEN-5)', () => {
+  const validPayload = Buffer.from('CYBRIK_TEST_DATA');
+  const validSha = createHash('sha256').update(validPayload).digest('hex');
+  const validMd5 = createHash('md5').update(validPayload).digest('base64');
+
+  // 1. dispatchS3PutObject with own headers accessor
+  const putWithOwnHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      return { 'x-amz-content-sha256': validSha };
+    },
+  };
+  const putRes = dispatchS3PutObject(putWithOwnHeadersGetter);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.status, 400);
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. dispatchS3PutObject with own throwing headers accessor
+  const putWithThrowingHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      throw new Error('attack own headers');
+    },
+  };
+  const putThrowingRes = dispatchS3PutObject(putWithThrowingHeadersGetter);
+  assert.equal(putThrowingRes.http_status, 400);
+  assert.equal(putThrowingRes.error_code, 'InvalidDigest');
+  assert.equal(putThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. dispatchS3Error with own headers accessor
+  const errWithOwnHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      return { 'content-md5': validMd5 };
+    },
+  };
+  const errRes = dispatchS3Error(errWithOwnHeadersGetter);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.status, 400);
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. dispatchS3Error with own throwing headers accessor
+  const errWithThrowingHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      throw new Error('attack own headers');
+    },
+  };
+  const errThrowingRes = dispatchS3Error(errWithThrowingHeadersGetter);
+  assert.equal(errThrowingRes.http_status, 400);
+  assert.equal(errThrowingRes.error_code, 'InvalidDigest');
+  assert.equal(errThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
 });

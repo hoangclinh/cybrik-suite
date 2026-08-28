@@ -17,6 +17,7 @@ import {
   isMalformedPayloadType,
   getOwn,
   hasOwnAccessors,
+  hasOwnHeadersAccessors,
   verifyDigestErrorDispatch,
   verifyMalformedHeaderDispatch,
   validateS3MultipartSemantics,
@@ -530,18 +531,30 @@ test('mandatory operations boolean flags must all be true', () => {
   }
 });
 
-test('mandate root and profile WORM support (object_lock, retention_modes, legal_hold)', () => {
+test('mandate root and profile conditional WORM / Object Lock support (object_lock, retention_modes, legal_hold)', () => {
   const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
   const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
 
-  // Root and Profile: object_lock_supported must be const true
+  // Root and Profile: 19-operation profile with object_lock_supported: true passes
   assert.ok(ajv.validate(PROFILE_DEF_ID, baseProfile));
   assert.ok(ajv.validate(S3_SCHEMA_ID, baseProfile));
 
-  const badObjectLock = { ...baseProfile, object_lock_supported: false, required_operations: baseProfile.required_operations.slice(0, 15) };
-  assert.ok(!ajv.validate(PROFILE_DEF_ID, badObjectLock));
-  assert.ok(ajv.errors.some(e => e.keyword === 'const' && e.instancePath === '/object_lock_supported'));
+  // Root and Profile: 15-operation profile with object_lock_supported: false passes (OPEN-2)
+  const valid15Profile = { ...baseProfile, object_lock_supported: false, required_operations: baseProfile.required_operations.slice(0, 15) };
+  assert.ok(ajv.validate(PROFILE_DEF_ID, valid15Profile));
+  assert.ok(ajv.validate(S3_SCHEMA_ID, valid15Profile));
 
+  // 15 operations with object_lock_supported: true fails (mandates 19 operations)
+  const bad15LockTrue = { ...baseProfile, object_lock_supported: true, required_operations: baseProfile.required_operations.slice(0, 15) };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, bad15LockTrue));
+  assert.ok(ajv.errors.some(e => e.keyword === 'minItems' && e.instancePath === '/required_operations'));
+
+  // 19 operations with object_lock_supported: false fails (mandates 15 operations)
+  const bad19LockFalse = { ...baseProfile, object_lock_supported: false, required_operations: baseProfile.required_operations };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, bad19LockFalse));
+  assert.ok(ajv.errors.some(e => e.keyword === 'maxItems' && e.instancePath === '/required_operations'));
+
+  // Missing object_lock_supported fails required
   const missingObjectLock = { ...baseProfile };
   delete missingObjectLock.object_lock_supported;
   assert.ok(!ajv.validate(PROFILE_DEF_ID, missingObjectLock));
@@ -5141,6 +5154,14 @@ test('isMalformedPayloadType gating and getOwn accessor defense (OPEN-2 / OPEN-5
   assert.equal(hasOwnAccessors(undefined), false);
   assert.equal(hasOwnAccessors(123), false);
 
+  assert.equal(hasOwnHeadersAccessors(plainObj), false);
+  assert.equal(hasOwnHeadersAccessors(getterObj), false);
+  assert.equal(hasOwnHeadersAccessors({ get headers() { return {}; } }), true);
+  assert.equal(hasOwnHeadersAccessors({ set headers(v) {} }), true);
+  assert.equal(hasOwnHeadersAccessors({ headers: { get foo() { return 1; } } }), true);
+  assert.equal(hasOwnHeadersAccessors(null), false);
+  assert.equal(hasOwnHeadersAccessors(undefined), false);
+
   // 6. Throwing proxy catch branch coverage
   const throwingProxy = new Proxy({}, {
     getOwnPropertyDescriptor() {
@@ -5249,7 +5270,7 @@ test('strict dispatch gating: null/undefined and accessor defense fail closed wi
   const resPutGetterHeaders = dispatchS3PutObject(putGetterHeaders);
   assert.equal(resPutGetterHeaders.http_status, 400);
   assert.equal(resPutGetterHeaders.error_code, 'InvalidDigest');
-  assert.equal(resPutGetterHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(resPutGetterHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 
   const putGetterInsideHeaders = {
     payload: Buffer.from('test'),
@@ -5260,7 +5281,7 @@ test('strict dispatch gating: null/undefined and accessor defense fail closed wi
   const resPutGetterInsideHeaders = dispatchS3PutObject(putGetterInsideHeaders);
   assert.equal(resPutGetterInsideHeaders.http_status, 400);
   assert.equal(resPutGetterInsideHeaders.error_code, 'InvalidDigest');
-  assert.equal(resPutGetterInsideHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(resPutGetterInsideHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 
   // 6. Accessor properties on dispatchS3Error options
   const errGetterPayload = {
@@ -5279,7 +5300,7 @@ test('strict dispatch gating: null/undefined and accessor defense fail closed wi
   const resErrGetterHeaders = dispatchS3Error(errGetterHeaders);
   assert.equal(resErrGetterHeaders.http_status, 400);
   assert.equal(resErrGetterHeaders.error_code, 'InvalidDigest');
-  assert.equal(resErrGetterHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(resErrGetterHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 
   const errGetterInsideHeaders = {
     payload: Buffer.from('test'),
@@ -5290,7 +5311,7 @@ test('strict dispatch gating: null/undefined and accessor defense fail closed wi
   const resErrGetterInsideHeaders = dispatchS3Error(errGetterInsideHeaders);
   assert.equal(resErrGetterInsideHeaders.http_status, 400);
   assert.equal(resErrGetterInsideHeaders.error_code, 'InvalidDigest');
-  assert.equal(resErrGetterInsideHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(resErrGetterInsideHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 });
 
 test('regression: null and undefined dispatch return HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) in dispatchS3PutObject and dispatchS3Error (OPEN-2 / OPEN-5)', () => {
@@ -5757,7 +5778,7 @@ test('regression: options objects with inherited throwing headers getters return
     errMultiRes.reason === 'MALFORMED_HEADER_SYNTAX' || errMultiRes.reason === 'MALFORMED_PAYLOAD_TYPE'
   );
 
-  // 5. Object with own throwing headers getter returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+  // 5. Object with own throwing headers getter returns HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX)
   const ownThrowingHeaders = {
     get headers() {
       throw new Error('attack own headers');
@@ -5766,12 +5787,12 @@ test('regression: options objects with inherited throwing headers getters return
   const putOwnRes = dispatchS3PutObject(ownThrowingHeaders);
   assert.equal(putOwnRes.http_status, 400);
   assert.equal(putOwnRes.error_code, 'InvalidDigest');
-  assert.equal(putOwnRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(putOwnRes.reason, 'MALFORMED_HEADER_SYNTAX');
 
   const errOwnRes = dispatchS3Error(ownThrowingHeaders);
   assert.equal(errOwnRes.http_status, 400);
   assert.equal(errOwnRes.error_code, 'InvalidDigest');
-  assert.equal(errOwnRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(errOwnRes.reason, 'MALFORMED_HEADER_SYNTAX');
 });
 
 test('URL presigning parameter validation and error mapping (OPEN-2)', () => {
@@ -6021,4 +6042,142 @@ test('dispatchS3CompleteMultipartUpload inherited part attributes and accessor b
   const resInhPartSize = dispatchS3CompleteMultipartUpload({ parts: [partInheritedSize], storedParts: { 1: { etag: '"00000000000000000000000000000000"', size_bytes: 5242880 } } });
   assert.equal(resInhPartSize.http_status, 400);
   assert.equal(resInhPartSize.error_code, 'InvalidPart');
+});
+
+test('schema-only regression: object_lock_supported: false + 15 operations passes Ajv validation on storage S3 schema (OPEN-2)', () => {
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const sample = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  const fifteenOpsProfile = {
+    ...sample,
+    object_lock_supported: false,
+    required_operations: [
+      'PutObject',
+      'GetObject',
+      'HeadObject',
+      'DeleteObject',
+      'DeleteObjects',
+      'ListObjectsV2',
+      'HeadBucket',
+      'CreateBucket',
+      'CreateMultipartUpload',
+      'UploadPart',
+      'CompleteMultipartUpload',
+      'AbortMultipartUpload',
+      'ListParts',
+      'PutBucketVersioning',
+      'GetBucketVersioning',
+    ],
+  };
+
+  // Positive: 15-op profile with object_lock_supported: false passes Ajv schema validation on root and profile def
+  const validRoot = ajv.validate(S3_SCHEMA_ID, fifteenOpsProfile);
+  assert.ok(validRoot, `15-op profile with object_lock_supported: false must pass S3_SCHEMA_ID: ${ajv.errorsText()}`);
+
+  const validProfile = ajv.validate(PROFILE_DEF_ID, fifteenOpsProfile);
+  assert.ok(validProfile, `15-op profile with object_lock_supported: false must pass PROFILE_DEF_ID: ${ajv.errorsText()}`);
+
+  // Negative: 19-op profile with object_lock_supported: false must fail schema validation (requires exactly 15)
+  const invalid19OpsProfile = {
+    ...fifteenOpsProfile,
+    required_operations: sample.required_operations, // 19 ops
+  };
+  const invalidRoot = ajv.validate(S3_SCHEMA_ID, invalid19OpsProfile);
+  assert.equal(invalidRoot, false, '19-op profile with object_lock_supported: false must fail schema validation');
+
+  const invalidProfile = ajv.validate(PROFILE_DEF_ID, invalid19OpsProfile);
+  assert.equal(invalidProfile, false, '19-op profile with object_lock_supported: false must fail schema validation');
+
+  // Negative: 15-op profile with object_lock_supported: true must fail schema validation (requires exactly 19)
+  const invalid15WithLockTrue = {
+    ...fifteenOpsProfile,
+    object_lock_supported: true,
+  };
+  assert.equal(ajv.validate(S3_SCHEMA_ID, invalid15WithLockTrue), false, '15-op profile with object_lock_supported: true must fail schema validation');
+  assert.equal(ajv.validate(PROFILE_DEF_ID, invalid15WithLockTrue), false, '15-op profile with object_lock_supported: true must fail schema validation');
+});
+
+test('schema-only regression: 13-entry negotiation declaration with missing/duplicate slot fails Ajv validation (OPEN-2 / OPEN-5)', () => {
+  const NEGOTIATION_SCHEMA_FILE = 'cybrik.provider-capability-negotiation.v1.schema.json';
+  const NEGOTIATION_SCHEMA_PATH = join(JSON_SCHEMA_DIR, NEGOTIATION_SCHEMA_FILE);
+  const negSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  if (!ajv.getSchema(negSchemaId)) {
+    const negDoc = JSON.parse(readFileSync(NEGOTIATION_SCHEMA_PATH, 'utf8'));
+    ajv.addSchema(negDoc, negDoc.$id);
+  }
+
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const handshake = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // Positive: canonical handshake with FULL_PROFILE_CONFORMANCE_DECLARATION passes Ajv validation
+  assert.ok(ajv.validate(negSchemaId, handshake), `Canonical handshake must pass: ${ajv.errorsText()}`);
+
+  // Negative: 13 advertised_capabilities where slot 1 duplicates slot 0 (missing isolation_substrate)
+  const mutated = JSON.parse(JSON.stringify(handshake));
+  assert.equal(mutated.advertisement_response.advertised_capabilities.length, 13);
+  mutated.advertisement_response.advertised_capabilities[1].slot_id =
+    mutated.advertisement_response.advertised_capabilities[0].slot_id;
+
+  const valid = ajv.validate(negSchemaId, mutated);
+  assert.equal(valid, false, '13-entry negotiation declaration with duplicate slot must fail Ajv validation');
+  const hasContainsError = ajv.errors.some(e => e.keyword === 'contains');
+  assert.ok(hasContainsError, 'Should fail the distinct 13-slot contains condition');
+});
+
+test('unit regression: own headers accessor returns HTTP 400 InvalidDigest MALFORMED_HEADER_SYNTAX (OPEN-2 / OPEN-5)', () => {
+  const validPayload = Buffer.from('CYBRIK_TEST_DATA');
+  const validSha = createHash('sha256').update(validPayload).digest('hex');
+  const validMd5 = createHash('md5').update(validPayload).digest('base64');
+
+  // 1. dispatchS3PutObject with own headers accessor
+  const putWithOwnHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      return { 'x-amz-content-sha256': validSha };
+    },
+  };
+  const putRes = dispatchS3PutObject(putWithOwnHeadersGetter);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.status, 400);
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. dispatchS3PutObject with own throwing headers accessor
+  const putWithThrowingHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      throw new Error('attack own headers');
+    },
+  };
+  const putThrowingRes = dispatchS3PutObject(putWithThrowingHeadersGetter);
+  assert.equal(putThrowingRes.http_status, 400);
+  assert.equal(putThrowingRes.error_code, 'InvalidDigest');
+  assert.equal(putThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. dispatchS3Error with own headers accessor
+  const errWithOwnHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      return { 'content-md5': validMd5 };
+    },
+  };
+  const errRes = dispatchS3Error(errWithOwnHeadersGetter);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.status, 400);
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. dispatchS3Error with own throwing headers accessor
+  const errWithThrowingHeadersGetter = {
+    payload: validPayload,
+    get headers() {
+      throw new Error('attack own headers');
+    },
+  };
+  const errThrowingRes = dispatchS3Error(errWithThrowingHeadersGetter);
+  assert.equal(errThrowingRes.http_status, 400);
+  assert.equal(errThrowingRes.error_code, 'InvalidDigest');
+  assert.equal(errThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
 });
