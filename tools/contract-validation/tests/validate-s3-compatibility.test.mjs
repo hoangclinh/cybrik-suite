@@ -44,6 +44,7 @@ import {
   ALL_13_CONFORMANCE_SLOTS,
   createSafePlainSnapshot,
   snapshotOwnDataDescriptors,
+  isPureBufferOrUint8Array,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -12715,8 +12716,8 @@ test('adversarial getter-bearing subclass isolation: zero getter invocations and
   assert.throws(() => verifyPayloadMd5(u8Instance, validMd5), /MALFORMED_PAYLOAD_TYPE/);
   u8Tracker.assertZeroInvocations('verifyPayloadSha256/Md5 GetterUint8Array');
 
-  // 1.8 hasAnyAccessorsOrProxy on GetterUint8Array returns false cleanly without calling getters
-  assert.equal(hasAnyAccessorsOrProxy(u8Instance), false);
+  // 1.8 hasAnyAccessorsOrProxy on GetterUint8Array returns true cleanly without calling getters
+  assert.equal(hasAnyAccessorsOrProxy(u8Instance), true);
   u8Tracker.assertZeroInvocations('hasAnyAccessorsOrProxy GetterUint8Array');
 
   // -------------------------------------------------------------------------
@@ -12794,8 +12795,8 @@ test('adversarial getter-bearing subclass isolation: zero getter invocations and
   assert.throws(() => verifyPayloadMd5(bufInstance, validMd5), /MALFORMED_PAYLOAD_TYPE/);
   bufTracker.assertZeroInvocations('verifyPayloadSha256/Md5 GetterBuffer');
 
-  // 2.7 hasAnyAccessorsOrProxy on GetterBuffer returns false cleanly without calling getters
-  assert.equal(hasAnyAccessorsOrProxy(bufInstance), false);
+  // 2.7 hasAnyAccessorsOrProxy on GetterBuffer returns true cleanly without calling getters
+  assert.equal(hasAnyAccessorsOrProxy(bufInstance), true);
   bufTracker.assertZeroInvocations('hasAnyAccessorsOrProxy GetterBuffer');
 
   // -------------------------------------------------------------------------
@@ -13145,6 +13146,181 @@ test('OPEN-2 regression: unobservable constructor reads, proxy fail-closed, and 
   assert.equal(errProxyErrCond.error_code, 'InvalidDigest');
   assert.equal(errProxyErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
 
+  // 3.1 Zero-getter isolation and subclass checks on nested expected_error / error_condition
+  let putNestedGetterInvoked = 0;
+  const putNestedGetterObj = {
+    get error_condition() {
+      putNestedGetterInvoked++;
+      return 'PAYLOAD_DIGEST_MISMATCH';
+    },
+    error_code: 'BadDigest',
+  };
+  const putGetterExpErrRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    expected_error: putNestedGetterObj,
+  });
+  assert.equal(putGetterExpErrRes.http_status, 400);
+  assert.equal(putGetterExpErrRes.error_code, 'InvalidDigest');
+  assert.equal(putGetterExpErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(putNestedGetterInvoked, 0, 'Zero getter invocations on nested expected_error.error_condition in dispatchS3PutObject');
+
+  let putDirectGetterInvoked = 0;
+  const putDirectGetterReq = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    get error_condition() {
+      putDirectGetterInvoked++;
+      return 'PAYLOAD_DIGEST_MISMATCH';
+    },
+  };
+  const putDirectGetterRes = dispatchS3PutObject(putDirectGetterReq);
+  assert.equal(putDirectGetterRes.http_status, 400);
+  assert.equal(putDirectGetterRes.error_code, 'InvalidDigest');
+  assert.equal(putDirectGetterRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(putDirectGetterInvoked, 0, 'Zero getter invocations on direct req.error_condition in dispatchS3PutObject');
+
+  let errNestedGetterInvoked = 0;
+  const errNestedGetterObj = {
+    get error_condition() {
+      errNestedGetterInvoked++;
+      return 'PAYLOAD_DIGEST_MISMATCH';
+    },
+    error_code: 'BadDigest',
+  };
+  const errGetterExpErrRes = dispatchS3Error({
+    payloadBytes: validPayload,
+    expected_error: errNestedGetterObj,
+  });
+  assert.equal(errGetterExpErrRes.http_status, 400);
+  assert.equal(errGetterExpErrRes.error_code, 'InvalidDigest');
+  assert.equal(errGetterExpErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(errNestedGetterInvoked, 0, 'Zero getter invocations on nested expected_error.error_condition in dispatchS3Error');
+
+  let errDirectGetterInvoked = 0;
+  const errDirectGetterReq = {
+    get error_condition() {
+      errDirectGetterInvoked++;
+      return 'PAYLOAD_DIGEST_MISMATCH';
+    },
+  };
+  const errDirectGetterRes = dispatchS3Error(errDirectGetterReq);
+  assert.equal(errDirectGetterRes.http_status, 400);
+  assert.equal(errDirectGetterRes.error_code, 'InvalidDigest');
+  assert.equal(errDirectGetterRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(errDirectGetterInvoked, 0, 'Zero getter invocations on direct req.error_condition in dispatchS3Error');
+
+  // Subclass checks
+  class CustomErrorCondition extends String {}
+  class CustomExpectedError {
+    constructor() {
+      this.error_code = 'BadDigest';
+      this.error_condition = 'PAYLOAD_DIGEST_MISMATCH';
+    }
+  }
+
+  const putSubclassExpErrRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    expected_error: new CustomExpectedError(),
+  });
+  assert.equal(putSubclassExpErrRes.http_status, 400);
+  assert.equal(putSubclassExpErrRes.error_code, 'InvalidDigest');
+  assert.equal(putSubclassExpErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putSubclassErrCondRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    error_condition: new CustomErrorCondition('PAYLOAD_DIGEST_MISMATCH'),
+  });
+  assert.equal(putSubclassErrCondRes.http_status, 400);
+  assert.equal(putSubclassErrCondRes.error_code, 'InvalidDigest');
+  assert.equal(putSubclassErrCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errSubclassExpErrRes = dispatchS3Error({
+    payloadBytes: validPayload,
+    expected_error: new CustomExpectedError(),
+  });
+  assert.equal(errSubclassExpErrRes.http_status, 400);
+  assert.equal(errSubclassExpErrRes.error_code, 'InvalidDigest');
+  assert.equal(errSubclassExpErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errSubclassErrCondRes = dispatchS3Error({
+    error_condition: new CustomErrorCondition('PAYLOAD_DIGEST_MISMATCH'),
+  });
+  assert.equal(errSubclassErrCondRes.http_status, 400);
+  assert.equal(errSubclassErrCondRes.error_code, 'InvalidDigest');
+  assert.equal(errSubclassErrCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // Nested error_condition Proxy inside expected_error
+  const nestedErrCondProxy = new Proxy({ toString() { return 'PAYLOAD_DIGEST_MISMATCH'; } }, {
+    get() { throw new Error('trap on nested error_condition proxy'); }
+  });
+  const putNestedProxyCondRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    expected_error: { error_code: 'BadDigest', error_condition: nestedErrCondProxy },
+  });
+  assert.equal(putNestedProxyCondRes.http_status, 400);
+  assert.equal(putNestedProxyCondRes.error_code, 'InvalidDigest');
+  assert.equal(putNestedProxyCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNestedProxyCondRes = dispatchS3Error({
+    expected_error: { error_code: 'BadDigest', error_condition: nestedErrCondProxy },
+  });
+  assert.equal(errNestedProxyCondRes.http_status, 400);
+  assert.equal(errNestedProxyCondRes.error_code, 'InvalidDigest');
+  assert.equal(errNestedProxyCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // Object reason / nested reason branches
+  const putObjReasonRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    reason: { not: 'string' },
+  });
+  assert.equal(putObjReasonRes.http_status, 400);
+  assert.equal(putObjReasonRes.error_code, 'InvalidDigest');
+  assert.equal(putObjReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errObjReasonRes = dispatchS3Error({
+    reason: { not: 'string' },
+  });
+  assert.equal(errObjReasonRes.http_status, 400);
+  assert.equal(errObjReasonRes.error_code, 'InvalidDigest');
+  assert.equal(errObjReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putNestedObjReasonRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    expected_error: { error_code: 'BadDigest', reason: { not: 'string' } },
+  });
+  assert.equal(putNestedObjReasonRes.http_status, 400);
+  assert.equal(putNestedObjReasonRes.error_code, 'InvalidDigest');
+  assert.equal(putNestedObjReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNestedObjReasonRes = dispatchS3Error({
+    expected_error: { error_code: 'BadDigest', reason: { not: 'string' } },
+  });
+  assert.equal(errNestedObjReasonRes.http_status, 400);
+  assert.equal(errNestedObjReasonRes.error_code, 'InvalidDigest');
+  assert.equal(errNestedObjReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putNestedGetterReasonRes = dispatchS3PutObject({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    expected_error: { error_code: 'BadDigest', get reason() { throw new Error('trap'); } },
+  });
+  assert.equal(putNestedGetterReasonRes.http_status, 400);
+  assert.equal(putNestedGetterReasonRes.error_code, 'InvalidDigest');
+  assert.equal(putNestedGetterReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNestedGetterReasonRes = dispatchS3Error({
+    expected_error: { error_code: 'BadDigest', get reason() { throw new Error('trap'); } },
+  });
+  assert.equal(errNestedGetterReasonRes.http_status, 400);
+  assert.equal(errNestedGetterReasonRes.error_code, 'InvalidDigest');
+  assert.equal(errNestedGetterReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
   // 4. validateS3MultipartSemantics normalized taxonomy and (InvalidPart) error enforcement
   const validEtag = '"0123456789abcdef0123456789abcdef"';
 
@@ -13422,4 +13598,869 @@ test('adversarial regression: nested proxy in platform digest, offline fingerpri
     () => validatePlatformSemantics(failGenEvidenceHandshake, pcnSchemaId),
     /has non-passing status 'FAIL'/
   );
+});
+
+test('adversarial regression: enforce native typed-array prototypes and harden plain snapshotting (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // 1. hasAnyAccessorsOrProxy exact prototype and proxy checks
+  assert.equal(hasAnyAccessorsOrProxy(Buffer.from('hello')), false);
+  assert.equal(hasAnyAccessorsOrProxy(new Uint8Array([1, 2, 3])), false);
+  assert.equal(hasAnyAccessorsOrProxy(new Proxy(Buffer.from('hello'), {})), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Proxy(new Uint8Array([1, 2, 3]), {})), true);
+
+  class CustomUint8ArraySubclass extends Uint8Array {}
+  assert.equal(hasAnyAccessorsOrProxy(new CustomUint8ArraySubclass(4)), true);
+
+  class CustomBufferSubclass extends Uint8Array {}
+  const fakeBuf = Object.setPrototypeOf(Buffer.from('test'), CustomBufferSubclass.prototype);
+  assert.equal(hasAnyAccessorsOrProxy(fakeBuf), true);
+
+  assert.equal(hasAnyAccessorsOrProxy(new Int8Array(4)), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Uint16Array(4)), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Int32Array(4)), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Float32Array(4)), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Float64Array(4)), true);
+  assert.equal(hasAnyAccessorsOrProxy(new DataView(new ArrayBuffer(8))), true);
+
+  // Own accessor descriptors on Uint8Array / Buffer
+  const u8WithPropGetter = new Uint8Array([1, 2]);
+  Object.defineProperty(u8WithPropGetter, 'customProp', { get() { return 'evil'; } });
+  assert.equal(hasAnyAccessorsOrProxy(u8WithPropGetter), true);
+
+  const u8WithPropSetter = new Uint8Array([1, 2]);
+  Object.defineProperty(u8WithPropSetter, 'customProp', { set(v) {} });
+  assert.equal(hasAnyAccessorsOrProxy(u8WithPropSetter), true);
+
+  const u8WithSymbolGetter = new Uint8Array([1, 2]);
+  Object.defineProperty(u8WithSymbolGetter, Symbol('sym'), { get() { return 'evil'; } });
+  assert.equal(hasAnyAccessorsOrProxy(u8WithSymbolGetter), true);
+
+  // 2. createSafePlainSnapshot copy semantics & fail-closed enforcement
+  const cleanBuf = Buffer.from('payload');
+  const snapCleanBuf = createSafePlainSnapshot(cleanBuf);
+  assert.deepEqual(snapCleanBuf, cleanBuf);
+  assert.notEqual(snapCleanBuf, cleanBuf);
+
+  const cleanU8 = new Uint8Array([4, 5, 6]);
+  const snapCleanU8 = createSafePlainSnapshot(cleanU8);
+  assert.deepEqual(snapCleanU8, cleanU8);
+  assert.notEqual(snapCleanU8, cleanU8);
+
+  const complexDoc = {
+    bufferField: Buffer.from('data'),
+    u8Field: new Uint8Array([1, 2, 3]),
+    nested: {
+      buf: Buffer.from('nested'),
+      arr: [new Uint8Array([7, 8])]
+    }
+  };
+  const snapComplex = createSafePlainSnapshot(complexDoc);
+  assert.deepEqual(snapComplex.bufferField, complexDoc.bufferField);
+  assert.notEqual(snapComplex.bufferField, complexDoc.bufferField);
+  assert.deepEqual(snapComplex.u8Field, complexDoc.u8Field);
+  assert.notEqual(snapComplex.u8Field, complexDoc.u8Field);
+  assert.deepEqual(snapComplex.nested.buf, complexDoc.nested.buf);
+  assert.notEqual(snapComplex.nested.buf, complexDoc.nested.buf);
+  assert.deepEqual(snapComplex.nested.arr[0], complexDoc.nested.arr[0]);
+  assert.notEqual(snapComplex.nested.arr[0], complexDoc.nested.arr[0]);
+
+  assert.throws(
+    () => createSafePlainSnapshot(new CustomUint8ArraySubclass(4)),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot(new Proxy(new Uint8Array([1]), {})),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot(u8WithPropGetter),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot({ nested: new CustomUint8ArraySubclass(4) }),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot([new Proxy(Buffer.from('a'), {})]),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+
+  // 3. validatePlatformSemantics & validateOfflineInstallSemantics fail-closed on typed-array subclass / proxy
+  assert.throws(
+    () => validatePlatformSemantics(new CustomUint8ArraySubclass(4), pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => validatePlatformSemantics(new Proxy(Buffer.from('x'), {}), pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => validateOfflineInstallSemantics(new CustomUint8ArraySubclass(4)),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/
+  );
+  assert.throws(
+    () => validateOfflineInstallSemantics(new Proxy(Buffer.from('x'), {})),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/
+  );
+
+  // Nested typed array subclass / proxy in validatePlatformSemantics and validateOfflineInstallSemantics
+  const sampleDoc = {
+    advertisement_response: {
+      advertised_capabilities: [],
+      conformance_evidence: [],
+      payload: new CustomUint8ArraySubclass(4)
+    }
+  };
+  assert.throws(
+    () => validatePlatformSemantics(sampleDoc, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+
+  const sampleOffline = {
+    schema_version: '0.1.0',
+    package_id: 'pkg-1',
+    package_version: '1.0.0',
+    artifacts: [{ path: 'app.bin', digest: 'a'.repeat(64), payload: new Proxy(new Uint8Array(4), {}) }]
+  };
+  assert.throws(
+    () => validateOfflineInstallSemantics(sampleOffline),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/
+  );
+});
+
+test('adversarial regression: nested expected_error / error_condition getters are never invoked in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+  const validPayload = Buffer.from('CYBRIK_NESTED_ERROR_GETTER_TEST_PAYLOAD_2026');
+  const validSha = computePayloadSha256(validPayload);
+  const validMd5 = computePayloadMd5(validPayload);
+
+  // 1. Throwing getter on expected_error.error_condition
+  let expCondGetterInvoked = false;
+  const expCondThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    expected_error: {
+      get error_condition() {
+        expCondGetterInvoked = true;
+        throw new Error('Explosive expected_error.error_condition getter invoked!');
+      },
+    },
+  };
+
+  // dispatchS3PutObject with throwing expected_error.error_condition
+  const putExpCondRes = dispatchS3PutObject(expCondThrowingObj);
+  assert.equal(putExpCondRes.http_status, 400);
+  assert.equal(putExpCondRes.error_code, 'InvalidDigest');
+  assert.equal(putExpCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expCondGetterInvoked, false, 'expected_error.error_condition getter must NOT be invoked by dispatchS3PutObject');
+
+  // dispatchS3Error with throwing expected_error.error_condition
+  const errExpCondRes = dispatchS3Error(expCondThrowingObj);
+  assert.equal(errExpCondRes.http_status, 400);
+  assert.equal(errExpCondRes.error_code, 'InvalidDigest');
+  assert.equal(errExpCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expCondGetterInvoked, false, 'expected_error.error_condition getter must NOT be invoked by dispatchS3Error');
+
+  // 2. Throwing getter on expected_error.reason
+  let expReasonGetterInvoked = false;
+  const expReasonThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    expected_error: {
+      get reason() {
+        expReasonGetterInvoked = true;
+        throw new Error('Explosive expected_error.reason getter invoked!');
+      },
+    },
+  };
+
+  const putExpReasonRes = dispatchS3PutObject(expReasonThrowingObj);
+  assert.equal(putExpReasonRes.http_status, 400);
+  assert.equal(putExpReasonRes.error_code, 'InvalidDigest');
+  assert.equal(putExpReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expReasonGetterInvoked, false, 'expected_error.reason getter must NOT be invoked by dispatchS3PutObject');
+
+  const errExpReasonRes = dispatchS3Error(expReasonThrowingObj);
+  assert.equal(errExpReasonRes.http_status, 400);
+  assert.equal(errExpReasonRes.error_code, 'InvalidDigest');
+  assert.equal(errExpReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expReasonGetterInvoked, false, 'expected_error.reason getter must NOT be invoked by dispatchS3Error');
+
+  // 3. Throwing getter on expected_error.code
+  let expCodeGetterInvoked = false;
+  const expCodeThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    expected_error: {
+      get code() {
+        expCodeGetterInvoked = true;
+        throw new Error('Explosive expected_error.code getter invoked!');
+      },
+    },
+  };
+
+  const putExpCodeRes = dispatchS3PutObject(expCodeThrowingObj);
+  assert.equal(putExpCodeRes.http_status, 400);
+  assert.equal(putExpCodeRes.error_code, 'InvalidDigest');
+  assert.equal(putExpCodeRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expCodeGetterInvoked, false, 'expected_error.code getter must NOT be invoked by dispatchS3PutObject');
+
+  const errExpCodeRes = dispatchS3Error(expCodeThrowingObj);
+  assert.equal(errExpCodeRes.http_status, 400);
+  assert.equal(errExpCodeRes.error_code, 'InvalidDigest');
+  assert.equal(errExpCodeRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(expCodeGetterInvoked, false, 'expected_error.code getter must NOT be invoked by dispatchS3Error');
+
+  // 4. Throwing getter on direct error_condition
+  let directCondGetterInvoked = false;
+  const directCondThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    get error_condition() {
+      directCondGetterInvoked = true;
+      throw new Error('Explosive direct error_condition getter invoked!');
+    },
+  };
+
+  const putDirectCondRes = dispatchS3PutObject(directCondThrowingObj);
+  assert.equal(putDirectCondRes.http_status, 400);
+  assert.equal(putDirectCondRes.error_code, 'InvalidDigest');
+  assert.equal(putDirectCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(directCondGetterInvoked, false, 'direct error_condition getter must NOT be invoked by dispatchS3PutObject');
+
+  const errDirectCondRes = dispatchS3Error(directCondThrowingObj);
+  assert.equal(errDirectCondRes.http_status, 400);
+  assert.equal(errDirectCondRes.error_code, 'InvalidDigest');
+  assert.equal(errDirectCondRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(directCondGetterInvoked, false, 'direct error_condition getter must NOT be invoked by dispatchS3Error');
+
+  // 5. Throwing getter on direct reason
+  let directReasonGetterInvoked = false;
+  const directReasonThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    get reason() {
+      directReasonGetterInvoked = true;
+      throw new Error('Explosive direct reason getter invoked!');
+    },
+  };
+
+  const putDirectReasonRes = dispatchS3PutObject(directReasonThrowingObj);
+  assert.equal(putDirectReasonRes.http_status, 400);
+  assert.equal(putDirectReasonRes.error_code, 'InvalidDigest');
+  assert.equal(putDirectReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(directReasonGetterInvoked, false, 'direct reason getter must NOT be invoked by dispatchS3PutObject');
+
+  const errDirectReasonRes = dispatchS3Error(directReasonThrowingObj);
+  assert.equal(errDirectReasonRes.http_status, 400);
+  assert.equal(errDirectReasonRes.error_code, 'InvalidDigest');
+  assert.equal(errDirectReasonRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(directReasonGetterInvoked, false, 'direct reason getter must NOT be invoked by dispatchS3Error');
+
+  // 6. Deep nested error condition with nested getters
+  let deepCodeGetterInvoked = false;
+  let deepReasonGetterInvoked = false;
+  const deepThrowingObj = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    contentMd5Header: validMd5,
+    expected_error: {
+      error_condition: {
+        get code() {
+          deepCodeGetterInvoked = true;
+          throw new Error('Explosive deep code getter invoked!');
+        },
+        get reason() {
+          deepReasonGetterInvoked = true;
+          throw new Error('Explosive deep reason getter invoked!');
+        },
+      },
+    },
+  };
+
+  const putDeepRes = dispatchS3PutObject(deepThrowingObj);
+  assert.equal(putDeepRes.http_status, 400);
+  assert.equal(putDeepRes.error_code, 'InvalidDigest');
+  assert.equal(putDeepRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(deepCodeGetterInvoked, false, 'deep code getter must NOT be invoked by dispatchS3PutObject');
+  assert.equal(deepReasonGetterInvoked, false, 'deep reason getter must NOT be invoked by dispatchS3PutObject');
+
+  const errDeepRes = dispatchS3Error(deepThrowingObj);
+  assert.equal(errDeepRes.http_status, 400);
+  assert.equal(errDeepRes.error_code, 'InvalidDigest');
+  assert.equal(errDeepRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(deepCodeGetterInvoked, false, 'deep code getter must NOT be invoked by dispatchS3Error');
+  assert.equal(deepReasonGetterInvoked, false, 'deep reason getter must NOT be invoked by dispatchS3Error');
+});
+
+test('adversarial regression: TypedArray and Buffer subclasses fail closed terminally across createSafePlainSnapshot, validatePlatformSemantics, and validateOfflineInstallSemantics (OPEN-2 / OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // Define TypedArray and Buffer subclasses
+  class CustomUint8ArraySubclass extends Uint8Array {}
+  class CustomBufferSubclass extends Uint8Array {}
+  Object.setPrototypeOf(CustomBufferSubclass.prototype, Buffer.prototype);
+  class CustomFloat64ArraySubclass extends Float64Array {}
+  class CustomInt32ArraySubclass extends Int32Array {}
+
+  const u8SubInstance = new CustomUint8ArraySubclass(Buffer.from('CYBRIK_SUBCLASS_PAYLOAD_2026'));
+  const bufSubInstance = Object.setPrototypeOf(Buffer.from('CYBRIK_BUFFER_SUBCLASS_PAYLOAD_2026'), CustomBufferSubclass.prototype);
+  const f64SubInstance = new CustomFloat64ArraySubclass(8);
+  const i32SubInstance = new CustomInt32ArraySubclass(8);
+
+  const testSubclasses = [
+    { name: 'CustomUint8ArraySubclass', instance: u8SubInstance },
+    { name: 'CustomBufferSubclass', instance: bufSubInstance },
+    { name: 'CustomFloat64ArraySubclass', instance: f64SubInstance },
+    { name: 'CustomInt32ArraySubclass', instance: i32SubInstance },
+  ];
+
+  for (const { name, instance } of testSubclasses) {
+    // 1. Direct subclass passed to createSafePlainSnapshot throws Semantic error
+    assert.throws(
+      () => createSafePlainSnapshot(instance),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+      `createSafePlainSnapshot must throw on direct ${name}`
+    );
+
+    // 2. Nested subclass inside plain object passed to createSafePlainSnapshot throws
+    assert.throws(
+      () => createSafePlainSnapshot({ nested_payload: instance }),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+      `createSafePlainSnapshot must throw on nested ${name}`
+    );
+
+    // 3. Nested subclass inside array passed to createSafePlainSnapshot throws
+    assert.throws(
+      () => createSafePlainSnapshot([1, 2, instance]),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+      `createSafePlainSnapshot must throw on array item ${name}`
+    );
+
+    // 4. Direct subclass passed to validatePlatformSemantics throws
+    assert.throws(
+      () => validatePlatformSemantics(instance, pcnSchemaId),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+      `validatePlatformSemantics must throw on direct ${name}`
+    );
+
+    // 5. Direct subclass passed to validateOfflineInstallSemantics throws
+    assert.throws(
+      () => validateOfflineInstallSemantics(instance),
+      /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/,
+      `validateOfflineInstallSemantics must throw on direct ${name}`
+    );
+  }
+
+  // 6. Platform contract handshake with nested TypedArray / Buffer subclass in payload fails closed
+  const validHandshake = {
+    advertisement_response: {
+      protocol_version: '0.1.0',
+      advertised_capabilities: [
+        {
+          slot_id: 'storage',
+          capability_name: 'storage_object_lock',
+          conformance_profile: 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json#/$defs/storageConformanceProfile',
+          target_profile_digest: 'a'.repeat(64),
+          evidence_references: [
+            'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations',
+            'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+          ],
+        },
+      ],
+      conformance_evidence: [
+        {
+          test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations',
+          status: 'PASS',
+          evidence_hash: 'a'.repeat(64),
+          version_id: 'v1.0.0',
+        },
+        {
+          test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+          status: 'PASS',
+          evidence_hash: 'b'.repeat(64),
+          version_id: 'v1.0.0',
+        },
+      ],
+    },
+  };
+
+  const handshakeWithSubclass = JSON.parse(JSON.stringify(validHandshake));
+  handshakeWithSubclass.advertisement_response.raw_bytes = u8SubInstance;
+
+  assert.throws(
+    () => validatePlatformSemantics(handshakeWithSubclass, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject handshake with nested Uint8Array subclass'
+  );
+
+  const handshakeWithBufSubclass = JSON.parse(JSON.stringify(validHandshake));
+  handshakeWithBufSubclass.advertisement_response.raw_bytes = bufSubInstance;
+
+  assert.throws(
+    () => validatePlatformSemantics(handshakeWithBufSubclass, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject handshake with nested Buffer subclass'
+  );
+
+  // 7. Offline install manifest with nested TypedArray / Buffer subclass in payload fails closed
+  const validOfflineManifest = {
+    manifest_version: '0.1.0',
+    package_name: 'cybrik-core-platform',
+    package_version: '1.0.0',
+    artifacts: [
+      {
+        path: 'bin/cybrik-engine',
+        sha256: 'a'.repeat(64),
+        size_bytes: 1048576,
+      },
+    ],
+    operator_trust_root: {
+      key_id: 'op-key-001',
+      public_key_fingerprint: 'fp-sha256-abcdef0123456789',
+    },
+    detached_signature: {
+      signature_algorithm: 'ed25519',
+      key_fingerprint: 'fp-sha256-abcdef0123456789',
+      signature_bytes_base64: Buffer.from('sig').toString('base64'),
+    },
+  };
+
+  const offlineWithSubclass = JSON.parse(JSON.stringify(validOfflineManifest));
+  offlineWithSubclass.custom_data = u8SubInstance;
+
+  assert.throws(
+    () => validateOfflineInstallSemantics(offlineWithSubclass),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/,
+    'validateOfflineInstallSemantics must reject offline manifest with nested Uint8Array subclass'
+  );
+
+  const offlineWithBufSubclass = JSON.parse(JSON.stringify(validOfflineManifest));
+  offlineWithBufSubclass.custom_data = bufSubInstance;
+
+  assert.throws(
+    () => validateOfflineInstallSemantics(offlineWithBufSubclass),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/,
+    'validateOfflineInstallSemantics must reject offline manifest with nested Buffer subclass'
+  );
+});
+
+test('adversarial regression: pure native Uint8Array / Buffer safely cloned in createSafePlainSnapshot without throwing, while subclasses fail closed (OPEN-2 / OPEN-5)', () => {
+  // 1. Pure native Buffer safely cloned and preserved in createSafePlainSnapshot
+  const pureBuf = Buffer.from('CYBRIK_PURE_NATIVE_BUFFER_DATA_2026');
+  const snapPureBuf = createSafePlainSnapshot(pureBuf);
+  assert.deepEqual(snapPureBuf, pureBuf);
+  assert.equal(isPureBufferOrUint8Array(pureBuf), true);
+
+  const objWithBuf = {
+    bufferField: Buffer.from('payload_bytes'),
+    nested: {
+      innerBuffer: Buffer.from('inner_bytes'),
+    },
+    list: [Buffer.from('item_0'), Buffer.from('item_1')],
+  };
+  const snapObjWithBuf = createSafePlainSnapshot(objWithBuf);
+  assert.deepEqual(snapObjWithBuf.bufferField, objWithBuf.bufferField);
+  assert.deepEqual(snapObjWithBuf.nested.innerBuffer, objWithBuf.nested.innerBuffer);
+  assert.deepEqual(snapObjWithBuf.list[0], objWithBuf.list[0]);
+  assert.deepEqual(snapObjWithBuf.list[1], objWithBuf.list[1]);
+
+  // 2. Pure native Uint8Array safely cloned and preserved in createSafePlainSnapshot
+  const pureU8 = new Uint8Array([10, 20, 30, 40, 50]);
+  const snapPureU8 = createSafePlainSnapshot(pureU8);
+  assert.deepEqual(snapPureU8, pureU8);
+  assert.equal(isPureBufferOrUint8Array(pureU8), true);
+
+  const objWithU8 = {
+    u8Field: new Uint8Array([1, 2, 3]),
+    nested: {
+      innerU8: new Uint8Array([4, 5, 6]),
+    },
+    list: [new Uint8Array([7]), new Uint8Array([8, 9])],
+  };
+  const snapObjWithU8 = createSafePlainSnapshot(objWithU8);
+  assert.deepEqual(snapObjWithU8.u8Field, objWithU8.u8Field);
+  assert.deepEqual(snapObjWithU8.nested.innerU8, objWithU8.nested.innerU8);
+  assert.deepEqual(snapObjWithU8.list[0], objWithU8.list[0]);
+  assert.deepEqual(snapObjWithU8.list[1], objWithU8.list[1]);
+
+  // 3. Subclasses of Uint8Array fail closed terminally in createSafePlainSnapshot
+  class SubUint8Array extends Uint8Array {}
+  const subU8 = new SubUint8Array([1, 2, 3]);
+  assert.equal(isPureBufferOrUint8Array(subU8), false);
+  assert.throws(
+    () => createSafePlainSnapshot(subU8),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot({ payload: subU8 }),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot([subU8]),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot({ nested: { items: [subU8] } }),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+
+  // 4. Subclasses of Buffer fail closed terminally in createSafePlainSnapshot
+  class SubBuffer extends Buffer {}
+  const subBuf = Object.setPrototypeOf(Buffer.from('sub_buffer_payload'), SubBuffer.prototype);
+  assert.equal(isPureBufferOrUint8Array(subBuf), false);
+  assert.throws(
+    () => createSafePlainSnapshot(subBuf),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot({ payload: subBuf }),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.throws(
+    () => createSafePlainSnapshot([subBuf]),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+
+  // 5. Getter-bearing subclasses fail closed without invoking getters
+  let evilU8GetterCalled = false;
+  class EvilUint8Array extends Uint8Array {
+    get evilProperty() {
+      evilU8GetterCalled = true;
+      return 42;
+    }
+  }
+  const evilU8 = new EvilUint8Array([100]);
+  assert.throws(
+    () => createSafePlainSnapshot(evilU8),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.equal(evilU8GetterCalled, false, 'Evil Uint8Array getter must not be invoked');
+  assert.throws(
+    () => createSafePlainSnapshot({ bad: evilU8 }),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.equal(evilU8GetterCalled, false, 'Evil Uint8Array getter must not be invoked on nested object');
+
+  // 6. Non-Uint8Array TypedArrays, DataViews, and ArrayBuffers fail closed
+  const views = [
+    new Uint16Array([1, 2]),
+    new Int8Array([1, 2]),
+    new Int16Array([1, 2]),
+    new Int32Array([1, 2]),
+    new Uint32Array([1, 2]),
+    new Float32Array([1.0]),
+    new Float64Array([1.0]),
+    new BigInt64Array([1n]),
+    new BigUint64Array([1n]),
+    new DataView(new ArrayBuffer(8)),
+  ];
+  for (const view of views) {
+    assert.equal(isPureBufferOrUint8Array(view), false);
+    assert.throws(
+      () => createSafePlainSnapshot(view),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+    );
+    assert.throws(
+      () => createSafePlainSnapshot({ viewField: view }),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+    );
+    assert.throws(
+      () => createSafePlainSnapshot([view]),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+    );
+  }
+
+  // 7. isPureBufferOrUint8Array comprehensive edge cases
+  assert.equal(isPureBufferOrUint8Array(null), false);
+  assert.equal(isPureBufferOrUint8Array(undefined), false);
+  assert.equal(isPureBufferOrUint8Array(123), false);
+  assert.equal(isPureBufferOrUint8Array('string'), false);
+  assert.equal(isPureBufferOrUint8Array(true), false);
+  assert.equal(isPureBufferOrUint8Array(Symbol('sym')), false);
+  assert.equal(isPureBufferOrUint8Array({}), false);
+  assert.equal(isPureBufferOrUint8Array([]), false);
+  assert.equal(isPureBufferOrUint8Array(new Proxy(Buffer.from('proxy'), {})), false);
+  assert.equal(isPureBufferOrUint8Array(new Proxy(new Uint8Array([1]), {})), false);
+});
+
+test('adversarial regression: comprehensive edge cases across dispatchS3PutObject, dispatchS3Error, validatePlatformSemantics, validateOfflineInstallSemantics (OPEN-2 / OPEN-5)', () => {
+  const payloadStr = 'CYBRIK_COMPREHENSIVE_EDGE_CASES_2026';
+  const payloadBuf = Buffer.from(payloadStr);
+  const payloadU8 = new Uint8Array(payloadBuf);
+  const validSha = computePayloadSha256(payloadBuf);
+  const validMd5 = computePayloadMd5(payloadBuf);
+
+  // -------------------------------------------------------------------------
+  // 1. dispatchS3PutObject comprehensive edge cases
+  // -------------------------------------------------------------------------
+  // Throwing getters on probe keys fail closed to InvalidDigest
+  const throwingPutKeys = [
+    'content_length', 'contentLength', 'content_length_bytes', 'size_bytes', 'size',
+    'Content-Length', 'content-length', 'payload', 'payloadBytes', 'body', 'headers',
+    'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5', 'content_md5',
+    'content_md5_declared', 'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header',
+    'content_sha256_header', 'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256',
+    'sha256Header', 'allow_unsigned_payload', 'is_presigned'
+  ];
+  for (const key of throwingPutKeys) {
+    const badObj = {};
+    Object.defineProperty(badObj, key, {
+      get() { throw new Error(`Trapped getter for ${key}`); },
+      configurable: true,
+      enumerable: true
+    });
+    const res = dispatchS3PutObject(badObj);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidDigest');
+    assert.ok(res.reason === 'MALFORMED_PAYLOAD_TYPE' || res.reason === 'MALFORMED_HEADER_SYNTAX');
+  }
+
+  // Headers with inherited properties fail closed to MALFORMED_HEADER_SYNTAX
+  const protoHeaders = Object.create({ 'x-amz-inherited': 'value' });
+  const putProtoHeadersRes = dispatchS3PutObject({
+    payload: payloadStr,
+    headers: protoHeaders,
+    'x-amz-content-sha256': validSha
+  });
+  assert.equal(putProtoHeadersRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Headers descriptor with getter or nested object fails closed to MALFORMED_HEADER_SYNTAX
+  const descHeaderObj = { headers: {} };
+  Object.defineProperty(descHeaderObj.headers, 'custom-header', {
+    get() { return 'evil'; },
+    configurable: true,
+    enumerable: true
+  });
+  const resDescHdr = dispatchS3PutObject(descHeaderObj);
+  assert.equal(resDescHdr.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const nestedHeaderObj = { headers: { 'custom': { nested: true } }, payload: payloadStr, 'x-amz-content-sha256': validSha };
+  const resNestedHdr = dispatchS3PutObject(nestedHeaderObj);
+  assert.equal(resNestedHdr.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Headers with declared length exceeding 5GiB limit fail closed to EntityTooLarge
+  const oversizedHeaderRes = dispatchS3PutObject({
+    payload: payloadStr,
+    headers: { 'Content-Length': '5368709121' },
+    'x-amz-content-sha256': validSha
+  });
+  assert.equal(oversizedHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(oversizedHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // Request with inherited digest keys fails closed to MALFORMED_HEADER_SYNTAX
+  for (const k of ['contentMd5Header', 'contentMd5', 'x-amz-content-sha256', 'sha256Header']) {
+    const protoReq = Object.create({ [k]: 'inherited' });
+    protoReq.payload = payloadStr;
+    const resInherited = dispatchS3PutObject(protoReq);
+    assert.equal(resInherited.http_status, 400);
+    assert.equal(resInherited.error_code, 'InvalidDigest');
+    assert.ok(resInherited.reason === 'MALFORMED_HEADER_SYNTAX' || resInherited.reason === 'MALFORMED_PAYLOAD_TYPE');
+  }
+
+  // expected_error containing Proxy or accessors fails closed to MALFORMED_PAYLOAD_TYPE
+  const resExpProxy = dispatchS3PutObject({
+    payload: payloadStr,
+    expected_error: new Proxy({}, {})
+  });
+  assert.equal(resExpProxy.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // content_md5_declared vs content_md5_computed mismatch fails closed to BadDigest
+  const otherValidMd5 = computePayloadMd5(Buffer.from('other_payload'));
+  const resMd5Mismatch = dispatchS3PutObject({
+    payload: payloadStr,
+    content_md5_declared: validMd5,
+    content_md5_computed: otherValidMd5,
+    'x-amz-content-sha256': validSha
+  });
+  assert.equal(resMd5Mismatch.error_code, 'BadDigest');
+  assert.equal(resMd5Mismatch.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // Missing required payload in dispatchS3PutObject fails closed to MISSING_PAYLOAD
+  const missingPayloadRes = dispatchS3PutObject({});
+  assert.equal(missingPayloadRes.http_status, 400);
+  assert.equal(missingPayloadRes.error_code, 'InvalidDigest');
+  assert.equal(missingPayloadRes.reason, 'MISSING_PAYLOAD');
+
+  // Missing SHA-256 header in dispatchS3PutObject fails closed to MissingXAmzContentSHA256
+  const missingShaRes = dispatchS3PutObject({ payload: payloadStr });
+  assert.equal(missingShaRes.http_status, 400);
+  assert.equal(missingShaRes.error_code, 'InvalidDigest');
+  assert.equal(missingShaRes.reason, 'MissingXAmzContentSHA256');
+
+  // Unsigned payload without allow_unsigned_payload fails closed to UNSIGNED_PAYLOAD_NOT_PERMITTED
+  const unsignedRes = dispatchS3PutObject({
+    payload: payloadStr,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned_payload: false
+  });
+  assert.equal(unsignedRes.http_status, 400);
+  assert.equal(unsignedRes.error_code, 'InvalidDigest');
+  assert.equal(unsignedRes.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // Streaming SHA-256 header fails closed to UNSUPPORTED_STREAMING_PAYLOAD_SHA256
+  const streamingRes = dispatchS3PutObject({
+    payload: payloadStr,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
+  });
+  assert.equal(streamingRes.http_status, 400);
+  assert.equal(streamingRes.error_code, 'InvalidDigest');
+  assert.equal(streamingRes.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // -------------------------------------------------------------------------
+  // 2. dispatchS3Error comprehensive edge cases
+  // -------------------------------------------------------------------------
+  // Throwing getters on probe keys fail closed to InvalidDigest
+  const throwingErrKeys = [
+    'content_length', 'contentLength', 'size_bytes', 'size',
+    'Content-Length', 'content-length', 'payload', 'payloadBytes', 'body', 'headers',
+    'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5', 'content_md5',
+    'content_md5_declared', 'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header',
+    'content_sha256_header', 'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256',
+    'sha256Header', 'allow_unsigned_payload', 'expected_error', 'error_condition', 'reason'
+  ];
+  for (const key of throwingErrKeys) {
+    const badObj = {};
+    Object.defineProperty(badObj, key, {
+      get() { throw new Error(`Trapped getter for ${key}`); },
+      configurable: true,
+      enumerable: true
+    });
+    const res = dispatchS3Error(badObj);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidDigest');
+    assert.ok(res.reason === 'MALFORMED_PAYLOAD_TYPE' || res.reason === 'MALFORMED_HEADER_SYNTAX');
+  }
+
+  // Non-matching MD5 in dispatchS3Error 2-arg signature
+  assert.equal(dispatchS3Error({ payload: payloadStr, contentMd5: 'invalid!md5' }).reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Canonical S3 error codes mapping
+  for (const code of [
+    'AccessDenied', 'NoSuchBucket', 'NoSuchKey', 'NoSuchUpload',
+    'ObjectLockConfigurationNotFoundError', 'PreconditionFailed',
+    'InvalidArgument', 'InvalidPart', 'InvalidPartOrder',
+    'EntityTooLarge', 'EntityTooSmall', 'BadDigest', 'InvalidDigest'
+  ]) {
+    const res = dispatchS3Error(code);
+    assert.equal(res.error_code, code);
+    assert.ok(res.http_status >= 400);
+  }
+
+  // -------------------------------------------------------------------------
+  // 3. validatePlatformSemantics comprehensive edge cases
+  // -------------------------------------------------------------------------
+  // Safe return on non-objects, primitives
+  assert.doesNotThrow(() => validatePlatformSemantics(null, 'test-schema'));
+  assert.doesNotThrow(() => validatePlatformSemantics(undefined, 'test-schema'));
+  assert.doesNotThrow(() => validatePlatformSemantics(123, 'test-schema'));
+  assert.doesNotThrow(() => validatePlatformSemantics('string', 'test-schema'));
+  assert.doesNotThrow(() => validatePlatformSemantics(true, 'test-schema'));
+  assert.throws(() => validatePlatformSemantics(() => {}, 'test-schema'), /Semantic error/);
+
+  // Proxy as root or nested object / array fails closed
+  assert.throws(() => validatePlatformSemantics(new Proxy({}, {}), 'test-schema'), /Semantic error/);
+  assert.throws(() => validatePlatformSemantics({ get bad() { return 1; } }, 'test-schema'), /Semantic error/);
+  assert.throws(() => validatePlatformSemantics({ nested: { get bad() { return 1; } } }, 'test-schema'), /Semantic error/);
+  assert.throws(() => validatePlatformSemantics([{ get bad() { return 1; } }], 'test-schema'), /Semantic error/);
+  assert.throws(() => validatePlatformSemantics({ nested: new Proxy({}, {}) }, 'test-schema'), /Semantic error/);
+  assert.throws(() => validatePlatformSemantics([new Proxy({}, {})], 'test-schema'), /Semantic error/);
+
+  // Conformance evidence validation edge cases
+  const badDigestAdv = {
+    advertised_capabilities: [{ slot_id: 'inference', capability_id: 'cap-1', evidence_references: ['ev-1'] }],
+    conformance_evidence: [{ test_identifier: 'ev-1', status: 'PASS', evidence_pack_digest: 'not-64-hex' }]
+  };
+  assert.throws(() => validatePlatformSemantics(badDigestAdv, 'provider-capability-advertisement'), /evidence_pack_digest/);
+
+  const badDigestTypeAdv = {
+    advertised_capabilities: [{ slot_id: 'inference', capability_id: 'cap-1', evidence_references: ['ev-1'] }],
+    conformance_evidence: [{ test_identifier: 'ev-1', status: 'PASS', evidence_pack_digest: 12345 }]
+  };
+  assert.throws(() => validatePlatformSemantics(badDigestTypeAdv, 'provider-capability-advertisement'), /evidence_pack_digest/);
+
+  const dupEvAdv = {
+    advertised_capabilities: [{ slot_id: 'inference', capability_id: 'cap-1', evidence_references: ['ev-1'] }],
+    conformance_evidence: [
+      { test_identifier: 'ev-1', status: 'PASS', evidence_pack_digest: 'a'.repeat(64) },
+      { test_identifier: 'ev-1', status: 'PASS', evidence_pack_digest: 'b'.repeat(64) }
+    ]
+  };
+  assert.throws(() => validatePlatformSemantics(dupEvAdv, 'provider-capability-advertisement'), /duplicate test_identifier/);
+
+  const skipEvAdv = {
+    advertised_capabilities: [{ slot_id: 'inference', capability_id: 'cap-1', evidence_references: ['ev-1'] }],
+    conformance_evidence: [{ test_identifier: 'ev-1', status: 'SKIP', evidence_pack_digest: 'a'.repeat(64) }]
+  };
+  assert.throws(() => validatePlatformSemantics(skipEvAdv, 'provider-capability-advertisement'), /non-passing status/);
+
+  // -------------------------------------------------------------------------
+  // 4. validateOfflineInstallSemantics comprehensive edge cases
+  // -------------------------------------------------------------------------
+  // Safe return on non-objects, primitives
+  assert.doesNotThrow(() => validateOfflineInstallSemantics(null));
+  assert.doesNotThrow(() => validateOfflineInstallSemantics(undefined));
+  assert.doesNotThrow(() => validateOfflineInstallSemantics(123));
+  assert.doesNotThrow(() => validateOfflineInstallSemantics('str'));
+  assert.doesNotThrow(() => validateOfflineInstallSemantics(false));
+
+  // Proxy as root or nested object / array fails closed
+  assert.throws(() => validateOfflineInstallSemantics(new Proxy({}, {})), /Semantic error/);
+  assert.throws(() => validateOfflineInstallSemantics({ get bad() { return 1; } }), /Semantic error/);
+  assert.throws(() => validateOfflineInstallSemantics({ nested: { get bad() { return 1; } } }), /Semantic error/);
+  assert.throws(() => validateOfflineInstallSemantics([{ get bad() { return 1; } }]), /Semantic error/);
+  assert.throws(() => validateOfflineInstallSemantics({ nested: new Proxy({}, {}) }), /Semantic error/);
+  assert.throws(() => validateOfflineInstallSemantics([new Proxy({}, {})], 'test-schema'), /Semantic error/);
+
+  // Missing or invalid fingerprints
+  assert.throws(
+    () => validateOfflineInstallSemantics({ operator_trust_root: { public_key_fingerprint: '' }, detached_signature: { key_fingerprint: 'a'.repeat(64) } }),
+    /missing valid signing key fingerprint/
+  );
+  assert.throws(
+    () => validateOfflineInstallSemantics({ operator_trust_root: { public_key_fingerprint: 'a'.repeat(64) }, detached_signature: { key_fingerprint: '' } }),
+    /missing valid signing key fingerprint/
+  );
+  assert.throws(
+    () => validateOfflineInstallSemantics({ operator_trust_root: { public_key_fingerprint: 123 }, detached_signature: { key_fingerprint: 'a'.repeat(64) } }),
+    /missing valid signing key fingerprint/
+  );
+
+  // Fingerprint mismatch
+  assert.throws(
+    () => validateOfflineInstallSemantics({ operator_trust_root: { public_key_fingerprint: 'a'.repeat(64) }, detached_signature: { key_fingerprint: 'b'.repeat(64) } }),
+    /does not match/
+  );
+
+  // Root manifest files in artifacts array fail closed
+  assert.throws(() => validateOfflineInstallSemantics({ artifacts: [{ path: 'manifest.json' }] }), /root manifest file/);
+  assert.throws(() => validateOfflineInstallSemantics({ artifacts: [{ path: 'manifest.sig' }] }), /root manifest file/);
+  assert.throws(() => validateOfflineInstallSemantics({ artifacts: [{ path: './manifest.json' }] }), /root manifest file/);
+  assert.throws(() => validateOfflineInstallSemantics({ artifacts: [{ path: './manifest.sig' }] }), /root manifest file/);
+
+  // -------------------------------------------------------------------------
+  // 5. dispatchS3CompleteMultipartUpload edge cases
+  // -------------------------------------------------------------------------
+  assert.equal(dispatchS3CompleteMultipartUpload({}, new Proxy({}, {})).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: { parts: [{ part_number: 1, etag: '"a"', size_bytes: 5 }] }, storedParts: new Proxy({}, {}) }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const badPartsDescManifest = {};
+  Object.defineProperty(badPartsDescManifest, 'parts', { get() { return []; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(badPartsDescManifest).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const badTpDescManifest = { parts: [{ part_number: 1, etag: '"a"', size_bytes: 5 }] };
+  Object.defineProperty(badTpDescManifest, 'total_parts', { get() { return 1; }, configurable: true, enumerable: true });
+  assert.equal(dispatchS3CompleteMultipartUpload(badTpDescManifest).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const protoPart = Object.create({ part_number: 1 });
+  protoPart.etag = '"0123456789abcdef0123456789abcdef"';
+  protoPart.size_bytes = 5242880;
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [protoPart] }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"a"', size_bytes: 5 }] }, 'not-valid-stored-parts').reason, 'MissingStoredPartState');
 });

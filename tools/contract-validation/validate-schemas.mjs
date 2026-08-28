@@ -535,6 +535,21 @@ export function getOwn(obj, prop) {
   }
 }
 
+export function isPureBufferOrUint8Array(obj) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (types.isProxy(obj)) return false;
+  if (Buffer.isBuffer(obj)) {
+    const proto = Object.getPrototypeOf(obj);
+    return proto === Buffer.prototype || proto === Uint8Array.prototype;
+  }
+  if (types.isUint8Array(obj)) {
+    const proto = Object.getPrototypeOf(obj);
+    return (proto === Uint8Array.prototype || proto === Buffer.prototype) &&
+      Object.prototype.toString.call(obj) === '[object Uint8Array]';
+  }
+  return false;
+}
+
 export function hasOwnAccessors(obj) {
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
   try {
@@ -610,7 +625,22 @@ export function hasAnyAccessorsOrProxy(obj) {
   if (types.isProxy(obj)) return true;
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
   try {
-    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
+    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array || ArrayBuffer.isView(obj) || types.isTypedArray(obj)) {
+      if (types.isProxy(obj)) return true;
+      const proto = Object.getPrototypeOf(obj);
+      if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) return true;
+      const keys = Reflect.ownKeys(obj);
+      for (const key of keys) {
+        if (typeof key === 'string' && /^(?:0|[1-9]\d*)$/.test(key)) {
+          continue;
+        }
+        const desc = Object.getOwnPropertyDescriptor(obj, key);
+        if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+          return true;
+        }
+      }
+      return false;
+    }
     let curr = obj;
     while (curr) {
       if (types.isProxy(curr)) return true;
@@ -665,8 +695,31 @@ export function createSafePlainSnapshot(obj) {
   if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
     return obj;
   }
-  if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) {
-    return obj;
+  if (Buffer.isBuffer(obj)) {
+    const proto = Object.getPrototypeOf(obj);
+    if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    if (types.isProxy(obj) || hasAnyAccessorsOrProxy(obj)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    return Buffer.from(obj);
+  }
+  if (obj instanceof Uint8Array || types.isUint8Array(obj)) {
+    const proto = Object.getPrototypeOf(obj);
+    if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    if (Object.prototype.toString.call(obj) !== '[object Uint8Array]') {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    if (types.isProxy(obj) || hasAnyAccessorsOrProxy(obj)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    return new Uint8Array(obj);
+  }
+  if (ArrayBuffer.isView(obj)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
   if (Array.isArray(obj)) {
     const arr = [];
@@ -684,7 +737,11 @@ export function createSafePlainSnapshot(obj) {
       }
       if (desc) {
         const val = desc.value;
-        if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+        if (
+          types.isProxy(val) ||
+          hasAnyAccessorsOrProxy(val) ||
+          (val !== null && typeof val === 'object' && (Buffer.isBuffer(val) || types.isUint8Array(val) || ArrayBuffer.isView(val)) && !isPureBufferOrUint8Array(val))
+        ) {
           throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
         }
         arr.push((val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val);
@@ -701,7 +758,11 @@ export function createSafePlainSnapshot(obj) {
     }
     if (desc) {
       const val = desc.value;
-      if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+      if (
+        types.isProxy(val) ||
+        hasAnyAccessorsOrProxy(val) ||
+        (val !== null && typeof val === 'object' && (Buffer.isBuffer(val) || types.isUint8Array(val) || ArrayBuffer.isView(val)) && !isPureBufferOrUint8Array(val))
+      ) {
         throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
       }
       snapshot[key] = (val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val;
@@ -876,7 +937,87 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
 
     if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array && Object.getPrototypeOf(optionsOrPayload) === Uint8Array.prototype)) {
       const req = optionsOrPayload;
-      if (types.isProxy(req.expected_error) || types.isProxy(req.error_condition) || (req.expected_error && typeof req.expected_error === 'object' && types.isProxy(req.expected_error.error_condition))) {
+      if (hasAnyAccessorsOrProxy(req)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+      for (const errorKey of ['expected_error', 'error_condition', 'reason']) {
+        let desc;
+        try {
+          desc = Object.getOwnPropertyDescriptor(optionsOrPayload, errorKey);
+        } catch {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (desc) {
+          if (desc.get !== undefined || desc.set !== undefined) {
+            return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+          }
+          const val = desc.value;
+          if (val !== undefined && val !== null && (typeof val === 'object' || typeof val === 'function')) {
+            if (types.isProxy(val) || hasOwnAccessors(val) || hasAnyAccessorsOrProxy(val)) {
+              return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+            }
+            for (const nestedKey of ['error_condition', 'code', 'reason', 'error_code']) {
+              let nestedDesc;
+              try {
+                nestedDesc = Object.getOwnPropertyDescriptor(val, nestedKey);
+              } catch {
+                return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+              }
+              if (nestedDesc) {
+                if (nestedDesc.get !== undefined || nestedDesc.set !== undefined) {
+                  return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                }
+                const nestedVal = nestedDesc.value;
+                if (nestedVal !== undefined && nestedVal !== null && (typeof nestedVal === 'object' || typeof nestedVal === 'function')) {
+                  if (types.isProxy(nestedVal) || hasOwnAccessors(nestedVal) || hasAnyAccessorsOrProxy(nestedVal)) {
+                    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                  }
+                  for (const subKey of ['code', 'reason', 'error_code', 'error_condition']) {
+                    let subDesc;
+                    try {
+                      subDesc = Object.getOwnPropertyDescriptor(nestedVal, subKey);
+                    } catch {
+                      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                    }
+                    if (subDesc && (subDesc.get !== undefined || subDesc.set !== undefined)) {
+                      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      const reqExpErr = getOwnDataValue(req, 'expected_error');
+      const reqErrCond = getOwnDataValue(req, 'error_condition');
+      const reqReason = getOwnDataValue(req, 'reason');
+
+      if (hasAnyAccessorsOrProxy(reqExpErr) || hasAnyAccessorsOrProxy(reqErrCond) || hasAnyAccessorsOrProxy(reqReason)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+
+      if (reqExpErr !== undefined && reqExpErr !== null) {
+        if (typeof reqExpErr !== 'object' || Array.isArray(reqExpErr) || !isPlainOrNull(reqExpErr) || types.isProxy(reqExpErr) || hasAnyAccessorsOrProxy(reqExpErr)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        const nestedErrCond = getOwnDataValue(reqExpErr, 'error_condition');
+        const nestedReason = getOwnDataValue(reqExpErr, 'reason');
+        if (hasAnyAccessorsOrProxy(nestedErrCond) || hasAnyAccessorsOrProxy(nestedReason)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (nestedErrCond !== undefined && nestedErrCond !== null && (typeof nestedErrCond === 'object' || typeof nestedErrCond === 'function' || types.isProxy(nestedErrCond))) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (nestedReason !== undefined && nestedReason !== null && (typeof nestedReason === 'object' || typeof nestedReason === 'function' || types.isProxy(nestedReason))) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+      }
+
+      if (reqErrCond !== undefined && reqErrCond !== null && (typeof reqErrCond === 'object' || typeof reqErrCond === 'function' || types.isProxy(reqErrCond))) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+      if (reqReason !== undefined && reqReason !== null && (typeof reqReason === 'object' || typeof reqReason === 'function' || types.isProxy(reqReason))) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
       }
     }
@@ -994,6 +1135,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       'allow_unsigned_payload' in req ||
       'is_presigned' in req;
 
+    const hasExplicitPayload = ('payload' in req) || ('payloadBytes' in req) || ('body' in req);
     if (!hasOptionsKeys && Object.keys(req).length > 0) {
       payloadBytes = req;
       md5Val = maybeMd5Header;
@@ -1001,6 +1143,9 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       sha256Val = maybeSha256Header;
     } else {
       payloadBytes = getOwn(req, 'payloadBytes') ?? getOwn(req, 'payload') ?? getOwn(req, 'body');
+      if (hasExplicitPayload && isMalformedPayloadType(payloadBytes)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
       md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
       hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
       sha256Val = getOwn(req, 'x-amz-content-sha256') ?? getOwn(req, 'X-Amz-Content-Sha256') ?? getOwn(req, 'contentSha256Header') ?? getOwn(req, 'content_sha256_header') ?? getOwn(req, 'contentSha256') ?? getOwn(req, 'xAmzContentSha256') ?? getOwn(req, 'x_amz_content_sha256') ?? getOwn(req, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
@@ -1013,9 +1158,12 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
     md5Val = maybeMd5Header;
     hasMd5 = (maybeMd5Header !== undefined);
     sha256Val = maybeSha256Header;
+    if (isMalformedPayloadType(payloadBytes)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
   }
 
-  if (isMalformedPayloadType(payloadBytes)) {
+  if (payloadBytes !== undefined && payloadBytes !== null && isMalformedPayloadType(payloadBytes)) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
 
@@ -1030,16 +1178,16 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
         : 0;
 
   const errorCondition = (optionsOrPayload && typeof optionsOrPayload === 'object')
-    ? (getOwn(optionsOrPayload, 'error_condition') ?? getOwn(optionsOrPayload, 'reason'))
+    ? (getOwnDataValue(optionsOrPayload, 'error_condition') ?? getOwnDataValue(optionsOrPayload, 'reason'))
     : undefined;
   const expError = (optionsOrPayload && typeof optionsOrPayload === 'object')
-    ? getOwn(optionsOrPayload, 'expected_error')
+    ? getOwnDataValue(optionsOrPayload, 'expected_error')
     : undefined;
-  if (expError !== undefined && (types.isProxy(expError) || hasOwnAccessors(expError))) {
+  if (expError !== undefined && expError !== null && (types.isProxy(expError) || hasAnyAccessorsOrProxy(expError) || !isPlainOrNull(expError))) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
-  const expErrorCond = expError && typeof expError === 'object'
-    ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
+  const expErrorCond = (expError && typeof expError === 'object')
+    ? (getOwnDataValue(expError, 'error_condition') ?? getOwnDataValue(expError, 'reason'))
     : undefined;
 
 
@@ -1571,7 +1719,87 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
 
     if (conditionOrOptions && typeof conditionOrOptions === 'object' && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array && Object.getPrototypeOf(conditionOrOptions) === Uint8Array.prototype)) {
       const req = conditionOrOptions;
-      if (types.isProxy(req.expected_error) || types.isProxy(req.error_condition) || (req.expected_error && typeof req.expected_error === 'object' && types.isProxy(req.expected_error.error_condition))) {
+      if (hasAnyAccessorsOrProxy(req)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+      for (const errorKey of ['expected_error', 'error_condition', 'reason']) {
+        let desc;
+        try {
+          desc = Object.getOwnPropertyDescriptor(conditionOrOptions, errorKey);
+        } catch {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (desc) {
+          if (desc.get !== undefined || desc.set !== undefined) {
+            return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+          }
+          const val = desc.value;
+          if (val !== undefined && val !== null && (typeof val === 'object' || typeof val === 'function')) {
+            if (types.isProxy(val) || hasOwnAccessors(val) || hasAnyAccessorsOrProxy(val)) {
+              return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+            }
+            for (const nestedKey of ['error_condition', 'code', 'reason', 'error_code']) {
+              let nestedDesc;
+              try {
+                nestedDesc = Object.getOwnPropertyDescriptor(val, nestedKey);
+              } catch {
+                return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+              }
+              if (nestedDesc) {
+                if (nestedDesc.get !== undefined || nestedDesc.set !== undefined) {
+                  return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                }
+                const nestedVal = nestedDesc.value;
+                if (nestedVal !== undefined && nestedVal !== null && (typeof nestedVal === 'object' || typeof nestedVal === 'function')) {
+                  if (types.isProxy(nestedVal) || hasOwnAccessors(nestedVal) || hasAnyAccessorsOrProxy(nestedVal)) {
+                    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                  }
+                  for (const subKey of ['code', 'reason', 'error_code', 'error_condition']) {
+                    let subDesc;
+                    try {
+                      subDesc = Object.getOwnPropertyDescriptor(nestedVal, subKey);
+                    } catch {
+                      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                    }
+                    if (subDesc && (subDesc.get !== undefined || subDesc.set !== undefined)) {
+                      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      const reqExpErr = getOwnDataValue(req, 'expected_error');
+      const reqErrCond = getOwnDataValue(req, 'error_condition');
+      const reqReason = getOwnDataValue(req, 'reason');
+
+      if (hasAnyAccessorsOrProxy(reqExpErr) || hasAnyAccessorsOrProxy(reqErrCond) || hasAnyAccessorsOrProxy(reqReason)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+
+      if (reqExpErr !== undefined && reqExpErr !== null) {
+        if (typeof reqExpErr !== 'object' || Array.isArray(reqExpErr) || !isPlainOrNull(reqExpErr) || types.isProxy(reqExpErr) || hasAnyAccessorsOrProxy(reqExpErr)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        const nestedErrCond = getOwnDataValue(reqExpErr, 'error_condition');
+        const nestedReason = getOwnDataValue(reqExpErr, 'reason');
+        if (hasAnyAccessorsOrProxy(nestedErrCond) || hasAnyAccessorsOrProxy(nestedReason)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (nestedErrCond !== undefined && nestedErrCond !== null && (typeof nestedErrCond === 'object' || typeof nestedErrCond === 'function' || types.isProxy(nestedErrCond))) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+        if (nestedReason !== undefined && nestedReason !== null && (typeof nestedReason === 'object' || typeof nestedReason === 'function' || types.isProxy(nestedReason))) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+        }
+      }
+
+      if (reqErrCond !== undefined && reqErrCond !== null && (typeof reqErrCond === 'object' || typeof reqErrCond === 'function' || types.isProxy(reqErrCond))) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      }
+      if (reqReason !== undefined && reqReason !== null && (typeof reqReason === 'object' || typeof reqReason === 'function' || types.isProxy(reqReason))) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
       }
     }
@@ -1761,12 +1989,12 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           : 0;
 
     const errorCondition = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
-      ? (getOwn(conditionOrOptions, 'error_condition') ?? getOwn(conditionOrOptions, 'reason'))
+      ? (getOwnDataValue(conditionOrOptions, 'error_condition') ?? getOwnDataValue(conditionOrOptions, 'reason'))
       : undefined;
     const expError = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
-      ? getOwn(conditionOrOptions, 'expected_error')
+      ? getOwnDataValue(conditionOrOptions, 'expected_error')
       : undefined;
-    if (expError !== undefined && (types.isProxy(expError) || hasOwnAccessors(expError))) {
+    if (expError !== undefined && expError !== null && (types.isProxy(expError) || hasAnyAccessorsOrProxy(expError) || !isPlainOrNull(expError))) {
       return {
         http_status: 400,
         error_code: 'InvalidDigest',
@@ -1775,8 +2003,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         reason: 'MALFORMED_PAYLOAD_TYPE',
       };
     }
-    const expErrorCond = expError && typeof expError === 'object'
-      ? (getOwn(expError, 'error_condition') ?? getOwn(expError, 'reason'))
+    const expErrorCond = (expError && typeof expError === 'object')
+      ? (getOwnDataValue(expError, 'error_condition') ?? getOwnDataValue(expError, 'reason'))
       : undefined;
 
     if (payloadSize > 5368709120 || errorCondition === 'PAYLOAD_EXCEEDS_5GIB_LIMIT' || expErrorCond === 'PAYLOAD_EXCEEDS_5GIB_LIMIT') {
@@ -2058,8 +2286,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (proto !== Object.prototype && proto !== null) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
-    const code = getOwn(conditionOrOptions, 'error_code') ?? getOwn(conditionOrOptions, 'code');
-    const reason = getOwn(conditionOrOptions, 'error_condition') ?? getOwn(conditionOrOptions, 'reason');
+    const code = getOwnDataValue(conditionOrOptions, 'error_code') ?? getOwnDataValue(conditionOrOptions, 'code');
+    const reason = getOwnDataValue(conditionOrOptions, 'error_condition') ?? getOwnDataValue(conditionOrOptions, 'reason');
     if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH' || reason === 'PAYLOAD_SHA256_MISMATCH' || reason === 'XAmzContentSHA256Mismatch') {
       return {
         http_status: 400,
@@ -2250,7 +2478,7 @@ export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybe
     (payloadOrCondition !== null && typeof payloadOrCondition === 'object' && types.isProxy(payloadOrCondition)) ||
     (maybeHeader !== null && typeof maybeHeader === 'object' && types.isProxy(maybeHeader)) ||
     (maybeSha !== null && typeof maybeSha === 'object' && types.isProxy(maybeSha)) ||
-    (payloadOrCondition !== null && typeof payloadOrCondition === 'object' && (types.isProxy(getOwn(payloadOrCondition, 'expected_error')) || types.isProxy(getOwn(payloadOrCondition, 'payloadBytes')) || types.isProxy(getOwn(payloadOrCondition, 'payload'))))
+    (payloadOrCondition !== null && typeof payloadOrCondition === 'object' && (types.isProxy(getOwnDataValue(payloadOrCondition, 'expected_error')) || types.isProxy(getOwnDataValue(payloadOrCondition, 'payloadBytes')) || types.isProxy(getOwnDataValue(payloadOrCondition, 'payload'))))
   ) {
     throw new Error('Accessor properties or Proxy objects are prohibited in verifyDigestErrorDispatch');
   }
@@ -2260,7 +2488,7 @@ export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybe
   ) {
     const payloadBytes = arguments.length >= 2 ? payloadOrCondition : payloadOrCondition.payloadBytes;
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : payloadOrCondition.contentMd5Header;
-    const shaHeader = arguments.length >= 3 ? maybeSha : (payloadOrCondition?.['x-amz-content-sha256'] ?? payloadOrCondition?.contentSha256Header ?? (payloadBytes ? computePayloadSha256(payloadBytes) : undefined));
+    const shaHeader = arguments.length >= 3 ? maybeSha : (payloadOrCondition?.['x-amz-content-sha256'] ?? payloadOrCondition?.contentSha256Header ?? (payloadBytes && (typeof payloadBytes === 'string' || Buffer.isBuffer(payloadBytes) || types.isUint8Array(payloadBytes) || payloadBytes instanceof Uint8Array) ? computePayloadSha256(payloadBytes) : undefined));
     const result = dispatchS3PutObject({ payloadBytes, contentMd5Header, 'x-amz-content-sha256': shaHeader });
 
     if (result.error_code !== 'BadDigest') {
@@ -2313,7 +2541,7 @@ export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, ma
     (headerOrCondition !== null && typeof headerOrCondition === 'object' && types.isProxy(headerOrCondition)) ||
     (maybeHeader !== null && typeof maybeHeader === 'object' && types.isProxy(maybeHeader)) ||
     (maybeSha !== null && typeof maybeSha === 'object' && types.isProxy(maybeSha)) ||
-    (headerOrCondition !== null && typeof headerOrCondition === 'object' && (types.isProxy(getOwn(headerOrCondition, 'headers')) || types.isProxy(getOwn(headerOrCondition, 'expected_error')) || types.isProxy(getOwn(headerOrCondition, 'payloadBytes')) || types.isProxy(getOwn(headerOrCondition, 'payload'))))
+    (headerOrCondition !== null && typeof headerOrCondition === 'object' && (types.isProxy(getOwnDataValue(headerOrCondition, 'headers')) || types.isProxy(getOwnDataValue(headerOrCondition, 'expected_error')) || types.isProxy(getOwnDataValue(headerOrCondition, 'payloadBytes')) || types.isProxy(getOwnDataValue(headerOrCondition, 'payload'))))
   ) {
     throw new Error('Accessor properties or Proxy objects are prohibited in verifyMalformedHeaderDispatch');
   }
@@ -2323,7 +2551,7 @@ export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, ma
   ) {
     const payloadBytes = arguments.length >= 2 ? headerOrCondition : (headerOrCondition.payloadBytes ?? Buffer.from('TEST_PAYLOAD'));
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : (headerOrCondition.content_md5_header ?? headerOrCondition.contentMd5Header ?? headerOrCondition.header);
-    const shaHeader = arguments.length >= 3 ? maybeSha : (headerOrCondition?.['x-amz-content-sha256'] ?? headerOrCondition?.contentSha256Header ?? (payloadBytes ? computePayloadSha256(payloadBytes) : 'UNSIGNED-PAYLOAD'));
+    const shaHeader = arguments.length >= 3 ? maybeSha : (headerOrCondition?.['x-amz-content-sha256'] ?? headerOrCondition?.contentSha256Header ?? (payloadBytes && (typeof payloadBytes === 'string' || Buffer.isBuffer(payloadBytes) || types.isUint8Array(payloadBytes) || payloadBytes instanceof Uint8Array) ? computePayloadSha256(payloadBytes) : 'UNSIGNED-PAYLOAD'));
     const result = dispatchS3PutObject({ payloadBytes, contentMd5Header, 'x-amz-content-sha256': shaHeader });
 
     if (result.error_code !== 'InvalidDigest') {
@@ -2817,19 +3045,53 @@ export function validateOfflineInstallSemantics(data) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
   }
   if (!data || typeof data !== 'object') return;
+  if (Buffer.isBuffer(data)) {
+    const proto = Object.getPrototypeOf(data);
+    if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+    }
+    return;
+  }
+  if (types.isUint8Array(data) || data instanceof Uint8Array) {
+    const proto = Object.getPrototypeOf(data);
+    if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+    }
+    return;
+  }
+  if (ArrayBuffer.isView(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
   }
   const checkNestedProxyOrAccessor = (val) => {
     if (!val || (typeof val !== 'object' && typeof val !== 'function')) return;
-    if (types.isProxy(val)) {
+    if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+    }
+    if (Buffer.isBuffer(val)) {
+      const proto = Object.getPrototypeOf(val);
+      if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+      }
+      return;
+    }
+    if (types.isUint8Array(val) || val instanceof Uint8Array) {
+      const proto = Object.getPrototypeOf(val);
+      if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+      }
+      return;
+    }
+    if (ArrayBuffer.isView(val)) {
       throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
     }
     if (Array.isArray(val)) {
       for (let i = 0; i < val.length; i++) {
         if (Object.prototype.hasOwnProperty.call(val, i)) {
           const d = Object.getOwnPropertyDescriptor(val, i);
-          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value) || hasAnyAccessorsOrProxy(d.value))) {
             throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
           }
           if (d && 'value' in d && d.value && typeof d.value === 'object') {
@@ -2841,7 +3103,7 @@ export function validateOfflineInstallSemantics(data) {
       for (const k of Reflect.ownKeys(val)) {
         if (val === Object.prototype && k === '__proto__') continue;
         const d = Object.getOwnPropertyDescriptor(val, k);
-        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value) || hasAnyAccessorsOrProxy(d.value))) {
           throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
         }
         if (d && 'value' in d && d.value && typeof d.value === 'object') {
@@ -2937,19 +3199,53 @@ export function validatePlatformSemantics(data, schemaId) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
   if (!data || (typeof data !== 'object' && typeof data !== 'function')) return;
+  if (Buffer.isBuffer(data)) {
+    const proto = Object.getPrototypeOf(data);
+    if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    return;
+  }
+  if (types.isUint8Array(data) || data instanceof Uint8Array) {
+    const proto = Object.getPrototypeOf(data);
+    if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    return;
+  }
+  if (ArrayBuffer.isView(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
   if (hasAnyAccessorsOrProxy(data)) {
     throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
   }
   const checkNestedProxyOrAccessor = (val) => {
     if (!val || (typeof val !== 'object' && typeof val !== 'function')) return;
-    if (types.isProxy(val)) {
+    if (types.isProxy(val) || hasAnyAccessorsOrProxy(val)) {
+      throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+    }
+    if (Buffer.isBuffer(val)) {
+      const proto = Object.getPrototypeOf(val);
+      if (proto !== Buffer.prototype && proto !== Uint8Array.prototype) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+      }
+      return;
+    }
+    if (types.isUint8Array(val) || val instanceof Uint8Array) {
+      const proto = Object.getPrototypeOf(val);
+      if (proto !== Uint8Array.prototype && proto !== Buffer.prototype) {
+        throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+      }
+      return;
+    }
+    if (ArrayBuffer.isView(val)) {
       throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
     }
     if (Array.isArray(val)) {
       for (let i = 0; i < val.length; i++) {
         if (Object.prototype.hasOwnProperty.call(val, i)) {
           const d = Object.getOwnPropertyDescriptor(val, i);
-          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+          if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value) || hasAnyAccessorsOrProxy(d.value))) {
             throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
           }
           if (d && 'value' in d && d.value && typeof d.value === 'object') {
@@ -2961,7 +3257,7 @@ export function validatePlatformSemantics(data, schemaId) {
       for (const k of Reflect.ownKeys(val)) {
         if (val === Object.prototype && k === '__proto__') continue;
         const d = Object.getOwnPropertyDescriptor(val, k);
-        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value))) {
+        if (d && (d.get !== undefined || d.set !== undefined || types.isProxy(d.value) || hasAnyAccessorsOrProxy(d.value))) {
           throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
         }
         if (d && 'value' in d && d.value && typeof d.value === 'object') {
