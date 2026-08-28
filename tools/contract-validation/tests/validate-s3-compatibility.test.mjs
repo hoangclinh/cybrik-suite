@@ -3213,7 +3213,10 @@ test('negative storage payload fixtures executed through real dispatchS3PutObjec
   assert.equal(malformedData.expected_error.error_condition, 'MALFORMED_HEADER_SYNTAX');
 
   // Test via real dispatchS3PutObject
-  const malformedPutResult = dispatchS3PutObject(malformedData);
+  const malformedPayloadBytes = typeof malformedData.payload === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(malformedData.payload) && malformedData.payload.length % 4 === 0
+    ? Buffer.from(malformedData.payload, 'base64')
+    : malformedData.payload;
+  const malformedPutResult = dispatchS3PutObject({ ...malformedData, payload: malformedPayloadBytes });
   assert.equal(malformedPutResult.http_status, 400);
   assert.equal(malformedPutResult.error_code, 'InvalidDigest');
   assert.equal(malformedPutResult.status, 400);
@@ -3249,7 +3252,10 @@ test('negative storage payload fixtures executed through real dispatchS3PutObjec
   assert.equal(mismatchedData.expected_error.error_condition, 'PAYLOAD_DIGEST_MISMATCH');
 
   // Test via real dispatchS3PutObject
-  const mismatchedPutResult = dispatchS3PutObject(mismatchedData);
+  const mismatchedPayloadBytes = typeof mismatchedData.payload === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(mismatchedData.payload) && mismatchedData.payload.length % 4 === 0
+    ? Buffer.from(mismatchedData.payload, 'base64')
+    : mismatchedData.payload;
+  const mismatchedPutResult = dispatchS3PutObject({ ...mismatchedData, payload: mismatchedPayloadBytes });
   assert.equal(mismatchedPutResult.http_status, 400);
   assert.equal(mismatchedPutResult.error_code, 'BadDigest');
   assert.equal(mismatchedPutResult.status, 400);
@@ -3266,4 +3272,299 @@ test('negative storage payload fixtures executed through real dispatchS3PutObjec
   assert.equal(mismatchedExplicitPutResult.http_status, 400);
   assert.equal(mismatchedExplicitPutResult.error_code, 'BadDigest');
   assert.equal(mismatchedExplicitPutResult.reason, 'PAYLOAD_DIGEST_MISMATCH');
+});
+
+test('dispatchS3PutObject headers fail-closed, string payload non-heuristic hashing, and multipart total verification (OPEN-2 Findings 1, 2, 3)', () => {
+  // 1. computePayloadMd5 and computePayloadSha256: no base64 heuristic decoding on string input
+  const base64Str = 'SGVsbG8gQ1lCUklL'; // "Hello CYBRIK" in base64
+  const utf8Buf = Buffer.from(base64Str, 'utf8');
+  assert.equal(computePayloadSha256(base64Str), createHash('sha256').update(utf8Buf).digest('hex'));
+  assert.equal(computePayloadMd5(base64Str), createHash('md5').update(utf8Buf).digest('base64'));
+  assert.notEqual(computePayloadSha256(base64Str), createHash('sha256').update('Hello CYBRIK').digest('hex'));
+
+  // 2. dispatchS3PutObject fails closed with InvalidDigest and MALFORMED_HEADER_SYNTAX on invalid headers
+  const reqNullHeaders = {
+    payloadBytes: Buffer.from('test'),
+    headers: null,
+    'x-amz-content-sha256': computePayloadSha256('test')
+  };
+  const resNull = dispatchS3PutObject(reqNullHeaders);
+  assert.equal(resNull.http_status, 400);
+  assert.equal(resNull.error_code, 'InvalidDigest');
+  assert.equal(resNull.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const reqArrayHeaders = {
+    payloadBytes: Buffer.from('test'),
+    headers: ['Content-MD5', 'x-amz-content-sha256'],
+    'x-amz-content-sha256': computePayloadSha256('test')
+  };
+  const resArray = dispatchS3PutObject(reqArrayHeaders);
+  assert.equal(resArray.http_status, 400);
+  assert.equal(resArray.error_code, 'InvalidDigest');
+  assert.equal(resArray.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. dispatchS3CompleteMultipartUpload: TotalPartsMismatch
+  const validStoredParts = [
+    { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"etag-2"', size_bytes: 1024 }
+  ];
+  const manifestPartsMismatch = {
+    total_parts: 3, // Expected 3, but parts.length is 2
+    parts: [
+      { part_number: 1, etag: '"etag-1"' },
+      { part_number: 2, etag: '"etag-2"' }
+    ]
+  };
+  const resPartsMismatch = dispatchS3CompleteMultipartUpload(manifestPartsMismatch, validStoredParts);
+  assert.equal(resPartsMismatch.http_status, 400);
+  assert.equal(resPartsMismatch.error_code, 'InvalidPart');
+  assert.equal(resPartsMismatch.reason, 'TOTAL_PARTS_MISMATCH');
+
+  // 4. dispatchS3CompleteMultipartUpload: TotalSizeMismatch
+  const manifestSizeMismatch = {
+    total_parts: 2,
+    total_size_bytes: 9999999, // Actual size is 5242880 + 1024 = 5243904
+    parts: [
+      { part_number: 1, etag: '"etag-1"' },
+      { part_number: 2, etag: '"etag-2"' }
+    ]
+  };
+  const resSizeMismatch = dispatchS3CompleteMultipartUpload(manifestSizeMismatch, validStoredParts);
+  assert.equal(resSizeMismatch.http_status, 400);
+  assert.equal(resSizeMismatch.error_code, 'InvalidPart');
+  assert.equal(resSizeMismatch.reason, 'TOTAL_SIZE_BYTES_MISMATCH');
+
+  // 5. dispatchS3CompleteMultipartUpload: Total parts and size matching succeeds
+  const manifestMatching = {
+    total_parts: 2,
+    total_size_bytes: 5243904,
+    parts: [
+      { part_number: 1, etag: '"etag-1"' },
+      { part_number: 2, etag: '"etag-2"' }
+    ]
+  };
+  const resMatching = dispatchS3CompleteMultipartUpload(manifestMatching, validStoredParts);
+  assert.equal(resMatching.http_status, 200);
+  assert.equal(resMatching.error_code, null);
+});
+
+test('literal string payload "YWJjZA==" is hashed as UTF-8 raw bytes rather than decoded base64 bytes "abcd" (OPEN-2)', () => {
+  const literalPayload = 'YWJjZA==';
+  const expectedRawBytes = Buffer.from('YWJjZA==', 'utf8');
+  const base64DecodedBytes = Buffer.from('abcd', 'utf8');
+
+  const rawSha256 = createHash('sha256').update(expectedRawBytes).digest('hex');
+  const rawMd5 = createHash('md5').update(expectedRawBytes).digest('base64');
+  const decodedSha256 = createHash('sha256').update(base64DecodedBytes).digest('hex');
+  const decodedMd5 = createHash('md5').update(base64DecodedBytes).digest('base64');
+
+  // Verify raw hashes do not equal decoded base64 hashes
+  assert.notEqual(rawSha256, decodedSha256);
+  assert.notEqual(rawMd5, decodedMd5);
+
+  // 1. computePayloadSha256 & computePayloadMd5 hashes raw UTF-8 octets
+  assert.equal(computePayloadSha256(literalPayload), rawSha256);
+  assert.notEqual(computePayloadSha256(literalPayload), decodedSha256);
+  assert.equal(computePayloadMd5(literalPayload), rawMd5);
+  assert.notEqual(computePayloadMd5(literalPayload), decodedMd5);
+
+  // 2. dispatchS3PutObject with raw UTF-8 SHA256 succeeds (HTTP 200)
+  const putRawRes = dispatchS3PutObject({
+    payloadBytes: literalPayload,
+    'x-amz-content-sha256': rawSha256,
+  });
+  assert.equal(putRawRes.http_status, 200);
+  assert.equal(putRawRes.error_code, null);
+
+  // 3. dispatchS3PutObject with decoded SHA256 returns HTTP 400 BadDigest (PAYLOAD_SHA256_MISMATCH)
+  const putDecodedRes = dispatchS3PutObject({
+    payloadBytes: literalPayload,
+    'x-amz-content-sha256': decodedSha256,
+  });
+  assert.equal(putDecodedRes.http_status, 400);
+  assert.equal(putDecodedRes.error_code, 'BadDigest');
+  assert.equal(putDecodedRes.reason, 'PAYLOAD_SHA256_MISMATCH');
+
+  // 4. dispatchS3PutObject with raw UTF-8 MD5 succeeds (HTTP 200)
+  const putRawMd5Res = dispatchS3PutObject({
+    payloadBytes: literalPayload,
+    contentMd5Header: rawMd5,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(putRawMd5Res.http_status, 200);
+  assert.equal(putRawMd5Res.error_code, null);
+
+  // 5. dispatchS3PutObject with decoded MD5 returns HTTP 400 BadDigest (PAYLOAD_DIGEST_MISMATCH)
+  const putDecodedMd5Res = dispatchS3PutObject({
+    payloadBytes: literalPayload,
+    contentMd5Header: decodedMd5,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(putDecodedMd5Res.http_status, 400);
+  assert.equal(putDecodedMd5Res.error_code, 'BadDigest');
+  assert.equal(putDecodedMd5Res.reason, 'PAYLOAD_DIGEST_MISMATCH');
+});
+
+test('dispatchS3PutObject({ payloadBytes: "data", headers: null, "x-amz-content-sha256": validSha }) returns HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX) (OPEN-2)', () => {
+  const payload = 'data';
+  const validSha = computePayloadSha256(payload);
+
+  const res = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: null,
+    'x-amz-content-sha256': validSha,
+  });
+
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidDigest');
+  assert.equal(res.status, 400);
+  assert.equal(res.code, 'InvalidDigest');
+  assert.equal(res.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('s3Uri and pathStyleUrl schema validation rejects ../, repeated slashes //, and trailing slash / (OPEN-2)', () => {
+  const validateUri = ajv.getSchema(S3_URI_DEF_ID);
+  const validateUrl = ajv.getSchema(PATH_STYLE_URL_DEF_ID);
+
+  // Valid positive baseline
+  assert.ok(validateUri('s3://cybrik-audit/evidence/bundle.tar.gz'));
+  assert.ok(validateUri('s3://my-bucket/a/b/c/file.json'));
+  assert.ok(validateUrl('https://storage.internal.cybrik:9000/cybrik-audit/evidence/bundle.tar.gz'));
+  assert.ok(validateUrl('http://127.0.0.1:9000/bucket/key'));
+
+  // Negative: s3Uri with ../ (dot-dot traversal)
+  const invalidUriDotDot = [
+    's3://my-bucket/../secret.json',
+    's3://my-bucket/dir/../secret.json',
+    's3://my-bucket/a/b/../../secret.json',
+  ];
+  for (const uri of invalidUriDotDot) {
+    assert.ok(!validateUri(uri), `s3Uri '${uri}' with '../' must be rejected`);
+    assert.equal(validateUri.errors[0].keyword, 'pattern');
+  }
+
+  // Negative: s3Uri with repeated slashes //
+  const invalidUriDoubleSlash = [
+    's3://my-bucket//secret.json',
+    's3://my-bucket/dir//secret.json',
+    's3://my-bucket/a/b///c.json',
+  ];
+  for (const uri of invalidUriDoubleSlash) {
+    assert.ok(!validateUri(uri), `s3Uri '${uri}' with '//' must be rejected`);
+    assert.equal(validateUri.errors[0].keyword, 'pattern');
+  }
+
+  // Negative: s3Uri with trailing slash /
+  const invalidUriTrailingSlash = [
+    's3://my-bucket/dir/',
+    's3://my-bucket/evidence/bundle.tar.gz/',
+    's3://my-bucket/a/b/c/',
+  ];
+  for (const uri of invalidUriTrailingSlash) {
+    assert.ok(!validateUri(uri), `s3Uri '${uri}' with trailing '/' must be rejected`);
+    assert.equal(validateUri.errors[0].keyword, 'pattern');
+  }
+
+  // Negative: pathStyleUrl with ../ (dot-dot traversal)
+  const invalidUrlDotDot = [
+    'http://127.0.0.1:9000/my-bucket/../secret.json',
+    'https://storage.internal.cybrik:9000/my-bucket/dir/../secret.json',
+    'http://localhost:9000/bucket/a/b/../../file.json',
+  ];
+  for (const url of invalidUrlDotDot) {
+    assert.ok(!validateUrl(url), `pathStyleUrl '${url}' with '../' must be rejected`);
+    assert.equal(validateUrl.errors[0].keyword, 'pattern');
+  }
+
+  // Negative: pathStyleUrl with repeated slashes // in path
+  const invalidUrlDoubleSlash = [
+    'http://127.0.0.1:9000/my-bucket//secret.json',
+    'https://storage.internal.cybrik:9000/my-bucket/dir//secret.json',
+    'https://storage.internal.cybrik:9000//my-bucket/key',
+  ];
+  for (const url of invalidUrlDoubleSlash) {
+    assert.ok(!validateUrl(url), `pathStyleUrl '${url}' with '//' must be rejected`);
+    assert.equal(validateUrl.errors[0].keyword, 'pattern');
+  }
+
+  // Negative: pathStyleUrl with trailing slash /
+  const invalidUrlTrailingSlash = [
+    'http://127.0.0.1:9000/my-bucket/dir/',
+    'https://storage.internal.cybrik:9000/cybrik-audit/evidence/bundle.tar.gz/',
+    'http://localhost:9000/bucket/key/',
+  ];
+  for (const url of invalidUrlTrailingSlash) {
+    assert.ok(!validateUrl(url), `pathStyleUrl '${url}' with trailing '/' must be rejected`);
+    assert.equal(validateUrl.errors[0].keyword, 'pattern');
+  }
+});
+
+test('dispatchS3CompleteMultipartUpload with mismatched total_parts or total_size_bytes returns HTTP 400 InvalidPart (OPEN-2)', () => {
+  const baseManifest = {
+    upload_id: 'mp-upload-test-totals-01',
+    bucket: 'cybrik-telemetry-archive',
+    object_key: 'multipart/data.bin',
+    total_parts: 2,
+    total_size_bytes: 10485760,
+    parts: [
+      { part_number: 1, etag: '"etag-part-1"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"etag-part-2"', size_bytes: 5242880 },
+    ],
+  };
+  const storedParts = {
+    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
+    2: { etag: '"etag-part-2"', size_bytes: 5242880 },
+  };
+
+  // 1. Positive baseline: matching totals returns HTTP 200
+  const okRes = dispatchS3CompleteMultipartUpload(baseManifest, storedParts);
+  assert.equal(okRes.http_status, 200);
+  assert.equal(okRes.error_code, null);
+
+  // 2. Mismatched total_parts (high: 5 vs actual 2) returns HTTP 400 InvalidPart
+  const badTotalPartsHigh = { ...baseManifest, total_parts: 5 };
+  const resTotalPartsHigh = dispatchS3CompleteMultipartUpload(badTotalPartsHigh, storedParts);
+  assert.equal(resTotalPartsHigh.http_status, 400);
+  assert.equal(resTotalPartsHigh.error_code, 'InvalidPart');
+  assert.equal(resTotalPartsHigh.status, 400);
+  assert.equal(resTotalPartsHigh.code, 'InvalidPart');
+  assert.equal(resTotalPartsHigh.reason, 'TOTAL_PARTS_MISMATCH');
+
+  // 3. Mismatched total_parts (low: 1 vs actual 2) returns HTTP 400 InvalidPart
+  const badTotalPartsLow = { ...baseManifest, total_parts: 1 };
+  const resTotalPartsLow = dispatchS3CompleteMultipartUpload(badTotalPartsLow, storedParts);
+  assert.equal(resTotalPartsLow.http_status, 400);
+  assert.equal(resTotalPartsLow.error_code, 'InvalidPart');
+  assert.equal(resTotalPartsLow.status, 400);
+  assert.equal(resTotalPartsLow.code, 'InvalidPart');
+  assert.equal(resTotalPartsLow.reason, 'TOTAL_PARTS_MISMATCH');
+
+  // 4. Mismatched total_size_bytes (high: 10485761 vs actual 10485760) returns HTTP 400 InvalidPart
+  const badTotalSizeHigh = { ...baseManifest, total_size_bytes: 10485761 };
+  const resTotalSizeHigh = dispatchS3CompleteMultipartUpload(badTotalSizeHigh, storedParts);
+  assert.equal(resTotalSizeHigh.http_status, 400);
+  assert.equal(resTotalSizeHigh.error_code, 'InvalidPart');
+  assert.equal(resTotalSizeHigh.status, 400);
+  assert.equal(resTotalSizeHigh.code, 'InvalidPart');
+  assert.equal(resTotalSizeHigh.reason, 'TOTAL_SIZE_BYTES_MISMATCH');
+
+  // 5. Mismatched total_size_bytes (low: 5242880 vs actual 10485760) returns HTTP 400 InvalidPart
+  const badTotalSizeLow = { ...baseManifest, total_size_bytes: 5242880 };
+  const resTotalSizeLow = dispatchS3CompleteMultipartUpload(badTotalSizeLow, storedParts);
+  assert.equal(resTotalSizeLow.http_status, 400);
+  assert.equal(resTotalSizeLow.error_code, 'InvalidPart');
+  assert.equal(resTotalSizeLow.status, 400);
+  assert.equal(resTotalSizeLow.code, 'InvalidPart');
+  assert.equal(resTotalSizeLow.reason, 'TOTAL_SIZE_BYTES_MISMATCH');
+
+  // 6. dispatchS3Error mapping for TOTAL_PARTS_MISMATCH and TOTAL_SIZE_BYTES_MISMATCH
+  for (const trigger of ['TOTAL_PARTS_MISMATCH', 'TotalPartsMismatch', 'TOTAL_SIZE_BYTES_MISMATCH', 'TotalSizeBytesMismatch']) {
+    const errResStr = dispatchS3Error(trigger);
+    assert.equal(errResStr.http_status, 400);
+    assert.equal(errResStr.error_code, 'InvalidPart');
+
+    const errResObj = dispatchS3Error({ reason: trigger });
+    assert.equal(errResObj.http_status, 400);
+    assert.equal(errResObj.error_code, 'InvalidPart');
+  }
 });

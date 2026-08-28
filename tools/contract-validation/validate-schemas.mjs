@@ -372,9 +372,7 @@ export function computePayloadMd5(payloadBytes) {
   const payload = payloadBytes !== undefined && payloadBytes !== null
     ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
         ? payloadBytes
-        : (/^[A-Za-z0-9+/]+={0,2}$/.test(String(payloadBytes)) && String(payloadBytes).length % 4 === 0 && !String(payloadBytes).includes(' ')
-            ? Buffer.from(String(payloadBytes), 'base64')
-            : Buffer.from(String(payloadBytes))))
+        : Buffer.from(String(payloadBytes), 'utf8'))
     : Buffer.alloc(0);
   return createHash('md5').update(payload).digest('base64');
 }
@@ -383,9 +381,7 @@ export function computePayloadSha256(payloadBytes) {
   const payload = payloadBytes !== undefined && payloadBytes !== null
     ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
         ? payloadBytes
-        : (/^[A-Za-z0-9+/]+={0,2}$/.test(String(payloadBytes)) && String(payloadBytes).length % 4 === 0 && !String(payloadBytes).includes(' ')
-            ? Buffer.from(String(payloadBytes), 'base64')
-            : Buffer.from(String(payloadBytes))))
+        : Buffer.from(String(payloadBytes), 'utf8'))
     : Buffer.alloc(0);
   return createHash('sha256').update(payload).digest('hex');
 }
@@ -403,7 +399,7 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
     const req = optionsOrPayload;
-    if (req.headers !== undefined && req.headers !== null && (typeof req.headers !== 'object' || Array.isArray(req.headers))) {
+    if (req.headers !== undefined && (typeof req.headers !== 'object' || req.headers === null || Array.isArray(req.headers))) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
     const headersObj = (req.headers && typeof req.headers === 'object' && !Array.isArray(req.headers)) ? req.headers : null;
@@ -496,6 +492,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'TooManyParts' };
   }
 
+  if (manifest.total_parts !== undefined && manifest.total_parts !== null && typeof manifest.total_parts === 'number' && manifest.total_parts !== manifest.parts.length) {
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TOTAL_PARTS_MISMATCH' };
+  }
+
   let prevNum = 0;
   for (let i = 0; i < manifest.parts.length; i++) {
     const p = manifest.parts[i];
@@ -574,6 +574,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
     }
     totalSizeBytes += rawSize;
+  }
+
+  if (manifest.total_size_bytes !== undefined && manifest.total_size_bytes !== null && typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes !== totalSizeBytes) {
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TOTAL_SIZE_BYTES_MISMATCH' };
   }
 
   if (totalSizeBytes > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
@@ -733,14 +737,28 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'MissingManifestPartETag' ||
       norm === 'MissingStoredPartETag' ||
       norm === 'InvalidPartSize' ||
-      norm === 'INVALID_PART_SIZE'
+      norm === 'INVALID_PART_SIZE' ||
+      norm === 'TOTAL_PARTS_MISMATCH' ||
+      norm === 'TotalPartsMismatch' ||
+      norm === 'TOTAL_SIZE_BYTES_MISMATCH' ||
+      norm === 'TotalSizeBytesMismatch'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize' ? norm : (norm === 'INVALID_PART_SIZE' ? 'InvalidPartSize' : 'PartNotFound')),
+        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH')
+          ? 'ETagMismatch'
+          : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize'
+              ? norm
+              : (norm === 'INVALID_PART_SIZE'
+                  ? 'InvalidPartSize'
+                  : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
+                      ? 'TOTAL_PARTS_MISMATCH'
+                      : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch'
+                          ? 'TOTAL_SIZE_BYTES_MISMATCH'
+                          : 'PartNotFound')))),
       };
     }
     if (
@@ -890,7 +908,11 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'MissingManifestPartETag' ||
       reason === 'MissingStoredPartETag' ||
       reason === 'InvalidPartSize' ||
-      reason === 'INVALID_PART_SIZE'
+      reason === 'INVALID_PART_SIZE' ||
+      reason === 'TOTAL_PARTS_MISMATCH' ||
+      reason === 'TotalPartsMismatch' ||
+      reason === 'TOTAL_SIZE_BYTES_MISMATCH' ||
+      reason === 'TotalSizeBytesMismatch'
     ) {
       return {
         http_status: 400,
@@ -1304,6 +1326,13 @@ export function validatePlatformSemantics(data, schemaId) {
           }
           seenSlotIds.add(cap.slot_id);
         }
+        if (cap.capability_name === 'storage_object_lock') {
+          for (const ref of (cap.evidence_references || [])) {
+            if (ref !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock') {
+              throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (got '${ref}')`);
+            }
+          }
+        }
         for (const ref of (cap.evidence_references || [])) {
           const matchingEv = validTests.get(ref);
           if (!matchingEv) {
@@ -1315,6 +1344,13 @@ export function validatePlatformSemantics(data, schemaId) {
 
       const leaseCaps = data.agreed_capability_lease?.negotiated_optional_capabilities || data.agreed_capability_lease?.agreed_capabilities || [];
       for (const cap of leaseCaps) {
+        if (cap.capability_name === 'storage_object_lock') {
+          for (const ref of (cap.evidence_references || [])) {
+            if (ref !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock') {
+              throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (got '${ref}')`);
+            }
+          }
+        }
         for (const ref of (cap.evidence_references || [])) {
           const matchingEv = validTests.get(ref);
           if (!matchingEv) {
@@ -1605,7 +1641,13 @@ export function validatePlatformSemantics(data, schemaId) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
 
-        if (!isNegotiation && (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || storageCap.capability_name === 'storage_object_lock')) {
+        if (storageCap.capability_name === 'storage_object_lock') {
+          for (const ref of (storageCap.evidence_references || [])) {
+            if (ref !== canonicalLockUrn) {
+              throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (got '${ref}')`);
+            }
+          }
+        } else if (!isNegotiation && claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
           for (const ref of (storageCap.evidence_references || [])) {
             if (ref !== canonicalLockUrn) {
               throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN '${canonicalLockUrn}' (legacy Object Lock aliases strictly prohibited / canonical-plus-alias set prohibited)`);
@@ -1625,6 +1667,7 @@ export function validatePlatformSemantics(data, schemaId) {
           'urn:cybrik:evidence:storage:s3:object-lock',
           'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
           'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
+          'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
           'urn:cybrik:evidence:storage:s3:conformance:v1:retention',
           'urn:cybrik:evidence:storage:s3:conformance:v1:worm-lock',
           'urn:cybrik:evidence:s3-object-lock',
@@ -1632,7 +1675,7 @@ export function validatePlatformSemantics(data, schemaId) {
 
         for (const cap of (adv.advertised_capabilities || [])) {
           for (const ref of (cap.evidence_references || [])) {
-            if (ref !== canonicalLockUrn && legacyObjectLockAliases.has(ref)) {
+            if (ref !== canonicalLockUrn && (legacyObjectLockAliases.has(ref) || /^urn:cybrik:evidence:storage:(?:s3:)?conformance:v[0-9]+:(?:object[-_]?lock|retention|worm|custom)/i.test(ref) || ref.startsWith('urn:cybrik:evidence:storage:s3:conformance:v1:'))) {
               throw new Error(`Semantic error: capability '${cap.capability_name || cap.slot_id}' contains legacy Object Lock alias '${ref}' (canonical-plus-alias set prohibited)`);
             }
           }
@@ -2235,7 +2278,10 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
       } else if (!data.expected_error || data.expected_error.error_code !== expDispatch.error_code || data.expected_error.error_condition !== expDispatch.error_condition) {
         fail(`storage dispatch negative example ${file}: expected_error must declare error_code ${expDispatch.error_code} and error_condition ${expDispatch.error_condition}`);
       } else {
-        const res = dispatchS3PutObject(data);
+        const payloadToDispatch = typeof data.payload === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(data.payload) && data.payload.length % 4 === 0
+          ? Buffer.from(data.payload, 'base64')
+          : data.payload;
+        const res = dispatchS3PutObject({ ...data, payload: payloadToDispatch });
         if (res.error_code !== data.expected_error.error_code || res.reason !== data.expected_error.error_condition) {
           fail(`storage dispatch negative example ${file}: dispatcher returned error_code ${res.error_code} and reason ${res.reason}, expected ${data.expected_error.error_code} and ${data.expected_error.error_condition}`);
         } else {

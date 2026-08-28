@@ -4,7 +4,7 @@
   "operation": "PutObject",
   "bucket": "cybrik-audit-vault",
   "object_key": "evidence/2026/08/incident-1042-audit-bundle.tar.gz",
-  "payload": "SGVsbG8gQ1lCUklL",
+  "payload": "Hello CYBRIK",
   "headers": {
     "Content-MD5": "invalid-base64-!@#$",
     "x-amz-content-sha256": "89ec141f31c4e9e085f57ea90c50ecd2e1bb74c7497d028b9bdf50cd73290e21"
