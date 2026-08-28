@@ -1460,8 +1460,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 1. Success with Map
   const validMap = new Map([
-    [1, { etag: '"etag-part-1"' }],
-    [2, { etag: '"etag-part-2"' }],
+    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
+    [2, { etag: '"etag-part-2"', size_bytes: 5242880 }],
   ]);
   const okMapRes = dispatchS3CompleteMultipartUpload(manifest, validMap);
   assert.equal(okMapRes.http_status, 200);
@@ -1469,8 +1469,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 2. Success with Object
   const validObj = {
-    1: { etag: '"etag-part-1"' },
-    2: { etag: '"etag-part-2"' },
+    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
+    2: { etag: '"etag-part-2"', size_bytes: 5242880 },
   };
   const okObjRes = dispatchS3CompleteMultipartUpload(manifest, validObj);
   assert.equal(okObjRes.http_status, 200);
@@ -1478,7 +1478,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 3. Missing part with Map -> MissingStoredPartETag
   const missingMap = new Map([
-    [1, { etag: '"etag-part-1"' }],
+    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
   ]);
   const missingMapRes = dispatchS3CompleteMultipartUpload(manifest, missingMap);
   assert.equal(missingMapRes.http_status, 400);
@@ -1488,7 +1488,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 4. Missing part with Object -> MissingStoredPartETag
   const missingObj = {
-    1: { etag: '"etag-part-1"' },
+    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
   };
   const missingObjRes = dispatchS3CompleteMultipartUpload(manifest, missingObj);
   assert.equal(missingObjRes.http_status, 400);
@@ -1497,8 +1497,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 5. ETag mismatch with Map -> ETagMismatch
   const mismatchMap = new Map([
-    [1, { etag: '"etag-part-1"' }],
-    [2, { etag: '"mismatched-etag"' }],
+    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
+    [2, { etag: '"mismatched-etag"', size_bytes: 5242880 }],
   ]);
   const mismatchMapRes = dispatchS3CompleteMultipartUpload(manifest, mismatchMap);
   assert.equal(mismatchMapRes.http_status, 400);
@@ -1508,8 +1508,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 6. ETag mismatch with Object -> ETagMismatch
   const mismatchObj = {
-    1: { etag: '"etag-part-1"' },
-    2: { etag: '"mismatched-etag"' },
+    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
+    2: { etag: '"mismatched-etag"', size_bytes: 5242880 },
   };
   const mismatchObjRes = dispatchS3CompleteMultipartUpload(manifest, mismatchObj);
   assert.equal(mismatchObjRes.http_status, 400);
@@ -2028,8 +2028,8 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
     ],
   };
   const validStored = new Map([
-    [1, { etag: '"etag-1"' }],
-    [2, { etag: '"etag-2"' }],
+    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+    [2, { etag: '"etag-2"', size_bytes: 5242880 }],
   ]);
   const missingEtagRes = dispatchS3CompleteMultipartUpload(missingEtagManifest, validStored);
   assert.equal(missingEtagRes.http_status, 400);
@@ -2049,7 +2049,7 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
 
   // 3. Stored part missing or stored part ETag missing/blank -> MissingStoredPartETag
   const missingPartStored = new Map([
-    [1, { etag: '"etag-1"' }],
+    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
   ]);
   const missingPartRes = dispatchS3CompleteMultipartUpload(manifest, missingPartStored);
   assert.equal(missingPartRes.http_status, 400);
@@ -2057,8 +2057,8 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
   assert.equal(missingPartRes.reason, 'MissingStoredPartETag');
 
   const blankStoredEtag = new Map([
-    [1, { etag: '"etag-1"' }],
-    [2, { etag: '  ' }],
+    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+    [2, { etag: '  ', size_bytes: 5242880 }],
   ]);
   const blankStoredRes = dispatchS3CompleteMultipartUpload(manifest, blankStoredEtag);
   assert.equal(blankStoredRes.http_status, 400);
@@ -2067,8 +2067,8 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
 
   // 4. Stored part ETag mismatch -> ETagMismatch
   const mismatchStored = new Map([
-    [1, { etag: '"etag-1"' }],
-    [2, { etag: '"wrong-etag"' }],
+    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+    [2, { etag: '"wrong-etag"', size_bytes: 5242880 }],
   ]);
   const mismatchRes = dispatchS3CompleteMultipartUpload(manifest, mismatchStored);
   assert.equal(mismatchRes.http_status, 400);
@@ -2880,8 +2880,168 @@ test('dispatchS3Error coverage for InvalidPartSize, INVALID_PART_SIZE, and XAmzC
   assert.equal(dispatchS3Error({ code: 'InvalidPart', reason: 'INVALID_PART_SIZE' }).error_code, 'InvalidPart');
   assert.equal(dispatchS3Error({ reason: 'INVALID_PART_SIZE' }).reason, 'InvalidPartSize');
 
-  assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').error_code, 'BadDigest');
   assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').reason, 'XAmzContentSHA256Mismatch');
-  assert.equal(dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' }).error_code, 'BadDigest');
   assert.equal(dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' }).reason, 'XAmzContentSHA256Mismatch');
+});
+
+test('dispatchS3CompleteMultipartUpload enforces stored part size and rejects missing stored size and manifest-only size with InvalidPartSize (Finding 1 / OPEN-2)', () => {
+  // 1. Missing stored part size (sp = { part_number: 1, etag: '"abc"' }) returns HTTP 400 InvalidPart (InvalidPartSize)
+  const manifestNoSize = {
+    parts: [
+      { part_number: 1, etag: '"abc"' },
+    ],
+  };
+  const storedNoSize = [
+    { part_number: 1, etag: '"abc"' },
+  ];
+  const resNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedNoSize);
+  assert.equal(resNoSize.http_status, 400);
+  assert.equal(resNoSize.error_code, 'InvalidPart');
+  assert.equal(resNoSize.code, 'InvalidPart');
+  assert.equal(resNoSize.reason, 'InvalidPartSize');
+
+  // Also test with Map
+  const storedMapNoSize = new Map([
+    [1, { part_number: 1, etag: '"abc"' }],
+  ]);
+  const resMapNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedMapNoSize);
+  assert.equal(resMapNoSize.http_status, 400);
+  assert.equal(resMapNoSize.error_code, 'InvalidPart');
+  assert.equal(resMapNoSize.reason, 'InvalidPartSize');
+
+  // Also test with Object
+  const storedObjNoSize = {
+    1: { part_number: 1, etag: '"abc"' },
+  };
+  const resObjNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedObjNoSize);
+  assert.equal(resObjNoSize.http_status, 400);
+  assert.equal(resObjNoSize.error_code, 'InvalidPart');
+  assert.equal(resObjNoSize.reason, 'InvalidPartSize');
+
+  // 2. Manifest-only size: manifest has size_bytes but stored part has no size (sp = { part_number: 1, etag: '"abc"' }) -> returns HTTP 400 InvalidPart (InvalidPartSize)
+  const manifestWithSize = {
+    parts: [
+      { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+    ],
+  };
+  const resManifestOnlySize = dispatchS3CompleteMultipartUpload(manifestWithSize, storedNoSize);
+  assert.equal(resManifestOnlySize.http_status, 400);
+  assert.equal(resManifestOnlySize.error_code, 'InvalidPart');
+  assert.equal(resManifestOnlySize.code, 'InvalidPart');
+  assert.equal(resManifestOnlySize.reason, 'InvalidPartSize');
+
+  const resManifestOnlySizeMap = dispatchS3CompleteMultipartUpload(manifestWithSize, storedMapNoSize);
+  assert.equal(resManifestOnlySizeMap.http_status, 400);
+  assert.equal(resManifestOnlySizeMap.error_code, 'InvalidPart');
+  assert.equal(resManifestOnlySizeMap.reason, 'InvalidPartSize');
+
+  const resManifestOnlySizeObj = dispatchS3CompleteMultipartUpload(manifestWithSize, storedObjNoSize);
+  assert.equal(resManifestOnlySizeObj.http_status, 400);
+  assert.equal(resManifestOnlySizeObj.error_code, 'InvalidPart');
+  assert.equal(resManifestOnlySizeObj.reason, 'InvalidPartSize');
+
+  // 3. Positive comparison: when stored part HAS valid size, completion succeeds
+  const storedWithSize = [
+    { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+  ];
+  const resValidStoredSize = dispatchS3CompleteMultipartUpload(manifestWithSize, storedWithSize);
+  assert.equal(resValidStoredSize.http_status, 200);
+  assert.equal(resValidStoredSize.error_code, null);
+});
+
+test('dispatchS3PutObject with nested headers: { "Content-MD5": base64Md5 } correctly validates payload MD5 (Finding 2 / OPEN-2)', () => {
+  const payload = Buffer.from('CYBRIK_TEST_NESTED_HEADERS_MD5_EXTRACTION_2026');
+  const validMd5 = computePayloadMd5(payload);
+  const invalidMd5 = computePayloadMd5(Buffer.from('DIFFERENT_PAYLOAD_BYTES'));
+  const malformedMd5 = 'not-valid-base64!';
+
+  // 1. Matching MD5 in nested headers passes with HTTP 200
+  const validRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: { 'Content-MD5': validMd5 },
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(validRes.http_status, 200);
+  assert.equal(validRes.error_code, null);
+
+  // Also verify lowercase header key 'content-md5' in nested headers
+  const validLowerRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: { 'content-md5': validMd5 },
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(validLowerRes.http_status, 200);
+  assert.equal(validLowerRes.error_code, null);
+
+  // 2. Mismatched MD5 in nested headers returns HTTP 400 BadDigest (PAYLOAD_DIGEST_MISMATCH)
+  const mismatchRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: { 'Content-MD5': invalidMd5 },
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(mismatchRes.http_status, 400);
+  assert.equal(mismatchRes.error_code, 'BadDigest');
+  assert.equal(mismatchRes.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // 3. Malformed base64 MD5 in nested headers returns HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX)
+  const malformedRes = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: { 'Content-MD5': malformedMd5 },
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(malformedRes.http_status, 400);
+  assert.equal(malformedRes.error_code, 'InvalidDigest');
+  assert.equal(malformedRes.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3Error("XAmzContentSHA256Mismatch") returns BadDigest (Finding 4 / OPEN-2)', () => {
+  // String argument
+  const strRes = dispatchS3Error('XAmzContentSHA256Mismatch');
+  assert.equal(strRes.http_status, 400);
+  assert.equal(strRes.error_code, 'BadDigest');
+  assert.equal(strRes.status, 400);
+  assert.equal(strRes.code, 'BadDigest');
+  assert.equal(strRes.reason, 'XAmzContentSHA256Mismatch');
+
+  // Object arguments
+  const objReasonRes = dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' });
+  assert.equal(objReasonRes.http_status, 400);
+  assert.equal(objReasonRes.error_code, 'BadDigest');
+  assert.equal(objReasonRes.status, 400);
+  assert.equal(objReasonRes.code, 'BadDigest');
+  assert.equal(objReasonRes.reason, 'XAmzContentSHA256Mismatch');
+
+  const objConditionRes = dispatchS3Error({ error_condition: 'XAmzContentSHA256Mismatch' });
+  assert.equal(objConditionRes.http_status, 400);
+  assert.equal(objConditionRes.error_code, 'BadDigest');
+  assert.equal(objConditionRes.reason, 'XAmzContentSHA256Mismatch');
+});
+
+test('negative storage fixtures executed through dispatcher match error_code and error_condition (Finding 5 / OPEN-2)', () => {
+  const negativeFiles = readdirSync(join(EXAMPLES_STORAGE_DIR, 'negative')).filter((f) =>
+    f.endsWith('.json')
+  );
+
+  for (const file of negativeFiles) {
+    const filePath = join(EXAMPLES_STORAGE_DIR, 'negative', file);
+    const data = JSON.parse(readFileSync(filePath, 'utf8'));
+
+    if (EXPECTED_STORAGE_DISPATCH_NEGATIVES[file]) {
+      const exp = EXPECTED_STORAGE_DISPATCH_NEGATIVES[file];
+      const dispatched = dispatchS3Error(data);
+
+      assert.equal(dispatched.http_status, exp.http_status, `HTTP status mismatch for ${file}`);
+      assert.equal(dispatched.error_code, exp.error_code, `Error code mismatch for ${file}`);
+      assert.equal(dispatched.code, exp.error_code, `Code mismatch for ${file}`);
+      assert.equal(
+        dispatched.reason,
+        exp.error_condition,
+        `Condition mismatch for ${file}: expected ${exp.error_condition}, got ${dispatched.reason}`
+      );
+      assert.equal(data.expected_error.error_code, exp.error_code);
+      assert.equal(data.expected_error.error_condition, exp.error_condition);
+    }
+  }
 });

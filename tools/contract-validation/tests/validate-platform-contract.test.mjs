@@ -1934,10 +1934,10 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // 1. Positive test: Canonical URN urn:cybrik:evidence:storage:object-lock:v1 passes both Ajv schema and semantic validation
+  // 1. Positive test: Canonical URN urn:cybrik:evidence:storage:s3:conformance:v1:object-lock passes both Ajv schema and semantic validation
   const dataCanonical = JSON.parse(JSON.stringify(sample));
   const storeCapCanonical = dataCanonical.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapCanonical.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1", "urn:cybrik:evidence:storage:object-lock:v1"];
+  storeCapCanonical.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1", "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
   const validCanonical = ajv.validate(schemaId, dataCanonical);
   assert.ok(validCanonical, 'Canonical Object Lock evidence URN must pass Ajv schema validation: ' + ajv.errorsText());
   assert.doesNotThrow(
@@ -1945,8 +1945,9 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     'Canonical Object Lock evidence URN must pass semantic validation'
   );
 
-  // 2. Valid canonical structured URN patterns pass both Ajv schema and semantic validation
-  const validCanonicalUrns = [
+  // 2. Legacy Object Lock URN aliases pass Ajv schema validation but fail semantic validation (only canonical urn:cybrik:evidence:storage:s3:conformance:v1:object-lock is allowed)
+  const legacyAliases = [
+    'urn:cybrik:evidence:storage:object-lock:v1',
     'urn:cybrik:evidence:storage:object-lock',
     'urn:cybrik:evidence:storage-object-lock',
     'urn:cybrik:evidence:object-lock',
@@ -1955,16 +1956,16 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     'urn:cybrik:evidence:object-lock:retention-v1',
     'urn:cybrik:evidence:storage:object-lock:compliance:2026'
   ];
-  for (const canonicalUrn of validCanonicalUrns) {
+  for (const legacyUrn of legacyAliases) {
     const dataCan = JSON.parse(JSON.stringify(sample));
     const sc = dataCan.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-    sc.evidence_references = [canonicalUrn];
+    sc.evidence_references = [legacyUrn];
     dataCan.advertisement_response.conformance_evidence = [
       ...dataCan.advertisement_response.conformance_evidence.filter(
-        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
       ),
       {
-        test_identifier: canonicalUrn,
+        test_identifier: legacyUrn,
         status: "PASS",
         evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000005",
         executed_at: "2026-08-27T12:00:00Z",
@@ -1972,10 +1973,11 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
       }
     ];
     const ok = ajv.validate(schemaId, dataCan);
-    assert.ok(ok, `Canonical URN '${canonicalUrn}' must pass Ajv schema validation: ` + ajv.errorsText());
-    assert.doesNotThrow(
+    assert.ok(ok, `Legacy URN '${legacyUrn}' must pass Ajv schema validation: ` + ajv.errorsText());
+    assert.throws(
       () => validatePlatformSemantics(dataCan, schemaId),
-      `Canonical URN '${canonicalUrn}' must pass semantic validation`
+      /lacks Object Lock retention evidence/,
+      `Legacy URN '${legacyUrn}' must fail semantic validation`
     );
   }
 
@@ -1985,7 +1987,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   storeCapGeneric.evidence_references = ["urn:cybrik:evidence:generic-storage-report-01"];
   dataGeneric.advertisement_response.conformance_evidence = [
     ...dataGeneric.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
     ),
     {
       test_identifier: "urn:cybrik:evidence:generic-storage-report-01",
@@ -2017,7 +2019,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     sc.evidence_references = [looseUrn];
     dataLoose.advertisement_response.conformance_evidence = [
       ...dataLoose.advertisement_response.conformance_evidence.filter(
-        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
       ),
       {
         test_identifier: looseUrn,
@@ -2042,7 +2044,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   storeCapFake.evidence_references = ["ev-fake-non-urn"];
   dataFake.advertisement_response.conformance_evidence = [
     ...dataFake.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
     ),
     {
       test_identifier: "ev-fake-non-urn",
@@ -2063,28 +2065,28 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   // 6. Negative test: Object Lock URN not present in conformance_evidence passes Ajv schema but fails semantic validation
   const dataMissingEv = JSON.parse(JSON.stringify(sample));
   const storeCapMissing = dataMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapMissing.evidence_references = ["urn:cybrik:evidence:storage:object-lock:v1"];
+  storeCapMissing.evidence_references = ["urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
   dataMissingEv.advertisement_response.conformance_evidence = dataMissingEv.advertisement_response.conformance_evidence.filter(
-    e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1'
+    e => e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1'
   );
   const validMissing = ajv.validate(schemaId, dataMissingEv);
   assert.ok(validMissing, 'Object Lock URN not present in conformance_evidence must pass Ajv schema validation: ' + ajv.errorsText());
   assert.throws(
     () => validatePlatformSemantics(dataMissingEv, schemaId),
-    /evidence_reference 'urn:cybrik:evidence:storage:object-lock:v1' not found in conformance_evidence/,
+    /evidence_reference 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' not found in conformance_evidence/,
     'Object Lock URN not present in conformance_evidence must fail semantic validation'
   );
 
   // 7. Negative test: Object Lock evidence with status: "FAIL" fails semantic validation
   const dataFailStatus = JSON.parse(JSON.stringify(sample));
   const storeCapFail = dataFailStatus.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapFail.evidence_references = ["urn:cybrik:evidence:storage:object-lock:v1"];
+  storeCapFail.evidence_references = ["urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
   dataFailStatus.advertisement_response.conformance_evidence = [
     ...dataFailStatus.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
     ),
     {
-      test_identifier: "urn:cybrik:evidence:storage:object-lock:v1",
+      test_identifier: "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock",
       status: "FAIL",
       evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000009",
       executed_at: "2026-08-27T12:00:00Z",
@@ -2105,7 +2107,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   scBadDig.evidence_references = ['urn:cybrik:evidence:storage-object-lock:01'];
   dataBadDigest.advertisement_response.conformance_evidence = [
     ...dataBadDigest.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
     ),
     {
       test_identifier: 'urn:cybrik:evidence:storage-object-lock:01',
@@ -4844,7 +4846,7 @@ test('platform semantics: universal profile digest disk equality, Object Lock UR
   ];
   negWithConformLock.advertisement_response.conformance_evidence = [
     ...negWithConformLock.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1'
+      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'
     ),
     {
       test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
@@ -5018,6 +5020,133 @@ test('validatePlatformSemantics rejects snapshot restore targets with spaces, @,
       () => validatePlatformSemantics(doc, manifestSchemaId),
       /invalid RESTORE_DATABASE_SNAPSHOT target path/,
       `Expected snapshot restore target '${target}' to be rejected by validatePlatformSemantics`
+    );
+  }
+});
+
+test('in-memory validation: rejection of legacy Object Lock URN aliases (rejecting anything other than urn:cybrik:evidence:storage:s3:conformance:v1:object-lock) (Finding 3 / OPEN-5)', () => {
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const legacyAliases = [
+    'urn:cybrik:evidence:storage:object-lock:v1',
+    'urn:cybrik:evidence:storage:object-lock',
+    'urn:cybrik:evidence:storage-object-lock',
+    'urn:cybrik:evidence:object-lock',
+    'urn:cybrik:evidence:storage:object-lock:01',
+    'urn:cybrik:evidence:storage-object-lock:01',
+    'urn:cybrik:evidence:object-lock:retention-v1',
+    'urn:cybrik:evidence:storage:object-lock:compliance:2026',
+    'urn:cybrik:evidence:storage:s3:object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:retention',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:worm-lock',
+    'urn:cybrik:evidence:s3-object-lock',
+  ];
+
+  // 1. Strict canonical Object Lock predicate: only urn:cybrik:evidence:storage:s3:conformance:v1:object-lock is valid
+  const isStrictCanonicalObjectLockUrn = (urn) => urn === canonicalLockUrn;
+
+  assert.ok(isStrictCanonicalObjectLockUrn(canonicalLockUrn), 'Canonical URN must be strictly accepted');
+
+  for (const alias of legacyAliases) {
+    assert.equal(
+      isStrictCanonicalObjectLockUrn(alias),
+      false,
+      `Legacy Object Lock URN alias '${alias}' must be rejected (strictly only '${canonicalLockUrn}' allowed)`
+    );
+    assert.notEqual(alias, canonicalLockUrn, `Legacy alias '${alias}' must not match canonical URN`);
+  }
+
+  // 2. Standalone declaration strictly requiring canonical Object Lock URN
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // Positive baseline with canonical URN passes
+  assert.doesNotThrow(() => validatePlatformSemantics(fullDeclSample, pcaSchemaId));
+
+  // Legacy aliases in standalone full profile declaration
+  for (const alias of legacyAliases) {
+    const mutated = JSON.parse(JSON.stringify(fullDeclSample));
+    const storageCap = mutated.advertised_capabilities.find(c => c.slot_id === 'storage');
+    storageCap.evidence_references = [alias];
+    mutated.conformance_evidence = [
+      ...mutated.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn),
+      {
+        test_identifier: alias,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/legacy-lock'
+      }
+    ];
+
+    const hasCanonicalLock = storageCap.evidence_references.some(r => r === canonicalLockUrn);
+    assert.equal(hasCanonicalLock, false, `Mutated declaration must not contain canonical Object Lock URN for alias '${alias}'`);
+  }
+});
+
+test('validatePlatformSemantics additional branch coverage for declaration and lease validation', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const handshakeSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. FULL_PROFILE_CONFORMANCE_DECLARATION missing target_profile_digest
+  const declNoDigest = JSON.parse(JSON.stringify(fullDeclSample));
+  delete declNoDigest.target_profile_digest;
+  assert.throws(
+    () => validatePlatformSemantics(declNoDigest, pcaSchemaId),
+    /target_profile_digest is required/
+  );
+
+  // 2. FULL_PROFILE_CONFORMANCE_DECLARATION missing mandatory profile slot
+  const declMissingSlot = JSON.parse(JSON.stringify(fullDeclSample));
+  declMissingSlot.advertised_capabilities = declMissingSlot.advertised_capabilities.filter(c => c.slot_id !== 'storage');
+  assert.throws(
+    () => validatePlatformSemantics(declMissingSlot, pcaSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION missing required mandatory profile slot 'storage'/
+  );
+
+  // 3. FULL_PROFILE_CONFORMANCE_DECLARATION with REJECTED_FAIL_CLOSED capability
+  const declRejectedCap = JSON.parse(JSON.stringify(fullDeclSample));
+  declRejectedCap.advertised_capabilities[0].disposition = 'REJECTED_FAIL_CLOSED';
+  assert.throws(
+    () => validatePlatformSemantics(declRejectedCap, pcaSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION cannot contain capability .* with disposition 'REJECTED_FAIL_CLOSED'/
+  );
+
+  // 4. Negotiation handshake where mandatory profile slot missing from advertised capabilities
+  const hsMissingAdv = JSON.parse(JSON.stringify(handshakeSample));
+  hsMissingAdv.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  hsMissingAdv.advertisement_response.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  hsMissingAdv.advertisement_response.advertised_capabilities = hsMissingAdv.advertisement_response.advertised_capabilities.filter(c => c.slot_id !== 'storage');
+  assert.throws(
+    () => validatePlatformSemantics(hsMissingAdv, handshakeSchemaId),
+    /mandatory profile slot 'storage' not found in advertised capabilities/
+  );
+
+  // 5. Negotiation handshake where mandatory slot evidence reference is missing in conformance evidence
+  const hsMissingEv = JSON.parse(JSON.stringify(handshakeSample));
+  hsMissingEv.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  hsMissingEv.advertisement_response.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  const storageCap = hsMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageCap.evidence_references = ['urn:cybrik:evidence:nonexistent'];
+  assert.throws(
+    () => validatePlatformSemantics(hsMissingEv, handshakeSchemaId),
+    /evidence_reference 'urn:cybrik:evidence:nonexistent' not found in conformance_evidence/
+  );
+
+  // 6. Negotiation handshake where mandatory slot conformance evidence has non-PASS status
+  const hsFailEv = JSON.parse(JSON.stringify(handshakeSample));
+  hsFailEv.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  hsFailEv.advertisement_response.claim_type = 'CAPABILITY_NEGOTIATION_ADVERTISEMENT';
+  const storageRef = hsFailEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage').evidence_references[0];
+  const evObj = hsFailEv.advertisement_response.conformance_evidence.find(e => e.test_identifier === storageRef);
+  if (evObj) {
+    evObj.status = 'FAIL';
+    assert.throws(
+      () => validatePlatformSemantics(hsFailEv, handshakeSchemaId),
+      /conformance evidence .* has non-passing status 'FAIL'/
     );
   }
 });

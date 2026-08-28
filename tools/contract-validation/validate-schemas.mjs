@@ -395,14 +395,18 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   let payloadBytes;
   let md5Val;
   let sha256Val;
+  let hasMd5 = false;
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
-    payloadBytes = optionsOrPayload.payloadBytes ?? optionsOrPayload.payload ?? optionsOrPayload.body;
-    md5Val = optionsOrPayload.contentMd5Header ?? optionsOrPayload.content_md5_header ?? optionsOrPayload.contentMd5 ?? optionsOrPayload['Content-MD5'] ?? optionsOrPayload.content_md5;
-    sha256Val = optionsOrPayload['x-amz-content-sha256'] ?? optionsOrPayload['X-Amz-Content-Sha256'] ?? optionsOrPayload.contentSha256Header ?? optionsOrPayload.content_sha256_header ?? optionsOrPayload.contentSha256 ?? optionsOrPayload.xAmzContentSha256 ?? optionsOrPayload.x_amz_content_sha256 ?? optionsOrPayload.sha256Header ?? (optionsOrPayload.headers ? (optionsOrPayload.headers['x-amz-content-sha256'] ?? optionsOrPayload.headers['X-Amz-Content-Sha256']) : undefined);
+    const req = optionsOrPayload;
+    payloadBytes = req.payloadBytes ?? req.payload ?? req.body;
+    md5Val = req.contentMd5Header ?? req.content_md5_header ?? req.contentMd5 ?? req['Content-MD5'] ?? req.content_md5 ?? (req.headers ? (req.headers['Content-MD5'] ?? req.headers['content-md5']) : undefined);
+    hasMd5 = ('contentMd5Header' in req || 'content_md5_header' in req || 'contentMd5' in req || 'Content-MD5' in req || 'content_md5' in req || (req.headers && ('Content-MD5' in req.headers || 'content-md5' in req.headers)));
+    sha256Val = req['x-amz-content-sha256'] ?? req['X-Amz-Content-Sha256'] ?? req.contentSha256Header ?? req.content_sha256_header ?? req.contentSha256 ?? req.xAmzContentSha256 ?? req.x_amz_content_sha256 ?? req.sha256Header ?? (req.headers ? (req.headers['x-amz-content-sha256'] ?? req.headers['X-Amz-Content-Sha256']) : undefined);
   } else {
     payloadBytes = optionsOrPayload;
     md5Val = maybeMd5Header;
+    hasMd5 = (maybeMd5Header !== undefined);
     sha256Val = maybeSha256Header;
   }
 
@@ -431,10 +435,6 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
       return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_SHA256_MISMATCH' };
     }
   }
-
-  const hasMd5 = (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array))
-    ? ('contentMd5Header' in optionsOrPayload || 'content_md5_header' in optionsOrPayload || 'contentMd5' in optionsOrPayload || 'Content-MD5' in optionsOrPayload || 'content_md5' in optionsOrPayload || (optionsOrPayload.headers && ('Content-MD5' in optionsOrPayload.headers || 'content-md5' in optionsOrPayload.headers)))
-    : (maybeMd5Header !== undefined);
 
   if (hasMd5) {
     if (isMalformedBase64Md5(md5Val)) {
@@ -547,19 +547,17 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       ? storedPart.size_bytes
       : (storedPart.size !== undefined
           ? storedPart.size
-          : (storedPart.Size !== undefined ? storedPart.Size : (part.size_bytes !== undefined ? part.size_bytes : (part.size !== undefined ? part.size : part.Size))));
-    if (rawSize !== undefined) {
-      if (typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
-        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
-      }
-      if (rawSize > 5368709120) {
-        return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PartSizeExceeded' };
-      }
-      if (i < manifest.parts.length - 1 && rawSize < 5242880) {
-        return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
-      }
-      totalSizeBytes += rawSize;
+          : storedPart.Size);
+    if (rawSize === undefined || typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
     }
+    if (rawSize > 5368709120) {
+      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PartSizeExceeded' };
+    }
+    if (i < manifest.parts.length - 1 && rawSize < 5242880) {
+      return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
+    }
+    totalSizeBytes += rawSize;
   }
 
   if (totalSizeBytes > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
@@ -576,9 +574,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       typeof conditionOrOptions === 'object' &&
       ('payloadBytes' in conditionOrOptions || 'contentMd5Header' in conditionOrOptions || 'x-amz-content-sha256' in conditionOrOptions))
   ) {
-    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : conditionOrOptions?.payloadBytes;
-    const contentMd5Header = arguments.length >= 2 ? maybeHeader : conditionOrOptions?.contentMd5Header;
-    const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.contentSha256Header;
+    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (conditionOrOptions?.payloadBytes ?? conditionOrOptions?.payload ?? conditionOrOptions?.body);
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (conditionOrOptions?.contentMd5Header ?? conditionOrOptions?.content_md5_header ?? conditionOrOptions?.contentMd5 ?? conditionOrOptions?.['Content-MD5'] ?? conditionOrOptions?.content_md5 ?? (conditionOrOptions?.headers ? (conditionOrOptions.headers['Content-MD5'] ?? conditionOrOptions.headers['content-md5']) : undefined));
+    const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.['X-Amz-Content-Sha256'] ?? conditionOrOptions?.contentSha256Header ?? conditionOrOptions?.content_sha256_header ?? conditionOrOptions?.contentSha256 ?? conditionOrOptions?.xAmzContentSha256 ?? conditionOrOptions?.x_amz_content_sha256 ?? (conditionOrOptions?.headers ? (conditionOrOptions.headers['x-amz-content-sha256'] ?? conditionOrOptions.headers['X-Amz-Content-Sha256']) : undefined);
 
     if (contentMd5Header !== undefined) {
       if (isMalformedBase64Md5(contentMd5Header)) {
@@ -632,13 +630,13 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
 
   if (typeof conditionOrOptions === 'string') {
     const norm = conditionOrOptions.trim();
-    if (norm === 'BadDigest' || norm === 'PAYLOAD_DIGEST_MISMATCH' || norm === 'PAYLOAD_SHA256_MISMATCH') {
+    if (norm === 'BadDigest' || norm === 'PAYLOAD_DIGEST_MISMATCH' || norm === 'PAYLOAD_SHA256_MISMATCH' || norm === 'XAmzContentSHA256Mismatch') {
       return {
         http_status: 400,
         error_code: 'BadDigest',
         status: 400,
         code: 'BadDigest',
-        reason: norm === 'PAYLOAD_SHA256_MISMATCH' ? 'PAYLOAD_SHA256_MISMATCH' : 'PAYLOAD_DIGEST_MISMATCH',
+        reason: norm === 'PAYLOAD_SHA256_MISMATCH' || norm === 'XAmzContentSHA256Mismatch' ? norm : 'PAYLOAD_DIGEST_MISMATCH',
       };
     }
     if (
@@ -655,15 +653,6 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'InvalidDigest',
         reason: norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'MALFORMED_SHA256_HEADER' ? norm : 'MALFORMED_HEADER_SYNTAX',
-      };
-    }
-    if (norm === 'XAmzContentSHA256Mismatch') {
-      return {
-        http_status: 400,
-        error_code: 'InvalidDigest',
-        status: 400,
-        code: 'InvalidDigest',
-        reason: 'XAmzContentSHA256Mismatch',
       };
     }
     if (
@@ -797,13 +786,13 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   if (conditionOrOptions && typeof conditionOrOptions === 'object') {
     const code = conditionOrOptions.error_code || conditionOrOptions.code;
     const reason = conditionOrOptions.error_condition || conditionOrOptions.reason;
-    if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH' || reason === 'PAYLOAD_SHA256_MISMATCH') {
+    if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH' || reason === 'PAYLOAD_SHA256_MISMATCH' || reason === 'XAmzContentSHA256Mismatch') {
       return {
         http_status: 400,
         error_code: 'BadDigest',
         status: 400,
         code: 'BadDigest',
-        reason: reason || 'PAYLOAD_DIGEST_MISMATCH',
+        reason: reason === 'PAYLOAD_SHA256_MISMATCH' || reason === 'XAmzContentSHA256Mismatch' ? reason : (reason || 'PAYLOAD_DIGEST_MISMATCH'),
       };
     }
     if (
@@ -820,15 +809,6 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'InvalidDigest',
         reason: reason || 'MALFORMED_HEADER_SYNTAX',
-      };
-    }
-    if (reason === 'XAmzContentSHA256Mismatch') {
-      return {
-        http_status: 400,
-        error_code: 'InvalidDigest',
-        status: 400,
-        code: 'InvalidDigest',
-        reason: 'XAmzContentSHA256Mismatch',
       };
     }
     if (
@@ -1552,9 +1532,7 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        const OBJECT_LOCK_URN_PATTERN = /^urn:cybrik:evidence:(?:storage:(?:s3:conformance:v\d+:)?object-lock|storage-object-lock|object-lock)(?::[a-zA-Z0-9_-]+)*$/;
-
-        const lockRefs = (storageCap.evidence_references || []).filter(ref => OBJECT_LOCK_URN_PATTERN.test(ref));
+        const lockRefs = (storageCap.evidence_references || []).filter(ref => ref === 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock');
         if (lockRefs.length === 0) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
@@ -2156,7 +2134,12 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
       } else if (!data.expected_error || data.expected_error.error_code !== expDispatch.error_code || data.expected_error.error_condition !== expDispatch.error_condition) {
         fail(`storage dispatch negative example ${file}: expected_error must declare error_code ${expDispatch.error_code} and error_condition ${expDispatch.error_condition}`);
       } else {
-        bump('negative_schema_reject');
+        const res = dispatchS3Error(data);
+        if (res.error_code !== expDispatch.error_code || res.reason !== expDispatch.error_condition) {
+          fail(`storage dispatch negative example ${file}: dispatcher returned error_code ${res.error_code} and reason ${res.reason}, expected ${expDispatch.error_code} and ${expDispatch.error_condition}`);
+        } else {
+          bump('negative_schema_reject');
+        }
       }
       continue;
     }
@@ -2765,7 +2748,7 @@ const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
 const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
 storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
 pcnStorageMissingLockEv.advertisement_response.conformance_evidence = pcnStorageMissingLockEv.advertisement_response.conformance_evidence
-  .filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1')
+  .filter(e => !e.test_identifier.includes('object-lock'))
   .map(e => ({
     ...e,
     status: 'PASS',
@@ -3111,15 +3094,15 @@ const completeManifest = {
   ]
 };
 const storedMapOk = new Map([
-  [1, { etag: '"etag-1"' }],
-  [2, { etag: '"etag-2"' }]
+  [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+  [2, { etag: '"etag-2"', size_bytes: 5242880 }]
 ]);
 const storedMapMissing = new Map([
-  [1, { etag: '"etag-1"' }]
+  [1, { etag: '"etag-1"', size_bytes: 5242880 }]
 ]);
 const storedMapBadEtag = new Map([
-  [1, { etag: '"etag-1"' }],
-  [2, { etag: '"etag-bad"' }]
+  [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+  [2, { etag: '"etag-bad"', size_bytes: 5242880 }]
 ]);
 const completeOk = dispatchS3CompleteMultipartUpload(completeManifest, storedMapOk);
 const completeMissing = dispatchS3CompleteMultipartUpload(completeManifest, storedMapMissing);
