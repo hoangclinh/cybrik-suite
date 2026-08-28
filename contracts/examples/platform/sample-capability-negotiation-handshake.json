@@ -34,7 +34,7 @@
       {
         "capability_name": "storage_object_lock",
         "slot_id": "storage",
-        "required_for_optimal": false,
+        "required_for_optimal": true,
         "preferred_fallback": "FEATURE_DISABLED_GRACEFUL"
       },
       {

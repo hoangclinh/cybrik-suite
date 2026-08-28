@@ -2876,27 +2876,43 @@ export function validatePlatformSemantics(data, schemaId) {
 
       const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
 
-      if (targetProfileId) {
+      let resolvedProfileForLease = data.profile || adv.profile;
+      if (!resolvedProfileForLease && targetProfileId) {
         const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
         if (existsSync(profilePath)) {
-          const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
-          const immutableStorageMandated =
-            profile.slots?.storage?.specification?.immutable_storage_required === true;
+          try {
+            resolvedProfileForLease = JSON.parse(readFileSync(profilePath, 'utf8'));
+          } catch (_) {}
+        }
+      }
 
-          if (immutableStorageMandated) {
-            for (const cap of caps) {
-              const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
-              const isDegraded =
-                cap.disposition === 'GRANTED_DEGRADED' ||
-                cap.status === 'GRANTED_DEGRADED' ||
-                cap.disposition === 'REJECTED_UNSUPPORTED' ||
-                cap.status === 'REJECTED_UNSUPPORTED' ||
-                (cap.fallback_applied !== undefined && cap.fallback_applied !== 'NONE') ||
-                (cap.effective_fallback !== undefined && cap.effective_fallback !== 'NONE');
-              if (isStorageCap && isDegraded) {
-                throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
-              }
+      if (resolvedProfileForLease) {
+        const immutableStorageMandated =
+          resolvedProfileForLease.slots?.storage?.specification?.immutable_storage_required === true ||
+          resolvedProfileForLease.immutable_storage_required === true;
+
+        if (immutableStorageMandated) {
+          for (const cap of caps) {
+            const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+            const isDegraded =
+              cap.disposition === 'GRANTED_DEGRADED' ||
+              cap.status === 'GRANTED_DEGRADED' ||
+              cap.disposition === 'REJECTED_UNSUPPORTED' ||
+              cap.status === 'REJECTED_UNSUPPORTED' ||
+              (cap.fallback_applied !== undefined && cap.fallback_applied !== 'NONE') ||
+              (cap.effective_fallback !== undefined && cap.effective_fallback !== 'NONE');
+            if (isStorageCap && isDegraded) {
+              throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
             }
+          }
+          const lockCap = caps.find(c => c.capability_name === 'storage_object_lock' || (c.slot_id === 'storage' && c.capability_name?.includes('lock')));
+          if (!lockCap) {
+            throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
+          }
+          const lockDisp = lockCap.disposition || lockCap.status;
+          const lockFb = lockCap.fallback_applied || lockCap.effective_fallback || 'NONE';
+          if (lockDisp !== 'GRANTED_FULL' || lockFb !== 'NONE') {
+            throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
           }
         }
       }
@@ -3243,7 +3259,8 @@ export function validatePlatformSemantics(data, schemaId) {
           }
 
           const immutableStorageMandated =
-            profile.slots?.storage?.specification?.immutable_storage_required === true;
+            profile.slots?.storage?.specification?.immutable_storage_required === true ||
+            profile.immutable_storage_required === true;
 
           if (immutableStorageMandated) {
             const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
@@ -3256,6 +3273,15 @@ export function validatePlatformSemantics(data, schemaId) {
                   throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease (disposition: ${disposition}, fallback: ${fallback})`);
                 }
               }
+            }
+            const lockCap = leaseCaps.find(c => c.capability_name === 'storage_object_lock' || (c.slot_id === 'storage' && c.capability_name?.includes('lock')));
+            if (!lockCap) {
+              throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
+            }
+            const lockDisp = lockCap.disposition || lockCap.status;
+            const lockFb = lockCap.fallback_applied || lockCap.effective_fallback || 'NONE';
+            if (lockDisp !== 'GRANTED_FULL' || lockFb !== 'NONE') {
+              throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
             }
           }
         }
@@ -4634,6 +4660,18 @@ try {
   pcnDegradedMissingOptimalPassed = false;
 }
 H('30l', pcnDegradedMissingOptimalPassed, 'ACTIVE_DEGRADED lease omitting capability with required_for_optimal: true must pass validatePlatformSemantics');
+
+// 30m. in-memory validation: reject immutable storage profile lease omitting storage_object_lock capability (OPEN-5)
+const pcnImmutableMissingLock = JSON.parse(JSON.stringify(pcnSample));
+pcnImmutableMissingLock.agreed_capability_lease.negotiated_optional_capabilities =
+  pcnImmutableMissingLock.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'storage_object_lock');
+let pcnImmutableMissingLockCaught = false;
+try {
+  validatePlatformSemantics(pcnImmutableMissingLock, pcnSchemaId);
+} catch (e) {
+  pcnImmutableMissingLockCaught = e.message.includes('immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition');
+}
+H('30m', pcnImmutableMissingLockCaught, 'immutable storage profile lease omitting storage_object_lock capability must fail validatePlatformSemantics');
 
 
 
