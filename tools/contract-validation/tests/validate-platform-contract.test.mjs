@@ -4523,7 +4523,7 @@ test('in-memory validation: full profile conformance declaration shape and Objec
   const dataWithLock = JSON.parse(JSON.stringify(original));
   const storageCap = dataWithLock.advertised_capabilities.find((c) => c.slot_id === 'storage');
   const lockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
-  storageCap.evidence_references = [lockUrn];
+  storageCap.evidence_references = ['urn:cybrik:evidence:storage:s3-19-ops:v1', lockUrn];
   dataWithLock.conformance_evidence = [
     ...dataWithLock.conformance_evidence.filter((e) => e.test_identifier !== lockUrn),
     {
@@ -5080,10 +5080,20 @@ test('in-memory validation: canonical Object Lock URN urn:cybrik:evidence:storag
         'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
       ],
       degradation_fallback: 'NONE',
-      evidence_references: [canonicalLockUrn]
+      evidence_references: [
+        'urn:cybrik:evidence:storage:s3-19-ops:v1',
+        canonicalLockUrn
+      ]
     }
   ];
   partialWithLock.conformance_evidence = [
+    {
+      test_identifier: 'urn:cybrik:evidence:storage:s3-19-ops:v1',
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report-s3'
+    },
     {
       test_identifier: canonicalLockUrn,
       status: 'PASS',
@@ -5791,13 +5801,23 @@ test('in-memory validation: permit multi-evidence storage declarations with targ
     'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops',
     canonicalLockUrn
   ];
-  multiDecl.conformance_evidence.push({
-    test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops',
-    status: 'PASS',
-    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    executed_at: '2026-08-25T12:00:00Z',
-    report_uri: 'https://example.com/s3-ops'
-  });
+  multiDecl.conformance_evidence = [
+    ...multiDecl.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
+    {
+      test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops',
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock'
+    }
+  ];
 
   const schemaValid = ajv.validate(pcaSchemaId, multiDecl);
   assert.ok(schemaValid, 'Multi-evidence declaration must pass Ajv schema: ' + ajv.errorsText());
@@ -5845,7 +5865,7 @@ test('in-memory validation: standalone full profile conformance declaration with
 
   // Add conformance evidence for s3-17-ops alongside object-lock
   dualEvidenceDecl.conformance_evidence = [
-    ...dualEvidenceDecl.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== s3OpsUrn),
+    ...dualEvidenceDecl.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
     {
       test_identifier: s3OpsUrn,
       status: 'PASS',
@@ -5887,7 +5907,7 @@ test('in-memory validation: standalone full profile conformance declaration with
   const legacyStorageCap = legacyDualDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
   legacyStorageCap.evidence_references = [legacyS3OpsUrn, canonicalLockUrn];
   legacyDualDecl.conformance_evidence = [
-    ...legacyDualDecl.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== legacyS3OpsUrn),
+    ...legacyDualDecl.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
     {
       test_identifier: legacyS3OpsUrn,
       status: 'PASS',
@@ -5922,7 +5942,7 @@ test('in-memory validation: standalone declaration with unlisted Object Lock ali
   const storageCap1 = declWithAlias.advertised_capabilities.find(c => c.slot_id === 'storage');
   storageCap1.evidence_references = [s3OpsUrn, unlistedAlias];
   declWithAlias.conformance_evidence = [
-    ...declWithAlias.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn),
+    ...declWithAlias.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
     {
       test_identifier: s3OpsUrn,
       status: 'PASS',
@@ -5952,7 +5972,7 @@ test('in-memory validation: standalone declaration with unlisted Object Lock ali
   const storageCap2 = declTriple.advertised_capabilities.find(c => c.slot_id === 'storage');
   storageCap2.evidence_references = [s3OpsUrn, canonicalLockUrn, unlistedAlias];
   declTriple.conformance_evidence = [
-    ...declTriple.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn),
+    ...declTriple.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
     {
       test_identifier: s3OpsUrn,
       status: 'PASS',
@@ -6002,7 +6022,7 @@ test('in-memory validation: standalone and nested negotiation lease parity with 
   const saStoreCap = standaloneDoc.advertised_capabilities.find(c => c.slot_id === 'storage');
   saStoreCap.evidence_references = [s3OpsUrn, canonicalLockUrn];
   standaloneDoc.conformance_evidence = [
-    ...standaloneDoc.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== s3OpsUrn),
+    ...standaloneDoc.conformance_evidence.filter(e => !e.test_identifier.includes('s3') && !e.test_identifier.includes('object-lock')),
     {
       test_identifier: s3OpsUrn,
       status: 'PASS',
@@ -6311,10 +6331,20 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
         is_mandatory: true,
         supported_features: [...ops],
         degradation_fallback: 'NONE',
-        evidence_references: [lockUrn]
+        evidence_references: [
+          'urn:cybrik:evidence:storage:s3-19-ops:v1',
+          lockUrn
+        ]
       }
     ];
     doc.conformance_evidence = [
+      {
+        test_identifier: 'urn:cybrik:evidence:storage:s3-19-ops:v1',
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report-s3'
+      },
       {
         test_identifier: lockUrn,
         status: 'PASS',
@@ -10347,10 +10377,10 @@ test('adversarial regression: malformed direct-array wrapper returning HTTP 400 
   assert.equal(emptyRes2.code, 'InvalidArgument');
   assert.equal(emptyRes2.reason, 'EmptyPartsList');
 
-  // validateS3MultipartSemantics on empty parts array throws parts array must be non-empty
+  // validateS3MultipartSemantics on empty parts array throws parts list must not be empty (InvalidArgument)
   assert.throws(
     () => validateS3MultipartSemantics(emptyPartsManifest),
-    /parts array must be non-empty/
+    /parts list must not be empty.*\(InvalidArgument\)/
   );
 
   // 2. Direct array wrapper [] returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
@@ -15925,25 +15955,28 @@ test('OPEN-2 view brand verification: reject impure ArrayBuffer views with MALFO
     // 3. dispatchS3CompleteMultipartUpload direct & maybeStoredParts & nested
     const resCmpDirect = dispatchS3CompleteMultipartUpload(view);
     assert.equal(resCmpDirect.http_status, 400);
-    assert.equal(resCmpDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(resCmpDirect.error_code, 'InvalidPart');
+    assert.equal(resCmpDirect.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
 
     const resCmpParts = dispatchS3CompleteMultipartUpload({}, view);
     assert.equal(resCmpParts.http_status, 400);
-    assert.equal(resCmpParts.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(resCmpParts.error_code, 'InvalidPart');
+    assert.equal(resCmpParts.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
 
     const resCmpNested = dispatchS3CompleteMultipartUpload({ payload: view });
     assert.equal(resCmpNested.http_status, 400);
-    assert.equal(resCmpNested.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(resCmpNested.error_code, 'InvalidPart');
+    assert.equal(resCmpNested.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
 
     // 4. validateS3MultipartSemantics direct & nested
     assert.throws(
       () => validateS3MultipartSemantics(view),
-      (err) => err.message.includes('MALFORMED_PAYLOAD_TYPE')
+      { message: /^Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)$/ }
     );
 
     assert.throws(
       () => validateS3MultipartSemantics({ payload: view }),
-      (err) => err.message.includes('MALFORMED_PAYLOAD_TYPE')
+      { message: /^Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)$/ }
     );
   }
 });
@@ -16260,7 +16293,7 @@ test('OPEN-2/OPEN-5 adversarial regression: prototype-spoofed views across platf
   );
   assert.equal(mpStoredResF32.http_status, 400);
   assert.equal(mpStoredResF32.error_code, 'InvalidPart');
-  assert.equal(mpStoredResF32.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(mpStoredResF32.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
 });
 
 test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard', () => {
@@ -16300,8 +16333,8 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => validateOfflineInstallSemantics(u8Spoofed), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics({ payload: u8Spoofed }), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics([{ payload: u8Spoofed }]), /Semantic error/);
-    assert.throws(() => validateS3MultipartSemantics(u8Spoofed), /MALFORMED_PAYLOAD_TYPE/);
-    assert.throws(() => validateS3MultipartSemantics({ payload: u8Spoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => validateS3MultipartSemantics(u8Spoofed), /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
+    assert.throws(() => validateS3MultipartSemantics({ payload: u8Spoofed }), /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
 
     // Test all S3 PutObject and Error dispatch forms for Uint8Array spoofed view
     const u8PutDirect = dispatchS3PutObject(u8Spoofed);
@@ -16327,17 +16360,17 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     const u8PutHeaders = dispatchS3PutObject({ headers: u8Spoofed });
     assert.equal(u8PutHeaders.http_status, 400);
     assert.equal(u8PutHeaders.error_code, 'InvalidDigest');
-    assert.ok(u8PutHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || u8PutHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+    assert.equal(u8PutHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 
-    const u8PutMd5 = dispatchS3PutObject(Buffer.from('valid payload'), u8Spoofed);
-    assert.equal(u8PutMd5.http_status, 400);
-    assert.equal(u8PutMd5.error_code, 'InvalidDigest');
-    assert.equal(u8PutMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
+    const u8PutMd5Hdr = dispatchS3PutObject(Buffer.from('valid'), u8Spoofed);
+    assert.equal(u8PutMd5Hdr.http_status, 400);
+    assert.equal(u8PutMd5Hdr.error_code, 'InvalidDigest');
+    assert.equal(u8PutMd5Hdr.reason, 'MALFORMED_PAYLOAD_TYPE');
 
-    const u8PutSha256 = dispatchS3PutObject(Buffer.from('valid payload'), undefined, u8Spoofed);
-    assert.equal(u8PutSha256.http_status, 400);
-    assert.equal(u8PutSha256.error_code, 'InvalidDigest');
-    assert.equal(u8PutSha256.reason, 'MALFORMED_PAYLOAD_TYPE');
+    const u8PutSha256Hdr = dispatchS3PutObject(Buffer.from('valid'), undefined, u8Spoofed);
+    assert.equal(u8PutSha256Hdr.http_status, 400);
+    assert.equal(u8PutSha256Hdr.error_code, 'InvalidDigest');
+    assert.equal(u8PutSha256Hdr.reason, 'MALFORMED_PAYLOAD_TYPE');
 
     assert.equal(dispatchS3PutObject({ payload: u8Spoofed, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true }).error_code, 'InvalidDigest');
 
@@ -16359,7 +16392,7 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     const u8ErrHeaders = dispatchS3Error({ headers: u8Spoofed });
     assert.equal(u8ErrHeaders.http_status, 400);
     assert.equal(u8ErrHeaders.error_code, 'InvalidDigest');
-    assert.ok(u8ErrHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || u8ErrHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+    assert.equal(u8ErrHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 
     const u8ErrHdr = dispatchS3Error('NoSuchKey', u8Spoofed);
     assert.equal(u8ErrHdr.http_status, 400);
@@ -16391,8 +16424,8 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => validateOfflineInstallSemantics(bufSpoofed), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics({ payload: bufSpoofed }), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics([{ payload: bufSpoofed }]), /Semantic error/);
-    assert.throws(() => validateS3MultipartSemantics(bufSpoofed), /MALFORMED_PAYLOAD_TYPE/);
-    assert.throws(() => validateS3MultipartSemantics({ payload: bufSpoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => validateS3MultipartSemantics(bufSpoofed), /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
+    assert.throws(() => validateS3MultipartSemantics({ payload: bufSpoofed }), /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
 
     // Test all S3 PutObject and Error dispatch forms for Buffer spoofed view
     const bufPutDirect = dispatchS3PutObject(bufSpoofed);
@@ -16533,7 +16566,7 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
       assert.throws(() => validateOfflineInstallSemantics({ evil }), /Semantic error/);
       assert.equal(getterHit, false, 'validateOfflineInstallSemantics must not trigger getters');
 
-      assert.throws(() => validateS3MultipartSemantics({ payload: evil }), /MALFORMED_PAYLOAD_TYPE/);
+      assert.throws(() => validateS3MultipartSemantics({ payload: evil }), /InvalidPart/);
       assert.equal(getterHit, false, 'validateS3MultipartSemantics must not trigger getters');
 
       assert.equal(dispatchS3PutObject(evil).error_code, 'InvalidDigest');
@@ -16607,46 +16640,53 @@ test('OPEN-5 exhaustive 22-shape spoofed view matrix across platform and offline
       `${entry.name}: isMalformedPayloadType(view) === true`
     );
 
+    // Form 24: createSafePlainSnapshot(view)
     assert.throws(
       () => createSafePlainSnapshot(view),
-      /Semantic error/,
-      `${entry.name}: createSafePlainSnapshot(view) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in platform data$/ },
+      `${entry.name}: Form 24 createSafePlainSnapshot(view) throws terminal Semantic error`
     );
 
+    // Form 25: createSafePlainSnapshot({ nested: view })
     assert.throws(
       () => createSafePlainSnapshot({ nested: view }),
-      /Semantic error/,
-      `${entry.name}: createSafePlainSnapshot({ nested: view }) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in platform data$/ },
+      `${entry.name}: Form 25 createSafePlainSnapshot({ nested: view }) throws terminal Semantic error`
     );
 
+    // Form 26: createSafePlainSnapshot([view])
     assert.throws(
       () => createSafePlainSnapshot([view]),
-      /Semantic error/,
-      `${entry.name}: createSafePlainSnapshot([view]) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in platform data$/ },
+      `${entry.name}: Form 26 createSafePlainSnapshot([view]) throws terminal Semantic error`
     );
 
+    // Form 27: validatePlatformSemantics(view)
     assert.throws(
       () => validatePlatformSemantics(view),
-      /Semantic error/,
-      `${entry.name}: validatePlatformSemantics(view) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in platform data$/ },
+      `${entry.name}: Form 27 validatePlatformSemantics(view) throws terminal Semantic error`
     );
 
+    // Form 28: validatePlatformSemantics({ client_context: { view } })
     assert.throws(
       () => validatePlatformSemantics({ client_context: { view } }),
-      /Semantic error/,
-      `${entry.name}: validatePlatformSemantics({ client_context: { view } }) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in platform data$/ },
+      `${entry.name}: Form 28 validatePlatformSemantics({ client_context: { view } }) throws terminal Semantic error`
     );
 
+    // Form 29: validateOfflineInstallSemantics(view)
     assert.throws(
       () => validateOfflineInstallSemantics(view),
-      /Semantic error/,
-      `${entry.name}: validateOfflineInstallSemantics(view) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest$/ },
+      `${entry.name}: Form 29 validateOfflineInstallSemantics(view) throws terminal Semantic error`
     );
 
+    // Form 30: validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] })
     assert.throws(
       () => validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] }),
-      /Semantic error/,
-      `${entry.name}: validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] }) throws terminal Semantic error`
+      { message: /^Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest$/ },
+      `${entry.name}: Form 30 validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] }) throws terminal Semantic error`
     );
   }
 });
@@ -16676,83 +16716,77 @@ test('OPEN-2 exhaustive 22-shape spoofed view matrix across S3 PutObject and Err
       const view = Object.setPrototypeOf(variant.create(), proto);
       const label = `${variant.name} spoofed as ${protoName}`;
 
-      // 1. dispatchS3PutObject(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 1: dispatchS3PutObject(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putDirect = dispatchS3PutObject(view);
-      assert.equal(putDirect.http_status, 400, `${label}: dispatchS3PutObject(view) http_status`);
-      assert.equal(putDirect.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(view) error_code`);
-      assert.equal(putDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(view) reason`);
+      assert.equal(putDirect.http_status, 400, `${label}: Form 1 dispatchS3PutObject(view) http_status`);
+      assert.equal(putDirect.error_code, 'InvalidDigest', `${label}: Form 1 dispatchS3PutObject(view) error_code`);
+      assert.equal(putDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 1 dispatchS3PutObject(view) reason`);
 
-      // 2. dispatchS3PutObject({ payloadBytes: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 2: dispatchS3PutObject({ payloadBytes: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putPayloadBytes = dispatchS3PutObject({ payloadBytes: view });
-      assert.equal(putPayloadBytes.http_status, 400, `${label}: dispatchS3PutObject({ payloadBytes: view }) http_status`);
-      assert.equal(putPayloadBytes.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ payloadBytes: view }) error_code`);
-      assert.equal(putPayloadBytes.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ payloadBytes: view }) reason`);
+      assert.equal(putPayloadBytes.http_status, 400, `${label}: Form 2 dispatchS3PutObject({ payloadBytes: view }) http_status`);
+      assert.equal(putPayloadBytes.error_code, 'InvalidDigest', `${label}: Form 2 dispatchS3PutObject({ payloadBytes: view }) error_code`);
+      assert.equal(putPayloadBytes.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 2 dispatchS3PutObject({ payloadBytes: view }) reason`);
 
-      // 3. dispatchS3PutObject({ payload: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 3: dispatchS3PutObject({ payload: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putPayload = dispatchS3PutObject({ payload: view });
-      assert.equal(putPayload.http_status, 400, `${label}: dispatchS3PutObject({ payload: view }) http_status`);
-      assert.equal(putPayload.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ payload: view }) error_code`);
-      assert.equal(putPayload.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ payload: view }) reason`);
+      assert.equal(putPayload.http_status, 400, `${label}: Form 3 dispatchS3PutObject({ payload: view }) http_status`);
+      assert.equal(putPayload.error_code, 'InvalidDigest', `${label}: Form 3 dispatchS3PutObject({ payload: view }) error_code`);
+      assert.equal(putPayload.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 3 dispatchS3PutObject({ payload: view }) reason`);
 
-      // 4. dispatchS3PutObject({ body: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 4: dispatchS3PutObject({ body: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putBody = dispatchS3PutObject({ body: view });
-      assert.equal(putBody.http_status, 400, `${label}: dispatchS3PutObject({ body: view }) http_status`);
-      assert.equal(putBody.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ body: view }) error_code`);
-      assert.equal(putBody.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ body: view }) reason`);
+      assert.equal(putBody.http_status, 400, `${label}: Form 4 dispatchS3PutObject({ body: view }) http_status`);
+      assert.equal(putBody.error_code, 'InvalidDigest', `${label}: Form 4 dispatchS3PutObject({ body: view }) error_code`);
+      assert.equal(putBody.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 4 dispatchS3PutObject({ body: view }) reason`);
 
-      // 5. dispatchS3PutObject({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE or MALFORMED_HEADER_SYNTAX)
+      // Form 5: dispatchS3PutObject({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX)
       const putHeaders = dispatchS3PutObject({ headers: view });
-      assert.equal(putHeaders.http_status, 400, `${label}: dispatchS3PutObject({ headers: view }) http_status`);
-      assert.equal(putHeaders.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ headers: view }) error_code`);
-      assert.ok(
-        putHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || putHeaders.reason === 'MALFORMED_HEADER_SYNTAX',
-        `${label}: dispatchS3PutObject({ headers: view }) reason`
-      );
+      assert.equal(putHeaders.http_status, 400, `${label}: Form 5 dispatchS3PutObject({ headers: view }) http_status`);
+      assert.equal(putHeaders.error_code, 'InvalidDigest', `${label}: Form 5 dispatchS3PutObject({ headers: view }) error_code`);
+      assert.equal(putHeaders.reason, 'MALFORMED_HEADER_SYNTAX', `${label}: Form 5 dispatchS3PutObject({ headers: view }) reason`);
 
-      // 6. dispatchS3PutObject(validPayload, view) (maybeMd5Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 6: dispatchS3PutObject(validPayload, view) (maybeMd5Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putMd5Hdr = dispatchS3PutObject(validPayload, view);
-      assert.equal(putMd5Hdr.http_status, 400, `${label}: dispatchS3PutObject(validPayload, view) http_status`);
-      assert.equal(putMd5Hdr.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(validPayload, view) error_code`);
-      assert.equal(putMd5Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(validPayload, view) reason`);
+      assert.equal(putMd5Hdr.http_status, 400, `${label}: Form 6 dispatchS3PutObject(validPayload, view) http_status`);
+      assert.equal(putMd5Hdr.error_code, 'InvalidDigest', `${label}: Form 6 dispatchS3PutObject(validPayload, view) error_code`);
+      assert.equal(putMd5Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 6 dispatchS3PutObject(validPayload, view) reason`);
 
-      // 7. dispatchS3PutObject(validPayload, undefined, view) (maybeSha256Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 7: dispatchS3PutObject(validPayload, undefined, view) (maybeSha256Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const putSha256Hdr = dispatchS3PutObject(validPayload, undefined, view);
-      assert.equal(putSha256Hdr.http_status, 400, `${label}: dispatchS3PutObject(validPayload, undefined, view) http_status`);
-      assert.equal(putSha256Hdr.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(validPayload, undefined, view) error_code`);
-      assert.equal(putSha256Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(validPayload, undefined, view) reason`);
+      assert.equal(putSha256Hdr.http_status, 400, `${label}: Form 7 dispatchS3PutObject(validPayload, undefined, view) http_status`);
+      assert.equal(putSha256Hdr.error_code, 'InvalidDigest', `${label}: Form 7 dispatchS3PutObject(validPayload, undefined, view) error_code`);
+      assert.equal(putSha256Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 7 dispatchS3PutObject(validPayload, undefined, view) reason`);
 
-      // 8. dispatchS3Error(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 8: dispatchS3Error(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const errDirect = dispatchS3Error(view);
-      assert.equal(errDirect.http_status, 400, `${label}: dispatchS3Error(view) http_status`);
-      assert.equal(errDirect.error_code, 'InvalidDigest', `${label}: dispatchS3Error(view) error_code`);
-      assert.equal(errDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error(view) reason`);
+      assert.equal(errDirect.http_status, 400, `${label}: Form 8 dispatchS3Error(view) http_status`);
+      assert.equal(errDirect.error_code, 'InvalidDigest', `${label}: Form 8 dispatchS3Error(view) error_code`);
+      assert.equal(errDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 8 dispatchS3Error(view) reason`);
 
-      // 9. dispatchS3Error({ error_condition: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 9: dispatchS3Error({ error_condition: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const errErrCond = dispatchS3Error({ error_condition: view });
-      assert.equal(errErrCond.http_status, 400, `${label}: dispatchS3Error({ error_condition: view }) http_status`);
-      assert.equal(errErrCond.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ error_condition: view }) error_code`);
-      assert.equal(errErrCond.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error({ error_condition: view }) reason`);
+      assert.equal(errErrCond.http_status, 400, `${label}: Form 9 dispatchS3Error({ error_condition: view }) http_status`);
+      assert.equal(errErrCond.error_code, 'InvalidDigest', `${label}: Form 9 dispatchS3Error({ error_condition: view }) error_code`);
+      assert.equal(errErrCond.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 9 dispatchS3Error({ error_condition: view }) reason`);
 
-      // 10. dispatchS3Error({ reason: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 10: dispatchS3Error({ reason: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const errReason = dispatchS3Error({ reason: view });
-      assert.equal(errReason.http_status, 400, `${label}: dispatchS3Error({ reason: view }) http_status`);
-      assert.equal(errReason.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ reason: view }) error_code`);
-      assert.equal(errReason.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error({ reason: view }) reason`);
+      assert.equal(errReason.http_status, 400, `${label}: Form 10 dispatchS3Error({ reason: view }) http_status`);
+      assert.equal(errReason.error_code, 'InvalidDigest', `${label}: Form 10 dispatchS3Error({ reason: view }) error_code`);
+      assert.equal(errReason.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 10 dispatchS3Error({ reason: view }) reason`);
 
-      // 11. dispatchS3Error({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE or MALFORMED_HEADER_SYNTAX)
+      // Form 11: dispatchS3Error({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX)
       const errHeaders = dispatchS3Error({ headers: view });
-      assert.equal(errHeaders.http_status, 400, `${label}: dispatchS3Error({ headers: view }) http_status`);
-      assert.equal(errHeaders.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ headers: view }) error_code`);
-      assert.ok(
-        errHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || errHeaders.reason === 'MALFORMED_HEADER_SYNTAX',
-        `${label}: dispatchS3Error({ headers: view }) reason`
-      );
+      assert.equal(errHeaders.http_status, 400, `${label}: Form 11 dispatchS3Error({ headers: view }) http_status`);
+      assert.equal(errHeaders.error_code, 'InvalidDigest', `${label}: Form 11 dispatchS3Error({ headers: view }) error_code`);
+      assert.equal(errHeaders.reason, 'MALFORMED_HEADER_SYNTAX', `${label}: Form 11 dispatchS3Error({ headers: view }) reason`);
 
-      // 12. dispatchS3Error('NoSuchKey', view) (maybeHeader) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      // Form 12: dispatchS3Error('NoSuchKey', view) (maybeHeader) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
       const errHdr = dispatchS3Error('NoSuchKey', view);
-      assert.equal(errHdr.http_status, 400, `${label}: dispatchS3Error('NoSuchKey', view) http_status`);
-      assert.equal(errHdr.error_code, 'InvalidDigest', `${label}: dispatchS3Error('NoSuchKey', view) error_code`);
-      assert.equal(errHdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error('NoSuchKey', view) reason`);
+      assert.equal(errHdr.http_status, 400, `${label}: Form 12 dispatchS3Error('NoSuchKey', view) http_status`);
+      assert.equal(errHdr.error_code, 'InvalidDigest', `${label}: Form 12 dispatchS3Error('NoSuchKey', view) error_code`);
+      assert.equal(errHdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: Form 12 dispatchS3Error('NoSuchKey', view) reason`);
     }
   }
 });
@@ -16804,76 +16838,286 @@ test('OPEN-2 exhaustive 22-shape spoofed view matrix across CompleteMultipartUpl
     const view = entry.createView();
     testedShapes++;
 
-    // 1. dispatchS3CompleteMultipartUpload(view) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE)
+    // Form 13: dispatchS3CompleteMultipartUpload(view) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res1 = dispatchS3CompleteMultipartUpload(view);
-    assert.equal(res1.http_status, 400);
-    assert.equal(res1.error_code, 'InvalidPart');
-    assert.ok(
-      res1.reason === 'INVALID_MULTIPART_MANIFEST_STRUCTURE' || res1.reason === 'MALFORMED_PAYLOAD_TYPE',
-      `res1.reason should be INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE, got ${res1.reason}`
-    );
+    assert.equal(res1.http_status, 400, `${entry.name}: Form 13 dispatchS3CompleteMultipartUpload(view) http_status`);
+    assert.equal(res1.error_code, 'InvalidPart', `${entry.name}: Form 13 dispatchS3CompleteMultipartUpload(view) error_code`);
+    assert.equal(res1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 13 dispatchS3CompleteMultipartUpload(view) reason`);
 
-    // 2. dispatchS3CompleteMultipartUpload({ manifest: view }) -> HTTP 400 InvalidPart
+    // Form 14: dispatchS3CompleteMultipartUpload({ manifest: view }) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res2 = dispatchS3CompleteMultipartUpload({ manifest: view });
-    assert.equal(res2.http_status, 400);
-    assert.equal(res2.error_code, 'InvalidPart');
+    assert.equal(res2.http_status, 400, `${entry.name}: Form 14 dispatchS3CompleteMultipartUpload({ manifest: view }) http_status`);
+    assert.equal(res2.error_code, 'InvalidPart', `${entry.name}: Form 14 dispatchS3CompleteMultipartUpload({ manifest: view }) error_code`);
+    assert.equal(res2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 14 dispatchS3CompleteMultipartUpload({ manifest: view }) reason`);
 
-    // 3. dispatchS3CompleteMultipartUpload({ parts: [view] }) -> HTTP 400 InvalidPart
+    // Form 15: dispatchS3CompleteMultipartUpload({ parts: [view] }) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res3 = dispatchS3CompleteMultipartUpload({ parts: [view] });
-    assert.equal(res3.http_status, 400);
-    assert.equal(res3.error_code, 'InvalidPart');
+    assert.equal(res3.http_status, 400, `${entry.name}: Form 15 dispatchS3CompleteMultipartUpload({ parts: [view] }) http_status`);
+    assert.equal(res3.error_code, 'InvalidPart', `${entry.name}: Form 15 dispatchS3CompleteMultipartUpload({ parts: [view] }) error_code`);
+    assert.equal(res3.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 15 dispatchS3CompleteMultipartUpload({ parts: [view] }) reason`);
 
-    // 4. dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> HTTP 400 InvalidPart (InvalidPartSize)
+    // Form 16: dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> HTTP 400 InvalidPart (InvalidPartSize)
     const res4 = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] });
-    assert.equal(res4.http_status, 400, `${entry.name}: form 16 http_status`);
-    assert.equal(res4.error_code, 'InvalidPart', `${entry.name}: form 16 error_code`);
-    assert.equal(res4.reason, 'InvalidPartSize', `${entry.name}: form 16 reason`);
+    assert.equal(res4.http_status, 400, `${entry.name}: Form 16 http_status`);
+    assert.equal(res4.error_code, 'InvalidPart', `${entry.name}: Form 16 error_code`);
+    assert.equal(res4.reason, 'InvalidPartSize', `${entry.name}: Form 16 reason`);
 
-    // 5. dispatchS3CompleteMultipartUpload(validManifest, view) (direct storedParts) -> HTTP 400 InvalidPart
+    // Form 17: dispatchS3CompleteMultipartUpload(validManifest, view) (direct storedParts) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res5 = dispatchS3CompleteMultipartUpload(validManifest, view);
-    assert.equal(res5.http_status, 400);
-    assert.equal(res5.error_code, 'InvalidPart');
+    assert.equal(res5.http_status, 400, `${entry.name}: Form 17 dispatchS3CompleteMultipartUpload(validManifest, view) http_status`);
+    assert.equal(res5.error_code, 'InvalidPart', `${entry.name}: Form 17 dispatchS3CompleteMultipartUpload(validManifest, view) error_code`);
+    assert.equal(res5.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 17 dispatchS3CompleteMultipartUpload(validManifest, view) reason`);
 
-    // 6. dispatchS3CompleteMultipartUpload(validManifest, [view]) (storedParts array element) -> HTTP 400 InvalidPart
+    // Form 18: dispatchS3CompleteMultipartUpload(validManifest, [view]) (storedParts array element) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res6 = dispatchS3CompleteMultipartUpload(validManifest, [view]);
-    assert.equal(res6.http_status, 400);
-    assert.equal(res6.error_code, 'InvalidPart');
+    assert.equal(res6.http_status, 400, `${entry.name}: Form 18 dispatchS3CompleteMultipartUpload(validManifest, [view]) http_status`);
+    assert.equal(res6.error_code, 'InvalidPart', `${entry.name}: Form 18 dispatchS3CompleteMultipartUpload(validManifest, [view]) error_code`);
+    assert.equal(res6.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 18 dispatchS3CompleteMultipartUpload(validManifest, [view]) reason`);
 
-    // 7. dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]])) (storedParts Map element) -> HTTP 400 InvalidPart
+    // Form 19: dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]])) (storedParts Map element) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
     const res7 = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]]));
-    assert.equal(res7.http_status, 400);
-    assert.equal(res7.error_code, 'InvalidPart');
+    assert.equal(res7.http_status, 400, `${entry.name}: Form 19 dispatchS3CompleteMultipartUpload(validManifest, new Map) http_status`);
+    assert.equal(res7.error_code, 'InvalidPart', `${entry.name}: Form 19 dispatchS3CompleteMultipartUpload(validManifest, new Map) error_code`);
+    assert.equal(res7.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE', `${entry.name}: Form 19 dispatchS3CompleteMultipartUpload(validManifest, new Map) reason`);
 
-    // 8. validateS3MultipartSemantics(view) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+    // Form 20: validateS3MultipartSemantics(view)
     assert.throws(
       () => validateS3MultipartSemantics(view),
-      /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
-      'validateS3MultipartSemantics must reject spoofed view directly'
+      { message: /^Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)$/ },
+      `${entry.name}: Form 20 validateS3MultipartSemantics must reject spoofed view directly`
     );
 
-    // 9. validateS3MultipartSemantics({ parts: [view] }) -> throws InvalidPart
+    // Form 21: validateS3MultipartSemantics({ parts: [view] })
     assert.throws(
       () => validateS3MultipartSemantics({ parts: [view] }),
-      /InvalidPart/,
-      'validateS3MultipartSemantics must reject spoofed view in parts array'
+      { message: /^Semantic error: multipart upload manifest part 1 is not a valid object \(InvalidPart\)$/ },
+      `${entry.name}: Form 21 validateS3MultipartSemantics must reject spoofed view in parts array`
     );
 
-    // 10. validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> throws InvalidPart
+    // Form 22: validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] })
     assert.throws(
       () => validateS3MultipartSemantics({
         parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }],
       }),
-      /InvalidPart/,
-      'validateS3MultipartSemantics must reject spoofed view in part size_bytes'
+      { message: /^Semantic error: multipart upload manifest part 1 size_bytes must be a non-negative integer \(InvalidPart\)$/ },
+      `${entry.name}: Form 22 validateS3MultipartSemantics must reject spoofed view in part size_bytes`
     );
 
-    // 11. validateS3MultipartSemantics({ payload: view }) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+    // Form 23: validateS3MultipartSemantics({ payload: view })
     assert.throws(
       () => validateS3MultipartSemantics({ payload: view }),
-      /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
-      'validateS3MultipartSemantics must reject spoofed view in payload wrapper'
+      { message: /^Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)$/ },
+      `${entry.name}: Form 23 validateS3MultipartSemantics must reject spoofed view in payload wrapper`
     );
   }
 
   assert.equal(testedShapes, 22, 'Matrix must contain exactly 22 distinct spoofed views');
+});
+
+test('regression: stored/manifest size aliases and empty-parts taxonomy reconciliation for OPEN-2', () => {
+  const validEtag1 = '"0123456789abcdef0123456789abcdef"';
+  const validEtag2 = '"abcdef0123456789abcdef0123456789"';
+  const sizeAliases = ['Size', 'size', 'size_bytes', 'SizeBytes'];
+
+  // 1. validateS3MultipartSemantics empty parts list throws InvalidArgument
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: [] }),
+    /Semantic error: multipart upload manifest parts list must not be empty \(InvalidArgument\)/
+  );
+
+  // 2. validateS3MultipartSemantics manifest parts with size aliases
+  for (const alias of sizeAliases) {
+    const manifest = {
+      parts: [
+        { part_number: 1, etag: validEtag1, [alias]: 5242880 },
+        { part_number: 2, etag: validEtag2, [alias]: 1024 }
+      ],
+      total_parts: 2,
+      total_size_bytes: 5242880 + 1024
+    };
+    assert.equal(validateS3MultipartSemantics(manifest), true);
+
+    // Negative size via alias throws InvalidPart
+    assert.throws(
+      () => validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: validEtag1, [alias]: -1 }] }),
+      /cannot be negative \(InvalidPart\)/
+    );
+
+    // Non-integer size via alias throws InvalidPart
+    assert.throws(
+      () => validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: validEtag1, [alias]: 5242880.5 }] }),
+      /must be a (?:valid )?non-negative integer \(InvalidPart\)/
+    );
+
+    // Non-final part too small via alias throws EntityTooSmall
+    assert.throws(
+      () => validateS3MultipartSemantics({
+        parts: [
+          { part_number: 1, etag: validEtag1, [alias]: 1024 },
+          { part_number: 2, etag: validEtag2, [alias]: 1024 }
+        ]
+      }),
+      /below minimum non-final part size.*\(EntityTooSmall\)/
+    );
+
+    // Part size exceeding 5 GiB via alias throws EntityTooLarge
+    assert.throws(
+      () => validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: validEtag1, [alias]: 5368709121 }] }),
+      /exceeds maximum part size.*\(EntityTooLarge\)/
+    );
+  }
+
+  // 3. dispatchS3CompleteMultipartUpload: manifest part size aliases
+  for (const alias of sizeAliases) {
+    const manifest = { parts: [{ part_number: 1, etag: validEtag1, [alias]: 5242880 }] };
+    const stored = [{ part_number: 1, etag: validEtag1, size_bytes: 5242880 }];
+    const res = dispatchS3CompleteMultipartUpload(manifest, stored);
+    assert.equal(res.http_status, 200);
+
+    // Invalid manifest part size via alias returns InvalidPart / InvalidPartSize
+    for (const badVal of [-1, '5242880', 1.5, null, {}]) {
+      const badMf = { parts: [{ part_number: 1, etag: validEtag1, [alias]: badVal }] };
+      const badRes = dispatchS3CompleteMultipartUpload(badMf, stored);
+      assert.equal(badRes.http_status, 400);
+      assert.equal(badRes.error_code, 'InvalidPart');
+      assert.equal(badRes.reason, 'InvalidPartSize');
+    }
+  }
+
+  // 4. dispatchS3CompleteMultipartUpload: stored parts size aliases (Array, Map, Object)
+  for (const alias of sizeAliases) {
+    const manifest = { parts: [{ part_number: 1, etag: validEtag1 }] };
+
+    // Array stored parts
+    const storedArr = [{ part_number: 1, etag: validEtag1, [alias]: 5242880 }];
+    const resArr = dispatchS3CompleteMultipartUpload(manifest, storedArr);
+    assert.equal(resArr.http_status, 200);
+
+    // Map stored parts
+    const storedMap = new Map([[1, { part_number: 1, etag: validEtag1, [alias]: 5242880 }]]);
+    const resMap = dispatchS3CompleteMultipartUpload(manifest, storedMap);
+    assert.equal(resMap.http_status, 200);
+
+    // Object stored parts
+    const storedObj = { '1': { part_number: 1, etag: validEtag1, [alias]: 5242880 } };
+    const resObj = dispatchS3CompleteMultipartUpload(manifest, storedObj);
+    assert.equal(resObj.http_status, 200);
+
+    // Stored non-final part too small via alias returns EntityTooSmall (NON_FINAL_PART_TOO_SMALL)
+    const multiManifest = {
+      parts: [
+        { part_number: 1, etag: validEtag1 },
+        { part_number: 2, etag: validEtag2 }
+      ]
+    };
+    const smallStoredArr = [
+      { part_number: 1, etag: validEtag1, [alias]: 1024 },
+      { part_number: 2, etag: validEtag2, [alias]: 5242880 }
+    ];
+    const resSmall = dispatchS3CompleteMultipartUpload(multiManifest, smallStoredArr);
+    assert.equal(resSmall.http_status, 400);
+    assert.equal(resSmall.error_code, 'EntityTooSmall');
+    assert.equal(resSmall.reason, 'NON_FINAL_PART_TOO_SMALL');
+
+    // Stored part exceeding 5 GiB via alias returns EntityTooLarge (PartSizeExceeded)
+    const largeStoredArr = [{ part_number: 1, etag: validEtag1, [alias]: 5368709121 }];
+    const resLarge = dispatchS3CompleteMultipartUpload(manifest, largeStoredArr);
+    assert.equal(resLarge.http_status, 400);
+    assert.equal(resLarge.error_code, 'EntityTooLarge');
+    assert.equal(resLarge.reason, 'PartSizeExceeded');
+
+    // Stored part invalid size via alias returns InvalidPart (InvalidPartSize)
+    for (const badVal of [-1, '5242880', 1.5, null, {}]) {
+      const badStoredArr = [{ part_number: 1, etag: validEtag1, [alias]: badVal }];
+      const resBad = dispatchS3CompleteMultipartUpload(manifest, badStoredArr);
+      assert.equal(resBad.http_status, 400);
+      assert.equal(resBad.error_code, 'InvalidPart');
+      assert.equal(resBad.reason, 'InvalidPartSize');
+    }
+
+    // Inherited size alias on stored part returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+    const inhStoredPart = Object.create({ [alias]: 5242880 });
+    inhStoredPart.part_number = 1;
+    inhStoredPart.etag = validEtag1;
+    const resInh = dispatchS3CompleteMultipartUpload(manifest, [inhStoredPart]);
+    assert.equal(resInh.http_status, 400);
+    assert.equal(resInh.error_code, 'InvalidPart');
+    assert.equal(resInh.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+    // Inherited size alias on manifest part returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+    const inhManifestPart = Object.create({ [alias]: 5242880 });
+    inhManifestPart.part_number = 1;
+    inhManifestPart.etag = validEtag1;
+    const resInhMf = dispatchS3CompleteMultipartUpload({ parts: [inhManifestPart] }, storedArr);
+    assert.equal(resInhMf.http_status, 400);
+    assert.equal(resInhMf.error_code, 'InvalidPart');
+    assert.equal(resInhMf.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  }
+});
+
+test('OPEN-2 and OPEN-5: consolidate size aliases, standalone advertisement storage evidence, and empty-parts taxonomy', () => {
+  // 1. Size aliases across manifest parts and stored parts (array, Map, object)
+  for (const sizeProp of ['size_bytes', 'SizeBytes', 'size', 'Size']) {
+    const manifest = {
+      parts: [
+        {
+          part_number: 1,
+          etag: '"0123456789abcdef0123456789abcdef"',
+          [sizeProp]: 5242880,
+        },
+      ],
+    };
+
+    // Stored parts as array
+    const storedArray = [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', [sizeProp]: 5242880 }];
+    const resArray = dispatchS3CompleteMultipartUpload(manifest, storedArray);
+    assert.equal(resArray.http_status, 200, `stored array with ${sizeProp} should succeed`);
+
+    // Stored parts as Map
+    const storedMap = new Map([[1, { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', [sizeProp]: 5242880 }]]);
+    const resMap = dispatchS3CompleteMultipartUpload(manifest, storedMap);
+    assert.equal(resMap.http_status, 200, `stored Map with ${sizeProp} should succeed`);
+
+    // Stored parts as object
+    const storedObj = { 1: { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', [sizeProp]: 5242880 } };
+    const resObj = dispatchS3CompleteMultipartUpload(manifest, storedObj);
+    assert.equal(resObj.http_status, 200, `stored object with ${sizeProp} should succeed`);
+
+    // validateS3MultipartSemantics with sizeProp
+    assert.doesNotThrow(() => validateS3MultipartSemantics(manifest));
+  }
+
+  // 2. Standalone storage conformance profile general storage evidence enforcement (OPEN-5)
+  const standaloneProfile = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-storage-s3-subset.json'), 'utf8'));
+
+  // Without general storage evidence, validateS3ConformanceProfileSemantics throws
+  const profileMissingGenEv = JSON.parse(JSON.stringify(standaloneProfile));
+  profileMissingGenEv.evidence_references = ['urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'];
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(profileMissingGenEv),
+    /requires general storage conformance evidence/
+  );
+
+  // With both general and object-lock evidence, validateS3ConformanceProfileSemantics passes
+  assert.doesNotThrow(
+    () => validateS3ConformanceProfileSemantics(standaloneProfile)
+  );
+
+  // 3. Empty parts taxonomy alignment in dispatchS3Error
+  for (const trigger of ['EmptyParts', 'EMPTY_PARTS', 'EmptyPartsList', 'EMPTY_PARTS_LIST']) {
+    const resString = dispatchS3Error(trigger);
+    assert.equal(resString.http_status, 400);
+    assert.equal(resString.error_code, 'InvalidArgument');
+    assert.equal(resString.reason, 'EmptyPartsList');
+
+    const resObjReason = dispatchS3Error({ reason: trigger });
+    assert.equal(resObjReason.http_status, 400);
+    assert.equal(resObjReason.error_code, 'InvalidArgument');
+    assert.equal(resObjReason.reason, 'EmptyPartsList');
+
+    const resObjCond = dispatchS3Error({ error_condition: trigger });
+    assert.equal(resObjCond.http_status, 400);
+    assert.equal(resObjCond.error_code, 'InvalidArgument');
+    assert.equal(resObjCond.reason, 'EmptyPartsList');
+  }
 });

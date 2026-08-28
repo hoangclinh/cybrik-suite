@@ -497,7 +497,7 @@ export function verifyPayloadMd5(payloadOrOptions, maybeExpectedMd5) {
 
 export const S3_PROBE_KEYS = [
   'parts', 'manifest', 'storedParts', 'headers', 'total_parts', 'total_size_bytes',
-  'part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size',
+  'part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size', 'Size',
   'payload', 'payloadBytes', 'body', 'contentMd5Header', 'content_md5_header',
   'contentMd5', 'Content-MD5', 'content_md5', 'content_md5_declared', 'content_md5_computed',
   'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header',
@@ -1259,15 +1259,15 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
 
 export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeStoredParts = null) {
   if (ArrayBuffer.isView(manifestOrOptions) && !isPureBufferOrUint8Array(manifestOrOptions)) {
-    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
   }
   if (maybeStoredParts !== null && ArrayBuffer.isView(maybeStoredParts) && !isPureBufferOrUint8Array(maybeStoredParts)) {
-    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
   }
   if (manifestOrOptions !== null && typeof manifestOrOptions === 'object') {
     const payload = getOwn(manifestOrOptions, 'payload') ?? getOwn(manifestOrOptions, 'payloadBytes') ?? getOwn(manifestOrOptions, 'body');
     if (payload !== undefined && payload !== null && ArrayBuffer.isView(payload) && !isPureBufferOrUint8Array(payload)) {
-      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MALFORMED_PAYLOAD_TYPE' };
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
   }
   if (manifestOrOptions !== null && typeof manifestOrOptions === 'object' && types.isProxy(manifestOrOptions)) {
@@ -1434,7 +1434,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       if (('etag' in p && !Object.prototype.hasOwnProperty.call(p, 'etag')) || ('ETag' in p && !Object.prototype.hasOwnProperty.call(p, 'ETag'))) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
-      if (('size_bytes' in p && !Object.prototype.hasOwnProperty.call(p, 'size_bytes')) || ('SizeBytes' in p && !Object.prototype.hasOwnProperty.call(p, 'SizeBytes')) || ('size' in p && !Object.prototype.hasOwnProperty.call(p, 'size'))) {
+      if (('size_bytes' in p && !Object.prototype.hasOwnProperty.call(p, 'size_bytes')) || ('SizeBytes' in p && !Object.prototype.hasOwnProperty.call(p, 'SizeBytes')) || ('size' in p && !Object.prototype.hasOwnProperty.call(p, 'size')) || ('Size' in p && !Object.prototype.hasOwnProperty.call(p, 'Size'))) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
       for (const prop of Reflect.ownKeys(p)) {
@@ -1442,7 +1442,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         if (!pd || pd.get !== undefined || pd.set !== undefined) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
         }
-        if (prop === 'size_bytes' || prop === 'SizeBytes' || prop === 'size') {
+        if (prop === 'size_bytes' || prop === 'SizeBytes' || prop === 'size' || prop === 'Size') {
           if (pd.value !== undefined && (pd.value === null || typeof pd.value === 'object' || typeof pd.value !== 'number' || !Number.isInteger(pd.value) || pd.value < 0)) {
             return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
           }
@@ -1462,7 +1462,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       }
       const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber');
       const pEtag = getOwn(p, 'etag') ?? getOwn(p, 'ETag');
-      const pSize = getOwn(p, 'size_bytes') ?? getOwn(p, 'SizeBytes') ?? getOwn(p, 'size');
+      const pSize = getOwn(p, 'size_bytes') ?? getOwn(p, 'SizeBytes') ?? getOwn(p, 'size') ?? getOwn(p, 'Size');
 
       if (pNum === undefined || pNum === null || (typeof pNum === 'object' && pNum !== null)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingPartNumber' };
@@ -1540,7 +1540,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
           if (('etag' in p && !Object.prototype.hasOwnProperty.call(p, 'etag')) || ('ETag' in p && !Object.prototype.hasOwnProperty.call(p, 'ETag'))) {
             return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
           }
-          if (('size_bytes' in p && !Object.prototype.hasOwnProperty.call(p, 'size_bytes')) || ('SizeBytes' in p && !Object.prototype.hasOwnProperty.call(p, 'SizeBytes')) || ('size' in p && !Object.prototype.hasOwnProperty.call(p, 'size'))) {
+          if (('size_bytes' in p && !Object.prototype.hasOwnProperty.call(p, 'size_bytes')) || ('SizeBytes' in p && !Object.prototype.hasOwnProperty.call(p, 'SizeBytes')) || ('size' in p && !Object.prototype.hasOwnProperty.call(p, 'size')) || ('Size' in p && !Object.prototype.hasOwnProperty.call(p, 'Size'))) {
             return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
           }
           const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1);
@@ -1565,7 +1565,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         if (('etag' in v && !Object.prototype.hasOwnProperty.call(v, 'etag')) || ('ETag' in v && !Object.prototype.hasOwnProperty.call(v, 'ETag'))) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
         }
-        if (('size_bytes' in v && !Object.prototype.hasOwnProperty.call(v, 'size_bytes')) || ('SizeBytes' in v && !Object.prototype.hasOwnProperty.call(v, 'SizeBytes')) || ('size' in v && !Object.prototype.hasOwnProperty.call(v, 'size'))) {
+        if (('size_bytes' in v && !Object.prototype.hasOwnProperty.call(v, 'size_bytes')) || ('SizeBytes' in v && !Object.prototype.hasOwnProperty.call(v, 'SizeBytes')) || ('size' in v && !Object.prototype.hasOwnProperty.call(v, 'size')) || ('Size' in v && !Object.prototype.hasOwnProperty.call(v, 'Size'))) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
         }
         storedMap.set(k, v);
@@ -1591,7 +1591,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         if (('etag' in v && !Object.prototype.hasOwnProperty.call(v, 'etag')) || ('ETag' in v && !Object.prototype.hasOwnProperty.call(v, 'ETag'))) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
         }
-        if (('size_bytes' in v && !Object.prototype.hasOwnProperty.call(v, 'size_bytes')) || ('SizeBytes' in v && !Object.prototype.hasOwnProperty.call(v, 'SizeBytes')) || ('size' in v && !Object.prototype.hasOwnProperty.call(v, 'size'))) {
+        if (('size_bytes' in v && !Object.prototype.hasOwnProperty.call(v, 'size_bytes')) || ('SizeBytes' in v && !Object.prototype.hasOwnProperty.call(v, 'SizeBytes')) || ('size' in v && !Object.prototype.hasOwnProperty.call(v, 'size')) || ('Size' in v && !Object.prototype.hasOwnProperty.call(v, 'Size'))) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
         }
         storedMap.set(Number(k), v);
@@ -1640,7 +1640,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
       }
 
-      const rawSize = getOwn(storedPart, 'size_bytes') ?? getOwn(storedPart, 'SizeBytes') ?? getOwn(storedPart, 'size');
+      const rawSize = getOwn(storedPart, 'size_bytes') ?? getOwn(storedPart, 'SizeBytes') ?? getOwn(storedPart, 'size') ?? getOwn(storedPart, 'Size');
       if (rawSize === undefined || typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
       }
@@ -2292,6 +2292,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'InvalidArgument' ||
       norm === 'EmptyPartsList' ||
       norm === 'EMPTY_PARTS_LIST' ||
+      norm === 'EmptyParts' ||
+      norm === 'EMPTY_PARTS' ||
       norm === 'TooManyParts' ||
       norm === 'InvalidPartNumber' ||
       norm === 'INVALID_PART_NUMBER'
@@ -2301,7 +2303,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidArgument',
         status: 400,
         code: 'InvalidArgument',
-        reason: norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST' ? 'EmptyPartsList' : (norm === 'TooManyParts' ? 'TooManyParts' : (norm === 'InvalidPartNumber' || norm === 'INVALID_PART_NUMBER' ? 'InvalidPartNumber' : 'INVALID_ARGUMENT')),
+        reason: (norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST' || norm === 'EmptyParts' || norm === 'EMPTY_PARTS') ? 'EmptyPartsList' : (norm === 'TooManyParts' ? 'TooManyParts' : (norm === 'InvalidPartNumber' || norm === 'INVALID_PART_NUMBER' ? 'InvalidPartNumber' : 'INVALID_ARGUMENT')),
       };
     }
     if (isMalformedBase64Md5(norm)) {
@@ -2483,6 +2485,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       code === 'InvalidArgument' ||
       reason === 'EmptyPartsList' ||
       reason === 'EMPTY_PARTS_LIST' ||
+      reason === 'EmptyParts' ||
+      reason === 'EMPTY_PARTS' ||
       reason === 'INVALID_ARGUMENT' ||
       reason === 'INVALID_PART_NUMBER' ||
       reason === 'InvalidPartNumber' ||
@@ -2493,7 +2497,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidArgument',
         status: 400,
         code: 'InvalidArgument',
-        reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
+        reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || reason === 'EmptyParts' || reason === 'EMPTY_PARTS') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
       };
     }
     if (!code && !reason && Object.keys(conditionOrOptions).length > 0 && isMalformedPayloadType(conditionOrOptions)) {
@@ -2647,12 +2651,12 @@ export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, ma
 
 export function validateS3MultipartSemantics(manifest) {
   if (ArrayBuffer.isView(manifest) && !isPureBufferOrUint8Array(manifest)) {
-    throw new Error('MALFORMED_PAYLOAD_TYPE');
+    throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
   }
   if (manifest !== null && typeof manifest === 'object') {
     const payload = getOwn(manifest, 'payload') ?? getOwn(manifest, 'payloadBytes') ?? getOwn(manifest, 'body');
     if (payload !== undefined && payload !== null && ArrayBuffer.isView(payload) && !isPureBufferOrUint8Array(payload)) {
-      throw new Error('MALFORMED_PAYLOAD_TYPE');
+      throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
     }
   }
   if (manifest !== null && typeof manifest === 'object' && types.isProxy(manifest)) {
@@ -2726,7 +2730,7 @@ export function validateS3MultipartSemantics(manifest) {
     const parts = partsVal;
 
     if (parts.length === 0) {
-      throw new Error('Semantic error: multipart upload manifest parts array must be non-empty (EntityTooSmall)');
+      throw new Error('Semantic error: multipart upload manifest parts list must not be empty (InvalidArgument)');
     }
 
     if (parts.length > 10000) {
@@ -2759,8 +2763,11 @@ export function validateS3MultipartSemantics(manifest) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
       const part = partDesc.value;
-      if (!part || types.isProxy(part) || typeof part !== 'object' || Array.isArray(part)) {
+      if (types.isProxy(part)) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+      }
+      if (!part || typeof part !== 'object' || Array.isArray(part) || ArrayBuffer.isView(part) || types.isTypedArray(part)) {
+        throw new Error(`Semantic error: multipart upload manifest part ${i + 1} is not a valid object (InvalidPart)`);
       }
       if ('part_number' in part && !Object.prototype.hasOwnProperty.call(part, 'part_number')) {
         throw new Error('Semantic error: multipart manifest part part_number must be an own property (inherited part_number prohibited) (InvalidPart)');
@@ -2771,7 +2778,7 @@ export function validateS3MultipartSemantics(manifest) {
       if ('size_bytes' in part && !Object.prototype.hasOwnProperty.call(part, 'size_bytes')) {
         throw new Error('Semantic error: multipart manifest part size_bytes must be an own property (inherited size_bytes prohibited) (InvalidPart)');
       }
-      if (types.isProxy(part) || hasAnyAccessorsOrProxy(part) || hasOwnHeadersAccessors(part) || hasOwnAccessors(part)) {
+      if (hasAnyAccessorsOrProxy(part) || hasOwnHeadersAccessors(part) || hasOwnAccessors(part)) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
       if (
@@ -2796,7 +2803,15 @@ export function validateS3MultipartSemantics(manifest) {
       }
       for (const prop of Reflect.ownKeys(part)) {
         const pd = Object.getOwnPropertyDescriptor(part, prop);
-        if (!pd || pd.get !== undefined || pd.set !== undefined || types.isProxy(pd.value) || hasAnyAccessorsOrProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
+        if (!pd || pd.get !== undefined || pd.set !== undefined || types.isProxy(pd.value)) {
+          throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+        }
+        if (prop === 'size_bytes' || prop === 'SizeBytes' || prop === 'size' || prop === 'Size') {
+          if (pd.value !== undefined && (pd.value === null || typeof pd.value === 'object' || typeof pd.value !== 'number' || !Number.isInteger(pd.value))) {
+            throw new Error(`Semantic error: multipart upload manifest part ${i + 1} size_bytes must be a non-negative integer (InvalidPart)`);
+          }
+        }
+        if (hasAnyAccessorsOrProxy(pd.value) || (typeof pd.value === 'object' && pd.value !== null)) {
           throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
         }
       }
@@ -3745,7 +3760,7 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        if (isNegotiation && (immutableStorageRequired || isLockDeclared || featureSet.size >= 19)) {
+        if (immutableStorageRequired || isLockDeclared || featureSet.size >= 19) {
           const generalStorageRefs = (storageCap.evidence_references || []).filter(
             ref => ref !== canonicalLockUrn &&
             !ref.toLowerCase().includes('object-lock') &&
