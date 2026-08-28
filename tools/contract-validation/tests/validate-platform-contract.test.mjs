@@ -9859,3 +9859,471 @@ test('unit regression: adversarial Proxy variations and branch coverage for hasO
   // 12. validateIJson on malformed JSON string token
   assert.throws(() => validateIJson('{ invalid }', 'test'), /Expected/);
 });
+
+test('adversarial regression: Proxy with direct content_length: 5368709121 and conflicting small descriptor returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_CONFLICTING_DESCRIPTOR_PAYLOAD');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Root option Proxy where getOwnPropertyDescriptor returns small value (100) but get / direct property returns 5368709121
+  const conflictingLengthPutProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'x-amz-content-sha256', 'content_length'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length') {
+        return { value: 100, configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'content_length') {
+        return 5368709121;
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const putRes = dispatchS3PutObject(conflictingLengthPutProxy);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'EntityTooLarge');
+  assert.equal(putRes.code, 'EntityTooLarge');
+  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 2. Error option Proxy where getOwnPropertyDescriptor returns small value but direct property returns 5368709121
+  const conflictingLengthErrProxy = new Proxy({
+    payloadBytes: payload,
+    content_length: 5368709121,
+  }, {
+    ownKeys() {
+      return ['payloadBytes', 'content_length'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length') {
+        return { value: 100, configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'content_length') {
+        return 5368709121;
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const errRes = dispatchS3Error(conflictingLengthErrProxy);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'EntityTooLarge');
+  assert.equal(errRes.code, 'EntityTooLarge');
+  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 3. Headers Proxy where getOwnPropertyDescriptor returns small value ('100') but get returns '5368709121'
+  const conflictingHeaderProxy = {
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    headers: new Proxy({
+      'content-length': '5368709121',
+    }, {
+      ownKeys() {
+        return ['content-length'];
+      },
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') {
+          return { value: '100', configurable: true, enumerable: true, writable: true };
+        }
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+      get(target, prop) {
+        if (prop === 'content-length' || prop === 'Content-Length') {
+          return '5368709121';
+        }
+        return Reflect.get(target, prop);
+      },
+    }),
+  };
+
+  const putHeaderRes = dispatchS3PutObject(conflictingHeaderProxy);
+  assert.equal(putHeaderRes.http_status, 400);
+  assert.equal(putHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(putHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const errHeaderRes = dispatchS3Error(conflictingHeaderProxy);
+  assert.equal(errHeaderRes.http_status, 400);
+  assert.equal(errHeaderRes.error_code, 'EntityTooLarge');
+  assert.equal(errHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 4. BigInt and string variations
+  const conflictingBigIntProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121n,
+  }, {
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length') {
+        return { value: 100n, configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'content_length') {
+        return 5368709121n;
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+  assert.equal(dispatchS3PutObject(conflictingBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3PutObject(conflictingBigIntProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3Error(conflictingBigIntProxy).http_status, 400);
+  assert.equal(dispatchS3Error(conflictingBigIntProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+});
+
+test('adversarial regression: time-varying Proxy for parts returning valid array initially then undefined or hiding from ownKeys returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Time-varying parts property on manifest wrapper: returns valid array on first read, then undefined
+  let readCount1 = 0;
+  const timeVaryingPartsManifest = new Proxy({
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys() {
+      return ['parts', 'total_parts', 'total_size_bytes'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'parts') {
+        return {
+          value: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }, { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' }],
+          configurable: true,
+          enumerable: true,
+          writable: true,
+        };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'parts') {
+        readCount1++;
+        if (readCount1 === 1) {
+          return [
+            { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+            { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+          ];
+        }
+        return undefined; // subsequent read returns undefined
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res1 = dispatchS3CompleteMultipartUpload(timeVaryingPartsManifest, validStoredParts);
+  assert.equal(res1.http_status, 400);
+  assert.equal(res1.error_code, 'InvalidPart');
+  assert.equal(res1.code, 'InvalidPart');
+  assert.equal(res1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // Also verify validateS3MultipartSemantics fails closed on time-varying parts
+  let readCount1b = 0;
+  const timeVaryingSemManifest = new Proxy({
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys() { return ['parts', 'total_parts', 'total_size_bytes']; },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'parts') {
+        return {
+          value: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }],
+          configurable: true, enumerable: true, writable: true
+        };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'parts') {
+        readCount1b++;
+        if (readCount1b === 1) return [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880, sha256: 'a'.repeat(64) }];
+        return undefined;
+      }
+      return Reflect.get(target, prop);
+    }
+  });
+  assert.throws(() => validateS3MultipartSemantics(timeVaryingSemManifest), /InvalidPart/);
+
+  // 2. Time-varying ownKeys: returns ['parts'] on initial call then hides 'parts' from ownKeys
+  let ownKeysCallCount = 0;
+  const timeVaryingOwnKeysManifest = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys(target) {
+      ownKeysCallCount++;
+      if (ownKeysCallCount === 1) {
+        return ['parts', 'total_parts', 'total_size_bytes'];
+      }
+      return ['total_parts', 'total_size_bytes'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res2 = dispatchS3CompleteMultipartUpload(timeVaryingOwnKeysManifest, validStoredParts);
+  assert.equal(res2.http_status, 400);
+  assert.equal(res2.error_code, 'InvalidPart');
+  assert.equal(res2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 3. Options wrapper containing time-varying parts Proxy
+  let readCount3 = 0;
+  const timeVaryingOptions = {
+    manifest: new Proxy({
+      total_parts: 2,
+    }, {
+      ownKeys() { return ['parts', 'total_parts']; },
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'parts') {
+          return { value: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }], configurable: true, enumerable: true, writable: true };
+        }
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+      get(target, prop) {
+        if (prop === 'parts') {
+          readCount3++;
+          if (readCount3 === 1) return [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }];
+          return undefined;
+        }
+        return Reflect.get(target, prop);
+      }
+    }),
+    storedParts: validStoredParts,
+  };
+
+  const res3 = dispatchS3CompleteMultipartUpload(timeVaryingOptions);
+  assert.equal(res3.http_status, 400);
+  assert.equal(res3.error_code, 'InvalidPart');
+  assert.equal(res3.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+});
+
+test('adversarial regression: malformed direct-array wrapper returning HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) and parts: [] returning InvalidArgument (EmptyPartsList) (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+  ];
+
+  // 1. Explicit, structurally valid plain object with parts: [] returns InvalidArgument (EmptyPartsList)
+  const emptyPartsManifest = { parts: [] };
+  const emptyRes1 = dispatchS3CompleteMultipartUpload(emptyPartsManifest, validStoredParts);
+  assert.equal(emptyRes1.http_status, 400);
+  assert.equal(emptyRes1.error_code, 'InvalidArgument');
+  assert.equal(emptyRes1.code, 'InvalidArgument');
+  assert.equal(emptyRes1.reason, 'EmptyPartsList');
+
+  // Also in options wrapper
+  const emptyOptions = {
+    manifest: { parts: [] },
+    storedParts: validStoredParts,
+  };
+  const emptyRes2 = dispatchS3CompleteMultipartUpload(emptyOptions);
+  assert.equal(emptyRes2.http_status, 400);
+  assert.equal(emptyRes2.error_code, 'InvalidArgument');
+  assert.equal(emptyRes2.code, 'InvalidArgument');
+  assert.equal(emptyRes2.reason, 'EmptyPartsList');
+
+  // validateS3MultipartSemantics on empty parts array throws parts array must be non-empty
+  assert.throws(
+    () => validateS3MultipartSemantics(emptyPartsManifest),
+    /parts array must be non-empty/
+  );
+
+  // 2. Direct array wrapper [] returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+  const directArrayRes = dispatchS3CompleteMultipartUpload([], validStoredParts);
+  assert.equal(directArrayRes.http_status, 400);
+  assert.equal(directArrayRes.error_code, 'InvalidPart');
+  assert.equal(directArrayRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 3. Malformed direct-array wrapper with throwing prototype or traps returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+  const malformedArrayProxy = new Proxy([1, 2, 3], {
+    getPrototypeOf() {
+      throw new Error('array prototype trap throw');
+    },
+  });
+  const malformedArrRes1 = dispatchS3CompleteMultipartUpload(malformedArrayProxy, validStoredParts);
+  assert.equal(malformedArrRes1.http_status, 400);
+  assert.equal(malformedArrRes1.error_code, 'InvalidPart');
+  assert.equal(malformedArrRes1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // Malformed array in options wrapper
+  const malformedArrOptions = {
+    manifest: malformedArrayProxy,
+    storedParts: validStoredParts,
+  };
+  const malformedArrRes2 = dispatchS3CompleteMultipartUpload(malformedArrOptions);
+  assert.equal(malformedArrRes2.http_status, 400);
+  assert.equal(malformedArrRes2.error_code, 'InvalidPart');
+  assert.equal(malformedArrRes2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 4. Manifest object with malformed / non-array parts returns InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE)
+  const nonArrayPartsManifests = [
+    { parts: 'not-an-array' },
+    { parts: 12345 },
+    { parts: true },
+    { parts: { 0: { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' } } },
+  ];
+  for (const badMf of nonArrayPartsManifests) {
+    const badRes = dispatchS3CompleteMultipartUpload(badMf, validStoredParts);
+    assert.equal(badRes.http_status, 400);
+    assert.equal(badRes.error_code, 'InvalidPart');
+    assert.equal(badRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  }
+});
+
+test('regression: verify OPEN-5 specification prose and schema consistency without bijection errors (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  assert.ok(existsSync(samplePath), `Sample capability handshake missing: ${samplePath}`);
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Specification prose verification:
+  const specPath = join(ROOT, 'contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md');
+  assert.ok(existsSync(specPath), `Spec markdown missing: ${specPath}`);
+  const specText = readFileSync(specPath, 'utf8');
+
+  assert.ok(specText.includes('Strict Status-Pair Coupling'), 'Spec must define strict status-pair coupling');
+  assert.ok(specText.includes('required_for_optimal'), 'Spec must define required_for_optimal semantics');
+  assert.ok(specText.includes('composite identity `(capability_name, slot_id)`'), 'Spec must define composite key uniqueness');
+  assert.ok(specText.includes('Strict Biconditional Disposition/Fallback Coupling'), 'Spec must define biconditional coupling');
+
+  // 2. Exact 1-to-1 bijection when all requested capabilities are resolved in lease
+  const bijectionHandshake = JSON.parse(JSON.stringify(sample));
+  bijectionHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  bijectionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  bijectionHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  bijectionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_gpu_acceleration',
+      fallback_applied: 'NONE',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  assert.ok(ajv.validate(pcnSchemaId, bijectionHandshake), `Exact bijection handshake must validate: ${ajv.errorsText()}`);
+  assert.doesNotThrow(() => validatePlatformSemantics(bijectionHandshake, pcnSchemaId));
+
+  // 3. Valid subset: omitting required_for_optimal: false capability in ACTIVE_OPTIMAL does not throw bijection error
+  const nonOptOmissionHandshake = JSON.parse(JSON.stringify(bijectionHandshake));
+  nonOptOmissionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_gpu_acceleration',
+      fallback_applied: 'NONE',
+    },
+  ];
+  assert.ok(ajv.validate(pcnSchemaId, nonOptOmissionHandshake));
+  assert.doesNotThrow(() => validatePlatformSemantics(nonOptOmissionHandshake, pcnSchemaId));
+
+  // 4. Valid degraded-by-omission: omitting required_for_optimal: true in ACTIVE_DEGRADED does not throw bijection error
+  const degradedOmissionHandshake = JSON.parse(JSON.stringify(sample));
+  degradedOmissionHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedOmissionHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedOmissionHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  degradedOmissionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+  assert.ok(ajv.validate(pcnSchemaId, degradedOmissionHandshake));
+  assert.doesNotThrow(() => validatePlatformSemantics(degradedOmissionHandshake, pcnSchemaId));
+
+  // 5. Negative: surplus / unrequested capability in lease throws semantic error
+  const surplusHandshake = JSON.parse(JSON.stringify(bijectionHandshake));
+  surplusHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'unrequested_feature',
+    slot_id: 'cache',
+    disposition: 'GRANTED_FULL',
+    active_mode: 'native_cache',
+    fallback_applied: 'NONE',
+  });
+  assert.throws(
+    () => validatePlatformSemantics(surplusHandshake, pcnSchemaId),
+    /unrequested or surplus optional capability 'unrequested_feature'/
+  );
+
+  // 6. Negative: duplicate composite keys in requested_optional_capabilities throws semantic error
+  const dupReqKeyHandshake = JSON.parse(JSON.stringify(bijectionHandshake));
+  dupReqKeyHandshake.negotiation_request.requested_optional_capabilities.push({
+    capability_name: 'ai_tensor_acceleration',
+    slot_id: 'ai_model_runtime',
+    required_for_optimal: true,
+    preferred_fallback: 'CORE_EMULATION_FALLBACK',
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dupReqKeyHandshake, pcnSchemaId),
+    /requested_optional_capabilities contains duplicate composite key/
+  );
+
+  // 7. Negative: duplicate composite keys in negotiated_optional_capabilities throws semantic error
+  const dupLeaseKeyHandshake = JSON.parse(JSON.stringify(bijectionHandshake));
+  dupLeaseKeyHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'ai_tensor_acceleration',
+    slot_id: 'ai_model_runtime',
+    disposition: 'GRANTED_FULL',
+    active_mode: 'native_gpu_acceleration',
+    fallback_applied: 'NONE',
+  });
+  assert.throws(
+    () => validatePlatformSemantics(dupLeaseKeyHandshake, pcnSchemaId),
+    /negotiated_optional_capabilities contains duplicate composite key/
+  );
+});
