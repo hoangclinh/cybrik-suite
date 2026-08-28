@@ -29,9 +29,7 @@
     "PutObjectLegalHold",
     "GetObjectLegalHold",
     "CreateMultipartUpload",
-    "UploadPart",
-    "CompleteMultipartUpload",
-    "AbortMultipartUpload"
+    "UploadPart"
   ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",

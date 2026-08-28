@@ -14,6 +14,9 @@ import {
   computePayloadSha256,
   isMalformedBase64Md5,
   isMalformedSha256,
+  isMalformedPayloadType,
+  getOwn,
+  hasOwnAccessors,
   verifyDigestErrorDispatch,
   verifyMalformedHeaderDispatch,
   validateS3MultipartSemantics,
@@ -5057,4 +5060,406 @@ test('regression: structured object payloads fail closed with HTTP 400 InvalidDi
   assert.equal(resNonPlain.http_status, 400);
   assert.equal(resNonPlain.error_code, 'InvalidDigest');
   assert.equal(resNonPlain.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('isMalformedPayloadType gating and getOwn accessor defense (OPEN-2 / OPEN-5)', () => {
+  // 1. isMalformedPayloadType: null and undefined return true
+  assert.equal(isMalformedPayloadType(undefined), true);
+  assert.equal(isMalformedPayloadType(null), true);
+
+  // 2. isMalformedPayloadType: string, Buffer, Uint8Array return false
+  assert.equal(isMalformedPayloadType('hello'), false);
+  assert.equal(isMalformedPayloadType(''), false);
+  assert.equal(isMalformedPayloadType(Buffer.from('test')), false);
+  assert.equal(isMalformedPayloadType(Buffer.alloc(0)), false);
+  assert.equal(isMalformedPayloadType(new Uint8Array([1, 2, 3])), false);
+  assert.equal(isMalformedPayloadType(new Uint8Array(0)), false);
+
+  // 3. isMalformedPayloadType: structured, primitive, and other view types return true
+  assert.equal(isMalformedPayloadType(123), true);
+  assert.equal(isMalformedPayloadType(true), true);
+  assert.equal(isMalformedPayloadType(false), true);
+  assert.equal(isMalformedPayloadType(Symbol('sym')), true);
+  assert.equal(isMalformedPayloadType(123n), true);
+  assert.equal(isMalformedPayloadType({}), true);
+  assert.equal(isMalformedPayloadType({ a: 1 }), true);
+  assert.equal(isMalformedPayloadType([]), true);
+  assert.equal(isMalformedPayloadType([1, 2]), true);
+  assert.equal(isMalformedPayloadType(() => {}), true);
+  assert.equal(isMalformedPayloadType(new Date()), true);
+  assert.equal(isMalformedPayloadType(new RegExp('abc')), true);
+  assert.equal(isMalformedPayloadType(new Error('err')), true);
+  assert.equal(isMalformedPayloadType(new Map()), true);
+  assert.equal(isMalformedPayloadType(new Set()), true);
+  assert.equal(isMalformedPayloadType(new ArrayBuffer(8)), true);
+  assert.equal(isMalformedPayloadType(new Uint16Array([1, 2])), true);
+  assert.equal(isMalformedPayloadType(new Uint32Array([1, 2])), true);
+  assert.equal(isMalformedPayloadType(new Float32Array([1.5])), true);
+  assert.equal(isMalformedPayloadType(new DataView(new ArrayBuffer(8))), true);
+
+  // 4. getOwn: data properties vs accessor properties vs prototype properties
+  const plainObj = { foo: 'bar', num: 42 };
+  assert.equal(getOwn(plainObj, 'foo'), 'bar');
+  assert.equal(getOwn(plainObj, 'num'), 42);
+  assert.equal(getOwn(plainObj, 'missing'), undefined);
+  assert.equal(getOwn(null, 'foo'), undefined);
+  assert.equal(getOwn(undefined, 'foo'), undefined);
+  assert.equal(getOwn('string', 'length'), undefined);
+
+  const getterObj = {
+    get evil() { return 'getter-value'; },
+    safe: 'data-value'
+  };
+  assert.equal(getOwn(getterObj, 'evil'), undefined);
+  assert.equal(getOwn(getterObj, 'safe'), 'data-value');
+
+  const setterObj = {
+    set evil(v) {},
+    safe: 'data-value'
+  };
+  assert.equal(getOwn(setterObj, 'evil'), undefined);
+  assert.equal(getOwn(setterObj, 'safe'), 'data-value');
+
+  const protoParent = { inherited: 'parent-value' };
+  const childObj = Object.create(protoParent);
+  childObj.own = 'child-value';
+  assert.equal(getOwn(childObj, 'own'), 'child-value');
+  assert.equal(getOwn(childObj, 'inherited'), undefined);
+
+  // 5. hasOwnAccessors detection
+  assert.equal(hasOwnAccessors(plainObj), false);
+  assert.equal(hasOwnAccessors(getterObj), true);
+  assert.equal(hasOwnAccessors(setterObj), true);
+  assert.equal(hasOwnAccessors(null), false);
+  assert.equal(hasOwnAccessors(undefined), false);
+  assert.equal(hasOwnAccessors(123), false);
+
+  // 6. Throwing proxy catch branch coverage
+  const throwingProxy = new Proxy({}, {
+    getOwnPropertyDescriptor() {
+      throw new Error('descriptor boom');
+    },
+    ownKeys() {
+      throw new Error('ownKeys boom');
+    }
+  });
+  assert.equal(getOwn(throwingProxy, 'prop'), undefined);
+  assert.equal(hasOwnAccessors(throwingProxy), true);
+});
+
+test('strict dispatch gating: null/undefined and accessor defense fail closed with HTTP 400 InvalidDigest MALFORMED_PAYLOAD_TYPE (OPEN-2 / OPEN-5)', () => {
+  const validSha = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const validMd5 = '1B2M2Y8AsgTpgAmY7PhCfg==';
+
+  // 1. Direct null and undefined to dispatchS3PutObject
+  const putNull = dispatchS3PutObject(null);
+  assert.equal(putNull.http_status, 400);
+  assert.equal(putNull.error_code, 'InvalidDigest');
+  assert.equal(putNull.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putUndef = dispatchS3PutObject(undefined);
+  assert.equal(putUndef.http_status, 400);
+  assert.equal(putUndef.error_code, 'InvalidDigest');
+  assert.equal(putUndef.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putNoArgs = dispatchS3PutObject();
+  assert.equal(putNoArgs.http_status, 400);
+  assert.equal(putNoArgs.error_code, 'InvalidDigest');
+  assert.equal(putNoArgs.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Direct null and undefined to dispatchS3Error
+  const errNull = dispatchS3Error(null);
+  assert.equal(errNull.http_status, 400);
+  assert.equal(errNull.error_code, 'InvalidDigest');
+  assert.equal(errNull.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errUndef = dispatchS3Error(undefined);
+  assert.equal(errUndef.http_status, 400);
+  assert.equal(errUndef.error_code, 'InvalidDigest');
+  assert.equal(errUndef.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNoArgs = dispatchS3Error();
+  assert.equal(errNoArgs.http_status, 400);
+  assert.equal(errNoArgs.error_code, 'InvalidDigest');
+  assert.equal(errNoArgs.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Explicit null/undefined payload in options object to dispatchS3PutObject
+  const putNullPayload = dispatchS3PutObject({ payload: null, 'x-amz-content-sha256': validSha });
+  assert.equal(putNullPayload.http_status, 400);
+  assert.equal(putNullPayload.error_code, 'InvalidDigest');
+  assert.equal(putNullPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putUndefPayload = dispatchS3PutObject({ payload: undefined, 'x-amz-content-sha256': validSha });
+  assert.equal(putUndefPayload.http_status, 400);
+  assert.equal(putUndefPayload.error_code, 'InvalidDigest');
+  assert.equal(putUndefPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putNullBody = dispatchS3PutObject({ body: null, 'x-amz-content-sha256': validSha });
+  assert.equal(putNullBody.http_status, 400);
+  assert.equal(putNullBody.error_code, 'InvalidDigest');
+  assert.equal(putNullBody.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putNullBytes = dispatchS3PutObject({ payloadBytes: null, 'x-amz-content-sha256': validSha });
+  assert.equal(putNullBytes.http_status, 400);
+  assert.equal(putNullBytes.error_code, 'InvalidDigest');
+  assert.equal(putNullBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 4. Explicit null/undefined payload in options object to dispatchS3Error
+  const errNullPayload = dispatchS3Error({ payload: null, contentMd5Header: validMd5 });
+  assert.equal(errNullPayload.http_status, 400);
+  assert.equal(errNullPayload.error_code, 'InvalidDigest');
+  assert.equal(errNullPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errUndefPayload = dispatchS3Error({ payload: undefined, contentMd5Header: validMd5 });
+  assert.equal(errUndefPayload.http_status, 400);
+  assert.equal(errUndefPayload.error_code, 'InvalidDigest');
+  assert.equal(errUndefPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNullBody = dispatchS3Error({ body: null, contentMd5Header: validMd5 });
+  assert.equal(errNullBody.http_status, 400);
+  assert.equal(errNullBody.error_code, 'InvalidDigest');
+  assert.equal(errNullBody.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errNullBytes = dispatchS3Error({ payloadBytes: null, contentMd5Header: validMd5 });
+  assert.equal(errNullBytes.http_status, 400);
+  assert.equal(errNullBytes.error_code, 'InvalidDigest');
+  assert.equal(errNullBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 5. Accessor properties on dispatchS3PutObject options
+  const putGetterPayload = {
+    get payload() { return Buffer.from('payload-from-getter'); },
+    'x-amz-content-sha256': validSha
+  };
+  const resPutGetterPayload = dispatchS3PutObject(putGetterPayload);
+  assert.equal(resPutGetterPayload.http_status, 400);
+  assert.equal(resPutGetterPayload.error_code, 'InvalidDigest');
+  assert.equal(resPutGetterPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putGetterHeaders = {
+    payload: Buffer.from('test'),
+    get headers() { return { 'x-amz-content-sha256': validSha }; }
+  };
+  const resPutGetterHeaders = dispatchS3PutObject(putGetterHeaders);
+  assert.equal(resPutGetterHeaders.http_status, 400);
+  assert.equal(resPutGetterHeaders.error_code, 'InvalidDigest');
+  assert.equal(resPutGetterHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putGetterInsideHeaders = {
+    payload: Buffer.from('test'),
+    headers: {
+      get 'x-amz-content-sha256'() { return validSha; }
+    }
+  };
+  const resPutGetterInsideHeaders = dispatchS3PutObject(putGetterInsideHeaders);
+  assert.equal(resPutGetterInsideHeaders.http_status, 400);
+  assert.equal(resPutGetterInsideHeaders.error_code, 'InvalidDigest');
+  assert.equal(resPutGetterInsideHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 6. Accessor properties on dispatchS3Error options
+  const errGetterPayload = {
+    get payload() { return Buffer.from('payload-from-getter'); },
+    contentMd5Header: validMd5
+  };
+  const resErrGetterPayload = dispatchS3Error(errGetterPayload);
+  assert.equal(resErrGetterPayload.http_status, 400);
+  assert.equal(resErrGetterPayload.error_code, 'InvalidDigest');
+  assert.equal(resErrGetterPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errGetterHeaders = {
+    payload: Buffer.from('test'),
+    get headers() { return { 'content-md5': validMd5 }; }
+  };
+  const resErrGetterHeaders = dispatchS3Error(errGetterHeaders);
+  assert.equal(resErrGetterHeaders.http_status, 400);
+  assert.equal(resErrGetterHeaders.error_code, 'InvalidDigest');
+  assert.equal(resErrGetterHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errGetterInsideHeaders = {
+    payload: Buffer.from('test'),
+    headers: {
+      get 'Content-MD5'() { return validMd5; }
+    }
+  };
+  const resErrGetterInsideHeaders = dispatchS3Error(errGetterInsideHeaders);
+  assert.equal(resErrGetterInsideHeaders.http_status, 400);
+  assert.equal(resErrGetterInsideHeaders.error_code, 'InvalidDigest');
+  assert.equal(resErrGetterInsideHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('regression: null and undefined dispatch return HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) in dispatchS3PutObject and dispatchS3Error (OPEN-2 / OPEN-5)', () => {
+  // 1. dispatchS3PutObject direct null and undefined
+  const putNull = dispatchS3PutObject(null);
+  assert.equal(putNull.http_status, 400);
+  assert.equal(putNull.error_code, 'InvalidDigest');
+  assert.equal(putNull.status, 400);
+  assert.equal(putNull.code, 'InvalidDigest');
+  assert.equal(putNull.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putUndef = dispatchS3PutObject(undefined);
+  assert.equal(putUndef.http_status, 400);
+  assert.equal(putUndef.error_code, 'InvalidDigest');
+  assert.equal(putUndef.status, 400);
+  assert.equal(putUndef.code, 'InvalidDigest');
+  assert.equal(putUndef.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. dispatchS3PutObject options with payload: null and payload: undefined
+  const putOptNull = dispatchS3PutObject({ payload: null });
+  assert.equal(putOptNull.http_status, 400);
+  assert.equal(putOptNull.error_code, 'InvalidDigest');
+  assert.equal(putOptNull.status, 400);
+  assert.equal(putOptNull.code, 'InvalidDigest');
+  assert.equal(putOptNull.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putOptUndef = dispatchS3PutObject({ payload: undefined });
+  assert.equal(putOptUndef.http_status, 400);
+  assert.equal(putOptUndef.error_code, 'InvalidDigest');
+  assert.equal(putOptUndef.status, 400);
+  assert.equal(putOptUndef.code, 'InvalidDigest');
+  assert.equal(putOptUndef.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. dispatchS3Error direct null and undefined
+  const errNull = dispatchS3Error(null);
+  assert.equal(errNull.http_status, 400);
+  assert.equal(errNull.error_code, 'InvalidDigest');
+  assert.equal(errNull.status, 400);
+  assert.equal(errNull.code, 'InvalidDigest');
+  assert.equal(errNull.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errUndef = dispatchS3Error(undefined);
+  assert.equal(errUndef.http_status, 400);
+  assert.equal(errUndef.error_code, 'InvalidDigest');
+  assert.equal(errUndef.status, 400);
+  assert.equal(errUndef.code, 'InvalidDigest');
+  assert.equal(errUndef.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('regression: accessor properties in dispatchS3PutObject and dispatchS3Error return HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) without throwing (OPEN-2 / OPEN-5)', () => {
+  // 1. Accessor getter for payload that throws or returns value in dispatchS3PutObject
+  const throwPayloadGetter = {
+    get payload() {
+      throw new Error('Explosive payload accessor');
+    }
+  };
+  const resPutThrowPayload = dispatchS3PutObject(throwPayloadGetter);
+  assert.equal(resPutThrowPayload.http_status, 400);
+  assert.equal(resPutThrowPayload.error_code, 'InvalidDigest');
+  assert.equal(resPutThrowPayload.status, 400);
+  assert.equal(resPutThrowPayload.code, 'InvalidDigest');
+  assert.equal(resPutThrowPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const returnPayloadGetter = {
+    get payload() {
+      return 'data-from-getter';
+    }
+  };
+  const resPutReturnPayload = dispatchS3PutObject(returnPayloadGetter);
+  assert.equal(resPutReturnPayload.http_status, 400);
+  assert.equal(resPutReturnPayload.error_code, 'InvalidDigest');
+  assert.equal(resPutReturnPayload.status, 400);
+  assert.equal(resPutReturnPayload.code, 'InvalidDigest');
+  assert.equal(resPutReturnPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Accessor getter for code that throws or returns value in dispatchS3PutObject
+  const throwCodeGetter = {
+    get code() {
+      throw new Error('Explosive code accessor');
+    }
+  };
+  const resPutThrowCode = dispatchS3PutObject(throwCodeGetter);
+  assert.equal(resPutThrowCode.http_status, 400);
+  assert.equal(resPutThrowCode.error_code, 'InvalidDigest');
+  assert.equal(resPutThrowCode.status, 400);
+  assert.equal(resPutThrowCode.code, 'InvalidDigest');
+  assert.equal(resPutThrowCode.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Accessor getter for payload in dispatchS3Error
+  const resErrThrowPayload = dispatchS3Error(throwPayloadGetter);
+  assert.equal(resErrThrowPayload.http_status, 400);
+  assert.equal(resErrThrowPayload.error_code, 'InvalidDigest');
+  assert.equal(resErrThrowPayload.status, 400);
+  assert.equal(resErrThrowPayload.code, 'InvalidDigest');
+  assert.equal(resErrThrowPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const resErrReturnPayload = dispatchS3Error(returnPayloadGetter);
+  assert.equal(resErrReturnPayload.http_status, 400);
+  assert.equal(resErrReturnPayload.error_code, 'InvalidDigest');
+  assert.equal(resErrReturnPayload.status, 400);
+  assert.equal(resErrReturnPayload.code, 'InvalidDigest');
+  assert.equal(resErrReturnPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 4. Accessor getter for code in dispatchS3Error
+  const resErrThrowCode = dispatchS3Error(throwCodeGetter);
+  assert.equal(resErrThrowCode.http_status, 400);
+  assert.equal(resErrThrowCode.error_code, 'InvalidDigest');
+  assert.equal(resErrThrowCode.status, 400);
+  assert.equal(resErrThrowCode.code, 'InvalidDigest');
+  assert.equal(resErrThrowCode.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const returnCodeGetter = {
+    get code() {
+      return 'NoSuchKey';
+    }
+  };
+  const resErrReturnCode = dispatchS3Error(returnCodeGetter);
+  assert.equal(resErrReturnCode.http_status, 400);
+  assert.equal(resErrReturnCode.error_code, 'InvalidDigest');
+  assert.equal(resErrReturnCode.status, 400);
+  assert.equal(resErrReturnCode.code, 'InvalidDigest');
+  assert.equal(resErrReturnCode.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('regression: prototype-inherited option keys return HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX) in dispatchS3PutObject and dispatchS3Error', () => {
+  const inheritedPayload = Object.create({ payload: 'hello' });
+  const resInhPayload = dispatchS3PutObject(inheritedPayload);
+  assert.equal(resInhPayload.http_status, 400);
+  assert.equal(resInhPayload.error_code, 'InvalidDigest');
+  assert.equal(resInhPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedBytes = Object.create({ payloadBytes: 'hello' });
+  const resInhBytes = dispatchS3PutObject(inheritedBytes);
+  assert.equal(resInhBytes.http_status, 400);
+  assert.equal(resInhBytes.error_code, 'InvalidDigest');
+  assert.equal(resInhBytes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedBody = Object.create({ body: 'hello' });
+  const resInhBody = dispatchS3PutObject(inheritedBody);
+  assert.equal(resInhBody.http_status, 400);
+  assert.equal(resInhBody.error_code, 'InvalidDigest');
+  assert.equal(resInhBody.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedHeaders = Object.create({ headers: {} });
+  const resInhHeaders = dispatchS3PutObject(inheritedHeaders);
+  assert.equal(resInhHeaders.http_status, 400);
+  assert.equal(resInhHeaders.error_code, 'InvalidDigest');
+  assert.equal(resInhHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedSha = Object.create({ 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+  const resInhSha = dispatchS3PutObject(inheritedSha);
+  assert.equal(resInhSha.http_status, 400);
+  assert.equal(resInhSha.error_code, 'InvalidDigest');
+  assert.equal(resInhSha.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedErrPayload = Object.create({ payload: 'hello' });
+  const resInhErrPayload = dispatchS3Error(inheritedErrPayload);
+  assert.equal(resInhErrPayload.http_status, 400);
+  assert.equal(resInhErrPayload.error_code, 'InvalidDigest');
+  assert.equal(resInhErrPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedErrBytes = Object.create({ payloadBytes: 'hello' });
+  const resInhErrBytes = dispatchS3Error(inheritedErrBytes);
+  assert.equal(resInhErrBytes.http_status, 400);
+  assert.equal(resInhErrBytes.error_code, 'InvalidDigest');
+  assert.equal(resInhErrBytes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedErrBody = Object.create({ body: 'hello' });
+  const resInhErrBody = dispatchS3Error(inheritedErrBody);
+  assert.equal(resInhErrBody.http_status, 400);
+  assert.equal(resInhErrBody.error_code, 'InvalidDigest');
+  assert.equal(resInhErrBody.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const inheritedErrHeaders = Object.create({ headers: {} });
+  const resInhErrHeaders = dispatchS3Error(inheritedErrHeaders);
+  assert.equal(resInhErrHeaders.http_status, 400);
+  assert.equal(resInhErrHeaders.error_code, 'InvalidDigest');
+  assert.equal(resInhErrHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
 });

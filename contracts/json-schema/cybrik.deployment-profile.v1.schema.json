@@ -434,12 +434,14 @@
     },
     "slots": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "storage"
       ],
       "properties": {
         "storage": {
           "type": "object",
+          "additionalProperties": false,
           "required": [
             "specification"
           ],
@@ -449,6 +451,7 @@
             },
             "specification": {
               "type": "object",
+              "additionalProperties": false,
               "required": [
                 "immutable_storage_required"
               ],

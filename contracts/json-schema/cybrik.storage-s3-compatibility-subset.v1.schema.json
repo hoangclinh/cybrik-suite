@@ -89,7 +89,8 @@
       "items": {
         "$ref": "#/$defs/s3OperationName"
       },
-      "minItems": 17,
+      "minItems": 15,
+      "maxItems": 19,
       "uniqueItems": true
     },
     "addressing_style": {
@@ -320,7 +321,8 @@
           "items": {
             "$ref": "#/$defs/s3OperationName"
           },
-          "minItems": 17,
+          "minItems": 15,
+          "maxItems": 19,
           "uniqueItems": true
         },
         "addressing_style": {

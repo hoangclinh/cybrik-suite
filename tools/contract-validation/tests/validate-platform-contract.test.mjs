@@ -87,7 +87,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
   'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
-  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 17 }, message: 'must NOT have fewer than 17 items' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 15 }, message: 'must NOT have fewer than 15 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
@@ -4844,7 +4844,7 @@ test('in-memory validation: canonical Object Lock URN urn:cybrik:evidence:storag
         'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
         'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
         'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-        'AbortMultipartUpload', 'ListParts'
+        'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
       ],
       degradation_fallback: 'NONE',
       evidence_references: [canonicalLockUrn]
@@ -5989,7 +5989,7 @@ test('in-memory validation: declarations carrying custom PASS storage evidence u
         'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
         'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
         'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-        'AbortMultipartUpload', 'ListParts'
+        'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
       ],
       degradation_fallback: 'NONE',
       evidence_references: [canonicalLockUrn, customStorageUrn],
@@ -6054,15 +6054,15 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
   const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
   const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
 
-  const ALL_17_OPS = [
+  const ALL_19_OPS = [
     'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
     'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
     'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
     'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-    'AbortMultipartUpload', 'ListParts'
+    'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
   ];
 
-  function buildPartialStorageAdv(ops = ALL_17_OPS, lockUrn = canonicalLockUrn) {
+  function buildPartialStorageAdv(ops = ALL_19_OPS, lockUrn = canonicalLockUrn) {
     const doc = JSON.parse(JSON.stringify(partialSample));
     doc.advertised_capabilities = [
       {
@@ -6089,10 +6089,10 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
 
   // 1. Positive baseline passes
   const validPartial = buildPartialStorageAdv();
-  assert.ok(ajv.validate(pcaSchemaId, validPartial), 'Baseline partial storage advertisement with 17 ops must pass Ajv');
+  assert.ok(ajv.validate(pcaSchemaId, validPartial), 'Baseline partial storage advertisement with 19 ops must pass Ajv');
   assert.doesNotThrow(
     () => validatePlatformSemantics(validPartial, pcaSchemaId),
-    'Baseline partial storage advertisement with 17 ops must pass validatePlatformSemantics'
+    'Baseline partial storage advertisement with 19 ops must pass validatePlatformSemantics'
   );
 
   // 2. Negative: Partial storage advertisement with 0 ops (<17 ops) is rejected
@@ -6109,18 +6109,25 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
     /storage slot advertisement missing required S3 operation 'HeadObject' from 17-operation baseline/
   );
 
-  // 4. Negative: Partial storage advertisement with 16 ops (missing CompleteMultipartUpload) is rejected
-  const missingCompleteAdv = buildPartialStorageAdv(ALL_17_OPS.filter(op => op !== 'CompleteMultipartUpload'));
+  // 4. Negative: Partial storage advertisement with 18 ops (missing CompleteMultipartUpload) is rejected
+  const missingCompleteAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'CompleteMultipartUpload'));
   assert.throws(
     () => validatePlatformSemantics(missingCompleteAdv, pcaSchemaId),
     /storage slot advertisement missing required S3 operation 'CompleteMultipartUpload' from 17-operation baseline/
   );
 
-  // 5. Negative: Partial storage advertisement with 16 ops (missing PutObjectRetention) is rejected
-  const missingRetentionAdv = buildPartialStorageAdv(ALL_17_OPS.filter(op => op !== 'PutObjectRetention'));
+  // 5. Negative: Partial storage advertisement with 18 ops (missing PutObjectRetention) is rejected
+  const missingRetentionAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'PutObjectRetention'));
   assert.throws(
     () => validatePlatformSemantics(missingRetentionAdv, pcaSchemaId),
     /storage slot advertisement missing required S3 operation 'PutObjectRetention' from 17-operation baseline/
+  );
+
+  // 5b. Negative: Partial storage advertisement with 17 ops (missing PutBucketVersioning) is rejected
+  const missingVersioningAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'PutBucketVersioning'));
+  assert.throws(
+    () => validatePlatformSemantics(missingVersioningAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 17-operation baseline/
   );
 
   // 6. Negative: Partial storage advertisement with noncanonical Object Lock aliases strictly rejected
@@ -6136,7 +6143,7 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
 
   for (const alias of legacyAliases) {
     // 6a. Noncanonical alias alone (lacks canonical URN)
-    const aliasAloneAdv = buildPartialStorageAdv(ALL_17_OPS, alias);
+    const aliasAloneAdv = buildPartialStorageAdv(ALL_19_OPS, alias);
     assert.throws(
       () => validatePlatformSemantics(aliasAloneAdv, pcaSchemaId),
       /storage slot advertisement lacks Object Lock retention evidence|invalid storage_object_lock evidence URN|legacy Object Lock alias/,
@@ -6144,7 +6151,7 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
     );
 
     // 6b. Canonical URN plus noncanonical alias (alias in multi-evidence set)
-    const dualEvidenceAdv = buildPartialStorageAdv(ALL_17_OPS, canonicalLockUrn);
+    const dualEvidenceAdv = buildPartialStorageAdv(ALL_19_OPS, canonicalLockUrn);
     dualEvidenceAdv.advertised_capabilities[0].evidence_references.push(alias);
     dualEvidenceAdv.conformance_evidence.push({
       test_identifier: alias,
@@ -6169,7 +6176,7 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
       slot_id: 'storage',
       description: 'Storage slot without Object Lock',
       is_mandatory: true,
-      supported_features: [...ALL_17_OPS],
+      supported_features: [...ALL_19_OPS],
       degradation_fallback: 'NONE',
       evidence_references: [customStorageUrn]
     }
@@ -6202,12 +6209,12 @@ test('in-memory validation: case-variant Object Lock URNs are strictly rejected 
     'urn:cybrik:evidence:storage:s3:conformance:v1:OBJECT-LOCK',
   ];
 
-  const ALL_17_OPS = [
+  const ALL_19_OPS = [
     'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
     'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
     'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
     'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-    'AbortMultipartUpload', 'ListParts'
+    'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
   ];
 
   // 1. Partial Advertisements
@@ -6222,7 +6229,7 @@ test('in-memory validation: case-variant Object Lock URNs are strictly rejected 
         slot_id: 'storage',
         description: 'Storage capability with case-variant Object Lock URN',
         is_mandatory: true,
-        supported_features: [...ALL_17_OPS],
+        supported_features: [...ALL_19_OPS],
         degradation_fallback: 'NONE',
         evidence_references: [variantUrn],
       },
@@ -6250,7 +6257,7 @@ test('in-memory validation: case-variant Object Lock URNs are strictly rejected 
         slot_id: 'storage',
         description: 'Storage capability with canonical and case-variant Object Lock URN',
         is_mandatory: true,
-        supported_features: [...ALL_17_OPS],
+        supported_features: [...ALL_19_OPS],
         degradation_fallback: 'NONE',
         evidence_references: [canonicalLockUrn, variantUrn],
       },
@@ -6378,12 +6385,12 @@ test('in-memory validation: storage_object_lock capability_name strictly enforce
   const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
   const customLockUrn = 'urn:cybrik:evidence:storage:s3:custom:lock:v1';
 
-  const ALL_17_OPS = [
+  const ALL_19_OPS = [
     'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
     'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
     'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
     'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-    'AbortMultipartUpload', 'ListParts'
+    'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
   ];
 
   // 1. Capability with capability_name: 'storage_object_lock' having non-canonical URN
@@ -6397,7 +6404,7 @@ test('in-memory validation: storage_object_lock capability_name strictly enforce
         slot_id: 'storage',
         description: 'Storage capability named storage_object_lock',
         is_mandatory: true,
-        supported_features: [...ALL_17_OPS],
+        supported_features: [...ALL_19_OPS],
         degradation_fallback: 'NONE',
         evidence_references: [canonicalLockUrn, customLockUrn],
       },
@@ -6686,12 +6693,12 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
 
   // 2. Partial capability advertisement with 17 ops + DeleteBucket fails semantic validation
   const sampleAdv = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
-  const ALL_17_OPS = [
+  const ALL_19_OPS = [
     'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
     'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
     'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
     'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-    'AbortMultipartUpload', 'ListParts'
+    'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
   ];
   const surplusAdv = JSON.parse(JSON.stringify(sampleAdv));
   surplusAdv.advertised_capabilities = [
@@ -6700,7 +6707,7 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
       slot_id: 'storage',
       description: 'Storage capability with surplus operation',
       is_mandatory: true,
-      supported_features: [...ALL_17_OPS, 'DeleteBucket'],
+      supported_features: [...ALL_19_OPS, 'DeleteBucket'],
       degradation_fallback: 'NONE',
       evidence_references: ['urn:cybrik:evidence:ev-oci-01']
     }
@@ -6804,5 +6811,256 @@ test('Platform Contract Slot 5: 15-op baseline and 19-op full lock closed sets s
   for (const excl of excludedOps) {
     assert.ok(!baselineSet.has(excl), `15-op baseline must reject excluded operation '${excl}'`);
     assert.ok(!fullLockSet.has(excl), `19-op full lock set must reject excluded operation '${excl}'`);
+  }
+});
+
+test('semantic validation: cap.supported_features duplicate rejection and strict 15/19 profile storage validation (OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  const ALL_19_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
+  ];
+
+  // 1. supported_features with duplicate entries in advertised_capabilities is strictly rejected
+  const sampleAdv = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const dupFeaturesAdv = JSON.parse(JSON.stringify(sampleAdv));
+  dupFeaturesAdv.advertised_capabilities[0].supported_features = ['container_lifecycle', 'resource_isolation', 'container_lifecycle'];
+  assert.throws(
+    () => validatePlatformSemantics(dupFeaturesAdv, pcaSchemaId),
+    /supported_features contains duplicate entries/,
+    'Capability advertisement with duplicate supported_features must be rejected'
+  );
+
+  // 2. supported_features with duplicate entries in storage slot is strictly rejected
+  const dupStorageOpsAdv = JSON.parse(JSON.stringify(sampleAdv));
+  dupStorageOpsAdv.advertised_capabilities = [
+    {
+      capability_name: 's3_storage_provider',
+      slot_id: 'storage',
+      description: 'Storage capability declaration with duplicate PutObject',
+      is_mandatory: true,
+      supported_features: [...ALL_19_OPS, 'PutObject'],
+      degradation_fallback: 'NONE',
+      evidence_references: [canonicalLockUrn]
+    }
+  ];
+  dupStorageOpsAdv.conformance_evidence = [
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report'
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(dupStorageOpsAdv, pcaSchemaId),
+    /supported_features contains duplicate entries/,
+    'Storage capability with duplicate operation must be rejected'
+  );
+
+  // 3. Storage slot missing 15 baseline operations is rejected
+  const missingHeadBucketAdv = JSON.parse(JSON.stringify(dupStorageOpsAdv));
+  missingHeadBucketAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'HeadBucket');
+  assert.throws(
+    () => validatePlatformSemantics(missingHeadBucketAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'HeadBucket' from 17-operation baseline/,
+    'Storage capability missing HeadBucket from 15 baseline operations must be rejected'
+  );
+
+  // 4. Immutable profile / lock declared rejecting 17-op partial set omitting versioning
+  const partial17OpAdv = JSON.parse(JSON.stringify(dupStorageOpsAdv));
+  partial17OpAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'PutBucketVersioning' && op !== 'GetBucketVersioning');
+  assert.throws(
+    () => validatePlatformSemantics(partial17OpAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 17-operation baseline/,
+    'Locked/immutable storage profile declaring 17 ops but omitting PutBucketVersioning must be rejected'
+  );
+
+  // 5. Immutable profile / lock declared rejecting 17-op partial set omitting GetBucketVersioning
+  const partial18OpAdv = JSON.parse(JSON.stringify(dupStorageOpsAdv));
+  partial18OpAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'GetBucketVersioning');
+  assert.throws(
+    () => validatePlatformSemantics(partial18OpAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'GetBucketVersioning' from 17-operation baseline/,
+    'Locked/immutable storage profile declaring 18 ops but omitting GetBucketVersioning must be rejected'
+  );
+});
+
+test('regression: immutable-profile storage capability declaring 17 operations missing PutBucketVersioning/GetBucketVersioning is strictly rejected (OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  const ALL_17_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts'
+  ];
+
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const immutableProfiles = ['onprem-standard-v1', 'onprem-airgap-v1', 'hybrid-sovereign-v1'];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(EXAMPLES_DIR, `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. Full profile declaration declaring 17 ops for immutable profile is rejected (missing PutBucketVersioning & GetBucketVersioning)
+    const sampleFullDecl = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+    const fullDecl17 = JSON.parse(JSON.stringify(sampleFullDecl));
+    fullDecl17.target_profile_id = profileId;
+    fullDecl17.target_profile_digest = profileDigest;
+    const fullStoreCap = fullDecl17.advertised_capabilities.find(c => c.slot_id === 'storage');
+    assert.ok(fullStoreCap);
+    fullStoreCap.supported_features = [...ALL_17_OPS];
+
+    assert.throws(
+      () => validatePlatformSemantics(fullDecl17, pcaSchemaId),
+      /immutable storage capability advertisement missing required S3 operation 'PutBucketVersioning' from 19-operation closed set/
+    );
+
+    // 2. Negotiation handshake declaring 17 ops in advertisement response for immutable profile is rejected
+    const sampleHandshake = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+    const handshake17 = JSON.parse(JSON.stringify(sampleHandshake));
+    handshake17.target_profile_id = profileId;
+    handshake17.target_profile_digest = profileDigest;
+    handshake17.agreed_capability_lease.target_profile_id = profileId;
+    handshake17.agreed_capability_lease.target_profile_digest = profileDigest;
+
+    const storageCap = handshake17.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    assert.ok(storageCap, 'Storage capability must exist in advertisement response');
+    storageCap.supported_features = [...ALL_17_OPS];
+
+    assert.throws(
+      () => validatePlatformSemantics(handshake17, pcnSchemaId),
+      /immutable storage capability advertisement missing required S3 operation 'PutBucketVersioning' from 19-operation closed set/
+    );
+  }
+});
+
+test('regression: duplicate features in supported_features fail schema and semantic validation (OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // 1. Provider capability advertisement with duplicate supported_features fails schema and semantic validation
+  const sampleDecl = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const dupAdv = JSON.parse(JSON.stringify(sampleDecl));
+  const storeCapAdv = dupAdv.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storeCapAdv);
+  storeCapAdv.supported_features.push('PutObject'); // duplicate PutObject
+
+  const validAdvSchema = ajv.validate(pcaSchemaId, dupAdv);
+  assert.equal(validAdvSchema, false, 'Advertisement schema must reject duplicate items in supported_features');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'uniqueItems'),
+    'Schema error must indicate uniqueItems violation in supported_features'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(dupAdv, pcaSchemaId),
+    /contains duplicate feature 'PutObject' in supported_features/
+  );
+
+  // 2. Non-storage capability with duplicate supported_features fails schema and semantic validation
+  const dupOciAdv = JSON.parse(JSON.stringify(sampleDecl));
+  const ociCapAdv = dupOciAdv.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  assert.ok(ociCapAdv);
+  ociCapAdv.supported_features = ['container_lifecycle', 'container_lifecycle'];
+
+  const validOciSchema = ajv.validate(pcaSchemaId, dupOciAdv);
+  assert.equal(validOciSchema, false, 'Advertisement schema must reject duplicate items in non-storage supported_features');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'uniqueItems'),
+    'Schema error must indicate uniqueItems violation'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(dupOciAdv, pcaSchemaId),
+    /contains duplicate feature 'container_lifecycle' in supported_features/
+  );
+
+  // 3. Capability negotiation handshake with duplicate supported_features fails schema and semantic validation
+  const sampleHandshake = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const dupHandshake = JSON.parse(JSON.stringify(sampleHandshake));
+  const storeCapNeg = dupHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storeCapNeg);
+  storeCapNeg.supported_features.push('GetObject'); // duplicate GetObject
+
+  const validNegSchema = ajv.validate(pcnSchemaId, dupHandshake);
+  assert.equal(validNegSchema, false, 'Negotiation schema must reject duplicate items in supported_features');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'uniqueItems'),
+    'Schema error must indicate uniqueItems violation in negotiation supported_features'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(dupHandshake, pcnSchemaId),
+    /contains duplicate feature 'GetObject' in supported_features/
+  );
+});
+
+test('regression: surplus properties in deployment profile slots.storage.specification fail schema validation (OPEN-2 / OPEN-5)', () => {
+  const dpSchemaId = 'https://contracts.cybrik.example/cybrik.deployment-profile.v1.schema.json';
+
+  const profileFiles = [
+    'onprem-standard-v1.profile.json',
+    'onprem-airgap-v1.profile.json',
+    'hybrid-sovereign-v1.profile.json',
+    'private-cloud-v1.profile.json'
+  ];
+
+  for (const file of profileFiles) {
+    const filePath = join(EXAMPLES_DIR, file);
+    const profileData = JSON.parse(readFileSync(filePath, 'utf8'));
+
+    // Canonical profile passes schema validation
+    assert.ok(ajv.validate(dpSchemaId, profileData), `${file} must pass schema validation`);
+
+    // 1. Surplus property directly in slots.storage.specification fails schema validation
+    const surplusSpec = JSON.parse(JSON.stringify(profileData));
+    surplusSpec.slots.storage.specification.surplus_unauthorized_property = 'invalid_surplus_value';
+    const validSpec = ajv.validate(dpSchemaId, surplusSpec);
+    assert.equal(validSpec, false, `Deployment profile ${file} with surplus property in slots.storage.specification must fail schema validation`);
+    assert.ok(
+      ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === 'surplus_unauthorized_property'),
+      'Schema error must indicate additionalProperties violation for surplus_unauthorized_property under specification'
+    );
+
+    // 2. Extra unapproved specification fields fail schema validation
+    const extraFields = ['unsupported_flag', 'max_retries', 'custom_storage_endpoint', 'bypass_worm'];
+    for (const extra of extraFields) {
+      const badDoc = JSON.parse(JSON.stringify(profileData));
+      badDoc.slots.storage.specification[extra] = true;
+      const validBad = ajv.validate(dpSchemaId, badDoc);
+      assert.equal(validBad, false, `Deployment profile ${file} with surplus property '${extra}' in specification must fail schema validation`);
+      assert.ok(
+        ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === extra),
+        `Schema error must indicate additionalProperties violation for '${extra}'`
+      );
+    }
+
+    // 3. Surplus property directly under slots.storage fails schema validation
+    const surplusStorage = JSON.parse(JSON.stringify(profileData));
+    surplusStorage.slots.storage.surplus_storage_property = 12345;
+    const validStorage = ajv.validate(dpSchemaId, surplusStorage);
+    assert.equal(validStorage, false, `Deployment profile ${file} with surplus property in slots.storage must fail schema validation`);
+    assert.ok(
+      ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === 'surplus_storage_property'),
+      'Schema error must indicate additionalProperties violation under slots.storage'
+    );
+
+    // 4. Surplus slot under slots fails schema validation
+    const surplusSlots = JSON.parse(JSON.stringify(profileData));
+    surplusSlots.slots.surplus_unauthorized_slot = { some_key: 'value' };
+    const validSlots = ajv.validate(dpSchemaId, surplusSlots);
+    assert.equal(validSlots, false, `Deployment profile ${file} with surplus slot under slots must fail schema validation`);
+    assert.ok(
+      ajv.errors.some(e => e.keyword === 'additionalProperties' && e.params?.additionalProperty === 'surplus_unauthorized_slot'),
+      'Schema error must indicate additionalProperties violation under slots'
+    );
   }
 });

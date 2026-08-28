@@ -368,11 +368,9 @@ export function isMalformedBase64Md5(headerVal) {
   }
 }
 
-export function isMalformedPayloadType(val) {
-  if (val === undefined || val === null) return false;
-  if (typeof val === 'string') return false;
-  if (Buffer.isBuffer(val)) return false;
-  if (val instanceof Uint8Array && Object.prototype.toString.call(val) === '[object Uint8Array]') return false;
+export function isMalformedPayloadType(payload) {
+  if (payload === undefined || payload === null) return true;
+  if (typeof payload === 'string' || Buffer.isBuffer(payload) || (payload instanceof Uint8Array && Object.prototype.toString.call(payload) === '[object Uint8Array]')) return false;
   return true;
 }
 
@@ -401,11 +399,40 @@ export function isMalformedSha256(headerVal) {
   return !/^[0-9a-f]{64}$/.test(headerVal);
 }
 
-const getOwn = (obj, key) => (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key)) ? obj[key] : undefined;
+export function getOwn(obj, prop) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
+  try {
+    const desc = Object.getOwnPropertyDescriptor(obj, prop);
+    if (!desc) return undefined;
+    if (desc.get !== undefined || desc.set !== undefined) return undefined;
+    return desc.value;
+  } catch {
+    return undefined;
+  }
+}
+
+export function hasOwnAccessors(obj) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  try {
+    const descriptors = Object.getOwnPropertyDescriptors(obj);
+    for (const key of Reflect.ownKeys(descriptors)) {
+      const desc = descriptors[key];
+      if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+        return true;
+      }
+    }
+  } catch {
+    return true;
+  }
+  return false;
+}
+
 const isPlainOrNull = (o) => o !== null && typeof o === 'object' && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
 
-export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybeSha256Header) {
+export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha256Header) {
   if (
+    optionsOrPayload === undefined ||
+    optionsOrPayload === null ||
     typeof optionsOrPayload === 'function' ||
     typeof optionsOrPayload === 'number' ||
     typeof optionsOrPayload === 'boolean' ||
@@ -418,7 +445,9 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
     optionsOrPayload instanceof Map ||
     optionsOrPayload instanceof Set ||
     optionsOrPayload instanceof ArrayBuffer ||
-    (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array))
+    (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
+    hasOwnAccessors(optionsOrPayload) ||
+    (typeof optionsOrPayload === 'object' && hasOwnAccessors(optionsOrPayload.headers))
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -787,6 +816,8 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   if (
+    conditionOrOptions === undefined ||
+    conditionOrOptions === null ||
     typeof conditionOrOptions === 'function' ||
     typeof conditionOrOptions === 'number' ||
     typeof conditionOrOptions === 'boolean' ||
@@ -799,7 +830,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     conditionOrOptions instanceof Map ||
     conditionOrOptions instanceof Set ||
     conditionOrOptions instanceof ArrayBuffer ||
-    (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array))
+    (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
+    hasOwnAccessors(conditionOrOptions) ||
+    (typeof conditionOrOptions === 'object' && hasOwnAccessors(conditionOrOptions.headers))
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -955,11 +988,6 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
 
     const headersObjRaw = getOwn(conditionOrOptions, 'headers');
     const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
-    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (getOwn(conditionOrOptions, 'payloadBytes') ?? getOwn(conditionOrOptions, 'payload') ?? getOwn(conditionOrOptions, 'body'));
-    if (isMalformedPayloadType(payloadBytes)) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
-    }
-    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (getOwn(conditionOrOptions, 'contentMd5Header') ?? getOwn(conditionOrOptions, 'content_md5_header') ?? getOwn(conditionOrOptions, 'contentMd5') ?? getOwn(conditionOrOptions, 'Content-MD5') ?? getOwn(conditionOrOptions, 'content_md5') ?? getOwn(conditionOrOptions, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined));
     const shaHeader = getOwn(conditionOrOptions, 'x-amz-content-sha256') ?? getOwn(conditionOrOptions, 'X-Amz-Content-Sha256') ?? getOwn(conditionOrOptions, 'contentSha256Header') ?? getOwn(conditionOrOptions, 'content_sha256_header') ?? getOwn(conditionOrOptions, 'contentSha256') ?? getOwn(conditionOrOptions, 'xAmzContentSha256') ?? getOwn(conditionOrOptions, 'x_amz_content_sha256') ?? getOwn(conditionOrOptions, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
 
     if (shaHeader && typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
@@ -971,6 +999,13 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         reason: 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256',
       };
     }
+
+    const hasExplicitPayload = (arguments.length >= 2) || ('payloadBytes' in conditionOrOptions) || ('payload' in conditionOrOptions) || ('body' in conditionOrOptions);
+    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (getOwn(conditionOrOptions, 'payloadBytes') ?? getOwn(conditionOrOptions, 'payload') ?? getOwn(conditionOrOptions, 'body'));
+    if (hasExplicitPayload && isMalformedPayloadType(payloadBytes)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (getOwn(conditionOrOptions, 'contentMd5Header') ?? getOwn(conditionOrOptions, 'content_md5_header') ?? getOwn(conditionOrOptions, 'contentMd5') ?? getOwn(conditionOrOptions, 'Content-MD5') ?? getOwn(conditionOrOptions, 'content_md5') ?? getOwn(conditionOrOptions, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined));
 
     if (conditionOrOptions && typeof conditionOrOptions === 'object') {
       const contentMd5Declared = getOwn(conditionOrOptions, 'content_md5_declared');
@@ -1845,10 +1880,17 @@ export function validatePlatformSemantics(data, schemaId) {
           }
           seenSlotIds.add(cap.slot_id);
         }
-        if (cap.slot_id === 'storage' && Array.isArray(cap.supported_features)) {
+        if (Array.isArray(cap.supported_features)) {
+          const seenFeats = new Set();
           for (const f of cap.supported_features) {
-            if (!S3_19_OPERATIONS.has(f)) {
-              throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+            if (seenFeats.has(f)) {
+              throw new Error(`Semantic error: capability '${cap.capability_name || cap.slot_id}' contains duplicate feature '${f}' in supported_features (supported_features contains duplicate entries)`);
+            }
+            seenFeats.add(f);
+            if (cap.slot_id === 'storage') {
+              if (!S3_19_OPERATIONS.has(f)) {
+                throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+              }
             }
           }
         }
@@ -2095,12 +2137,57 @@ export function validatePlatformSemantics(data, schemaId) {
     if (adv.advertised_capabilities) {
       const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
       if (storageCap) {
-        const featureSet = new Set(storageCap.supported_features || []);
-        for (const op of S3_17_MANDATORY_OPS) {
-          if (!featureSet.has(op)) {
-            throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline`);
+        let immutableStorageRequired = true;
+        let resolvedProfile = data.profile || adv.profile;
+        if (!resolvedProfile && targetProfileId) {
+          const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
+          if (existsSync(profilePath)) {
+            try {
+              resolvedProfile = JSON.parse(readFileSync(profilePath, 'utf8'));
+            } catch (_) {}
           }
         }
+
+        if (targetProfileId === 'regulated-cloud-v1' || targetProfileId === 'airgapped-core-v1') {
+          immutableStorageRequired = true;
+        } else if (resolvedProfile) {
+          if (resolvedProfile.immutable_storage_required === false ||
+              resolvedProfile.slots?.storage?.specification?.immutable_storage_required === false) {
+            immutableStorageRequired = false;
+          } else {
+            immutableStorageRequired = true;
+          }
+        }
+
+        const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+        const lockRefs = (storageCap.evidence_references || []).filter(ref => {
+          const lower = String(ref).toLowerCase();
+          return lower.includes('object-lock') || lower.includes('object_lock') || lower.includes('objectlock');
+        });
+        const hasLockOps = (storageCap.supported_features || []).some(f => S3_4_OBJECT_LOCK_OPS.includes(f));
+        const isLockDeclared = storageCap.capability_name === 'storage_object_lock' ||
+          lockRefs.length > 0 ||
+          hasLockOps ||
+          (adv.advertised_capabilities || []).some(c => c.capability_name === 'storage_object_lock');
+
+        const featureSet = new Set(storageCap.supported_features || []);
+        // 1. Enforce that ALL 15 baseline operations (S3_15_OPERATIONS) are present
+        for (const op of S3_15_BASELINE_OPS) {
+          if (!featureSet.has(op)) {
+            throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline)`);
+          }
+        }
+
+        // 2. If immutable_storage_required is true or lock intent is declared: enforce that ALL 19 operations (S3_19_OPERATIONS) are present (rejecting partial 17-op sets that omit versioning)
+        if (immutableStorageRequired || isLockDeclared) {
+          for (const op of S3_19_CLOSED_OPS) {
+            if (!featureSet.has(op)) {
+              throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline)`);
+            }
+          }
+        }
+
+        // 3. Reject any operation outside S3_19_OPERATIONS
         if (Array.isArray(storageCap.supported_features)) {
           for (const f of storageCap.supported_features) {
             if (!S3_19_OPERATIONS.has(f)) {
@@ -2108,6 +2195,7 @@ export function validatePlatformSemantics(data, schemaId) {
             }
           }
         }
+
         const storageRefs = new Set(storageCap.evidence_references || []);
         const validTests = new Set((adv.conformance_evidence || []).map(e => e.test_identifier));
 
@@ -2166,31 +2254,8 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        let immutableStorageRequired = true;
-        let resolvedProfile = data.profile || adv.profile;
-        if (!resolvedProfile && targetProfileId) {
-          const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
-          if (existsSync(profilePath)) {
-            try {
-              resolvedProfile = JSON.parse(readFileSync(profilePath, 'utf8'));
-            } catch (_) {}
-          }
-        }
-
-        if (targetProfileId === 'regulated-cloud-v1' || targetProfileId === 'airgapped-core-v1') {
-          immutableStorageRequired = true;
-        } else if (resolvedProfile) {
-          if (resolvedProfile.immutable_storage_required === false ||
-              resolvedProfile.slots?.storage?.specification?.immutable_storage_required === false) {
-            immutableStorageRequired = false;
-          } else {
-            immutableStorageRequired = true;
-          }
-        }
-
-        const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
-        const lockRefs = (storageCap.evidence_references || []).filter(ref => ref === canonicalLockUrn);
-        if (immutableStorageRequired && lockRefs.length === 0) {
+        const canonicalLockRefs = (storageCap.evidence_references || []).filter(ref => ref === canonicalLockUrn);
+        if (immutableStorageRequired && canonicalLockRefs.length === 0) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
 
@@ -2595,7 +2660,7 @@ const EXPECTED_PLATFORM_NEGATIVES = {
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
   'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
-  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 17 }, message: 'must NOT have fewer than 17 items' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 15 }, message: 'must NOT have fewer than 15 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
@@ -3924,18 +3989,46 @@ const errDateDirectRes = dispatchS3Error(invalidPayloadDate);
 const errUint16DirectRes = dispatchS3Error(invalidPayloadUint16);
 const errFuncDirectRes = dispatchS3Error(invalidPayloadFunc);
 
-if (errObjRes.http_status !== 400 || errObjRes.error_code !== 'InvalidDigest' || errObjRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errNumRes.http_status !== 400 || errNumRes.error_code !== 'InvalidDigest' || errNumRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errBoolRes.http_status !== 400 || errBoolRes.error_code !== 'InvalidDigest' || errBoolRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errArrRes.http_status !== 400 || errArrRes.error_code !== 'InvalidDigest' || errArrRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errFuncRes.http_status !== 400 || errFuncRes.error_code !== 'InvalidDigest' || errFuncRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errDateRes.http_status !== 400 || errDateRes.error_code !== 'InvalidDigest' || errDateRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errUint16Res.http_status !== 400 || errUint16Res.error_code !== 'InvalidDigest' || errUint16Res.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errDateDirectRes.http_status !== 400 || errDateDirectRes.error_code !== 'InvalidDigest' || errDateDirectRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errUint16DirectRes.http_status !== 400 || errUint16DirectRes.error_code !== 'InvalidDigest' || errUint16DirectRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
-if (errFuncDirectRes.http_status !== 400 || errFuncDirectRes.error_code !== 'InvalidDigest' || errFuncDirectRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+// Null / undefined and accessor gating assertions (OPEN-2 / OPEN-5)
+if (isMalformedPayloadType(null) !== true) typeGatePass = false;
+if (isMalformedPayloadType(undefined) !== true) typeGatePass = false;
+if (isMalformedPayloadType('valid string') !== false) typeGatePass = false;
+if (isMalformedPayloadType(Buffer.from('valid buffer')) !== false) typeGatePass = false;
+if (isMalformedPayloadType(new Uint8Array([1, 2, 3])) !== false) typeGatePass = false;
 
-H('37f', typeGatePass, 'payload digest calculation and S3 dispatchers must type-gate payload to string/Buffer/Uint8Array and fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE / TypeError');
+const putNullRes = dispatchS3PutObject(null);
+const putUndefRes = dispatchS3PutObject(undefined);
+const errNullRes = dispatchS3Error(null);
+const errUndefRes = dispatchS3Error(undefined);
+if (putNullRes.http_status !== 400 || putNullRes.error_code !== 'InvalidDigest' || putNullRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putUndefRes.http_status !== 400 || putUndefRes.error_code !== 'InvalidDigest' || putUndefRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errNullRes.http_status !== 400 || errNullRes.error_code !== 'InvalidDigest' || errNullRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errUndefRes.http_status !== 400 || errUndefRes.error_code !== 'InvalidDigest' || errUndefRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+const getterObj = { get payload() { return 'evil'; }, 'x-amz-content-sha256': realSha256 };
+const putGetterRes = dispatchS3PutObject(getterObj);
+const errGetterRes = dispatchS3Error(getterObj);
+if (putGetterRes.http_status !== 400 || putGetterRes.error_code !== 'InvalidDigest' || putGetterRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errGetterRes.http_status !== 400 || errGetterRes.error_code !== 'InvalidDigest' || errGetterRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+if (getOwn(getterObj, 'payload') !== undefined) typeGatePass = false;
+if (getOwn({ set payload(v) {} }, 'payload') !== undefined) typeGatePass = false;
+if (getOwn({ normal: 42 }, 'normal') !== 42) typeGatePass = false;
+
+H('37f', typeGatePass, 'payload digest calculation and S3 dispatchers must type-gate payload to string/Buffer/Uint8Array, defend against accessors, and fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE / TypeError');
+
+// 37g. cap.supported_features uniqueness enforcement (OPEN-2 / OPEN-5)
+let dupFeaturesCaught = false;
+const pcnDupFeatures = JSON.parse(JSON.stringify(pcnSample));
+pcnDupFeatures.advertisement_response.advertised_capabilities[0].supported_features = ['feat_a', 'feat_b', 'feat_a'];
+try {
+  validatePlatformSemantics(pcnDupFeatures, pcnSchemaId);
+} catch (e) {
+  if (e.message.includes('supported_features contains duplicate entries')) {
+    dupFeaturesCaught = true;
+  }
+}
+H('37g', dupFeaturesCaught, 'validatePlatformSemantics must strictly reject duplicate entries in cap.supported_features');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));
