@@ -2240,11 +2240,11 @@ test('dispatchS3CompleteMultipartUpload zero parts returns HTTP 400 InvalidArgum
   assert.equal(emptyPartsRes.error_code, 'InvalidArgument');
   assert.equal(emptyPartsRes.reason, 'EmptyPartsList');
 
-  // 2. Direct empty array as argument returns HTTP 400 InvalidArgument (EmptyPartsList)
+  // 2. Direct empty array as argument returns HTTP 400 InvalidArgument (NonPlainPrototypeManifest)
   const directEmptyRes = dispatchS3CompleteMultipartUpload([], storedParts);
   assert.equal(directEmptyRes.http_status, 400);
   assert.equal(directEmptyRes.error_code, 'InvalidArgument');
-  assert.equal(directEmptyRes.reason, 'EmptyPartsList');
+  assert.equal(directEmptyRes.reason, 'NonPlainPrototypeManifest');
 });
 
 test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when stored part has only sha256 but no etag (Finding 3 / OPEN-2)', () => {
@@ -2263,7 +2263,7 @@ test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when st
   assert.equal(res.reason, 'MissingStoredPartETag');
 });
 
-test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when stored-part entry is null (Finding 4 / OPEN-2)', () => {
+test('dispatchS3CompleteMultipartUpload fails with InvalidStoredPartShape when stored-part entry is null (Finding 4 / OPEN-2)', () => {
   const manifest = {
     parts: [
       { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
@@ -2276,7 +2276,7 @@ test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when st
   const res = dispatchS3CompleteMultipartUpload(manifest, storedWithNullEntry);
   assert.equal(res.http_status, 400);
   assert.equal(res.error_code, 'InvalidPart');
-  assert.equal(res.reason, 'MissingStoredPartETag');
+  assert.equal(res.reason, 'InvalidStoredPartShape');
 });
 
 test('dispatchS3CompleteMultipartUpload fails with InvalidETagFormat on unquoted ETags and ETagMismatch on mismatched quoted ETags (Finding 5 / OPEN-2)', () => {
@@ -2543,7 +2543,7 @@ test('dispatchS3PutObject with whitespace-padded SHA-256 returns HTTP 400 Invali
   assert.equal(isMalformedSha256(`${validSha256}\n`), true);
 });
 
-test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} returns HTTP 400 InvalidPart (MissingStoredPartETag) without throwing TypeError (Finding 2 / OPEN-2)', () => {
+test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} returns HTTP 400 InvalidPart (InvalidStoredPartShape) without throwing TypeError (Finding 2 / OPEN-2)', () => {
   const manifest = {
     parts: [
       { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
@@ -2556,7 +2556,7 @@ test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} r
     assert.equal(resArrayNull.http_status, 400);
     assert.equal(resArrayNull.error_code, 'InvalidPart');
     assert.equal(resArrayNull.code, 'InvalidPart');
-    assert.equal(resArrayNull.reason, 'MissingStoredPartETag');
+    assert.equal(resArrayNull.reason, 'InvalidStoredPartShape');
   });
 
   // 2. Object with null entry: storedParts = { 1: null }
@@ -2565,7 +2565,7 @@ test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} r
     assert.equal(resObjNull.http_status, 400);
     assert.equal(resObjNull.error_code, 'InvalidPart');
     assert.equal(resObjNull.code, 'InvalidPart');
-    assert.equal(resObjNull.reason, 'MissingStoredPartETag');
+    assert.equal(resObjNull.reason, 'InvalidStoredPartShape');
   });
 
   // 3. Multi-element array with null entries and mixed valid entries
@@ -2582,7 +2582,7 @@ test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} r
     ]);
     assert.equal(resMultiArray.http_status, 400);
     assert.equal(resMultiArray.error_code, 'InvalidPart');
-    assert.equal(resMultiArray.reason, 'MissingStoredPartETag');
+    assert.equal(resMultiArray.reason, 'InvalidStoredPartShape');
   });
 
   // 4. Object with undefined or null entries across multiple part keys
@@ -2599,7 +2599,7 @@ test('dispatchS3CompleteMultipartUpload with storedParts = [null] or {1: null} r
     });
     assert.equal(resMultiObj.http_status, 400);
     assert.equal(resMultiObj.error_code, 'InvalidPart');
-    assert.equal(resMultiObj.reason, 'MissingStoredPartETag');
+    assert.equal(resMultiObj.reason, 'InvalidStoredPartShape');
   });
 });
 
@@ -3106,7 +3106,7 @@ test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype p
     const resInheritedObj = dispatchS3CompleteMultipartUpload(manifest, inheritedObj);
     assert.equal(resInheritedObj.http_status, 400);
     assert.equal(resInheritedObj.error_code, 'InvalidPart');
-    assert.equal(resInheritedObj.reason, 'MissingStoredPartETag');
+    assert.equal(resInheritedObj.reason, 'NonPlainPrototypeStoredPart');
   } finally {
     delete Array.prototype[1];
   }

@@ -531,8 +531,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   let storedParts;
 
   if (Array.isArray(manifestOrOptions)) {
-    manifest = { parts: manifestOrOptions };
-    storedParts = maybeStoredParts;
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeManifest' };
   } else if (!isPlainOrNull(manifestOrOptions)) {
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'NonPlainPrototypeWrapper' };
   } else if ('manifest' in manifestOrOptions) {
@@ -612,27 +611,41 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     for (let idx = 0; idx < storedParts.length; idx++) {
       if (Object.prototype.hasOwnProperty.call(storedParts, idx)) {
         const p = storedParts[idx];
-        if (p && typeof p === 'object' && !isPlainOrNull(p)) {
+        if (!p || typeof p !== 'object') {
+          return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidStoredPartShape' };
+        }
+        if (!isPlainOrNull(p)) {
           return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
         }
-        const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1)) : (idx + 1);
+        const pNum = getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? (idx + 1);
         storedMap.set(pNum, p);
       }
     }
   } else if (storedParts instanceof Map) {
+    storedMap = new Map();
     for (const [k, v] of storedParts.entries()) {
-      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+      if (!v || typeof v !== 'object') {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidStoredPartShape' };
+      }
+      if (!isPlainOrNull(v)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
       }
+      storedMap.set(k, v);
     }
-    storedMap = storedParts;
   } else {
+    if (!isPlainOrNull(storedParts)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
+    }
+    storedMap = new Map();
     for (const [k, v] of Object.entries(storedParts || {})) {
-      if (v && typeof v === 'object' && !isPlainOrNull(v)) {
+      if (!v || typeof v !== 'object') {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidStoredPartShape' };
+      }
+      if (!isPlainOrNull(v)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'NonPlainPrototypeStoredPart' };
       }
+      storedMap.set(Number(k), v);
     }
-    storedMap = new Map(Object.entries(storedParts || {}).map(([k, v]) => [Number(k), v]));
   }
 
   const S3_ETAG_REGEX = /^"[a-fA-F0-9]{32}(?:-[0-9]{1,5})?"$/;
@@ -1604,6 +1617,75 @@ const CORE_MANDATORY_SLOTS = [
   'artifact_update_mechanism'
 ];
 
+export function validateOfflineInstallSemantics(data) {
+  if (data && data.operator_trust_root && data.detached_signature) {
+    const rootFp = data.operator_trust_root.public_key_fingerprint;
+    const sigFp = data.detached_signature.key_fingerprint;
+    if (rootFp && sigFp && rootFp !== sigFp) {
+      throw new Error(`Semantic error: offline manifest detached_signature.key_fingerprint ('${sigFp}') does not match operator_trust_root.public_key_fingerprint ('${rootFp}')`);
+    }
+  }
+  if (data && data.artifacts) {
+    const paths = new Set();
+    for (const art of data.artifacts) {
+      if (art && typeof art.path === 'string') {
+        const norm = posix.normalize(art.path);
+        if (art.path === 'manifest.json' || art.path === 'manifest.sig' || norm === 'manifest.json' || norm === 'manifest.sig') {
+          throw new Error(`Semantic error: offline manifest artifact path cannot be 'manifest.json' or 'manifest.sig' (got '${art.path}')`);
+        }
+        if (paths.has(norm)) {
+          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
+        }
+        paths.add(norm);
+      }
+    }
+  }
+  if (data && data.update_station_workflow) {
+    const allSteps = [
+      ...(data.update_station_workflow.preflight_steps || []),
+      ...(data.update_station_workflow.apply_steps || []),
+      ...(data.update_station_workflow.rollback_steps || []),
+    ];
+    for (const step of allSteps) {
+      if (step && step.action === 'RESTORE_DATABASE_SNAPSHOT') {
+        const target = step.target;
+        if (typeof target !== 'string') {
+          throw new Error(`Semantic error: RESTORE_DATABASE_SNAPSHOT step target must be a string`);
+        }
+        if (target.includes('//')) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains double slash '//'`);
+        }
+        if (target.endsWith('/')) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': ends with trailing slash`);
+        }
+        const segments = target.split('/');
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          if (seg === '') {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains empty path segment`);
+          }
+          if (seg.startsWith('.') && seg !== '$PRE_APPLY_SNAPSHOT') {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains leading dot segment '${seg}'`);
+          }
+        }
+        if (!target.startsWith('snapshots/') && !target.startsWith('$PRE_APPLY_SNAPSHOT/')) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must start with 'snapshots/' or '$PRE_APPLY_SNAPSHOT/'`);
+        }
+        if (target.includes('..')) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains '..' traversal sequence`);
+        }
+        if (!/\.(?:sql|db|bak)$/.test(target)) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must have extension .sql, .db, or .bak`);
+        }
+        const SNAPSHOT_PATH_REGEX = /^(?:snapshots|\$PRE_APPLY_SNAPSHOT)\/(?!.*\/\/)((?!\.)[a-zA-Z0-9_.-]+\/)*(?!\.)[a-zA-Z0-9_.-]+\.(?:sql|db|bak)$/;
+        if (!SNAPSHOT_PATH_REGEX.test(target)) {
+          throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains invalid characters or does not conform to snapshot path pattern`);
+        }
+      }
+    }
+  }
+}
+
 export function validatePlatformSemantics(data, schemaId) {
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
     const adv = data.advertisement_response || data;
@@ -1941,9 +2023,31 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
+        let immutableStorageRequired = true;
+        let resolvedProfile = data.profile || adv.profile;
+        if (!resolvedProfile && targetProfileId) {
+          const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
+          if (existsSync(profilePath)) {
+            try {
+              resolvedProfile = JSON.parse(readFileSync(profilePath, 'utf8'));
+            } catch (_) {}
+          }
+        }
+
+        if (targetProfileId === 'regulated-cloud-v1' || targetProfileId === 'airgapped-core-v1') {
+          immutableStorageRequired = true;
+        } else if (resolvedProfile) {
+          if (resolvedProfile.immutable_storage_required === false ||
+              resolvedProfile.slots?.storage?.specification?.immutable_storage_required === false) {
+            immutableStorageRequired = false;
+          } else {
+            immutableStorageRequired = true;
+          }
+        }
+
         const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
         const lockRefs = (storageCap.evidence_references || []).filter(ref => ref === canonicalLockUrn);
-        if (lockRefs.length === 0) {
+        if (immutableStorageRequired && lockRefs.length === 0) {
           throw new Error(`Semantic error: storage slot advertisement lacks Object Lock retention evidence`);
         }
 
@@ -2111,67 +2215,7 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
-    if (data && data.operator_trust_root && data.detached_signature) {
-      const rootFp = data.operator_trust_root.public_key_fingerprint;
-      const sigFp = data.detached_signature.key_fingerprint;
-      if (rootFp && sigFp && rootFp !== sigFp) {
-        throw new Error(`Semantic error: offline manifest detached_signature.key_fingerprint ('${sigFp}') does not match operator_trust_root.public_key_fingerprint ('${rootFp}')`);
-      }
-    }
-    if (data.artifacts) {
-      const paths = new Set();
-      for (const art of data.artifacts) {
-        const norm = posix.normalize(art.path);
-        if (paths.has(norm)) {
-          throw new Error(`Semantic error: duplicate artifact path '${norm}'`);
-        }
-        paths.add(norm);
-      }
-    }
-    if (data.update_station_workflow) {
-      const allSteps = [
-        ...(data.update_station_workflow.preflight_steps || []),
-        ...(data.update_station_workflow.apply_steps || []),
-        ...(data.update_station_workflow.rollback_steps || []),
-      ];
-      for (const step of allSteps) {
-        if (step && step.action === 'RESTORE_DATABASE_SNAPSHOT') {
-          const target = step.target;
-          if (typeof target !== 'string') {
-            throw new Error(`Semantic error: RESTORE_DATABASE_SNAPSHOT step target must be a string`);
-          }
-          if (target.includes('//')) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains double slash '//'`);
-          }
-          if (target.endsWith('/')) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': ends with trailing slash`);
-          }
-          const segments = target.split('/');
-          for (let i = 0; i < segments.length; i++) {
-            const seg = segments[i];
-            if (seg === '') {
-              throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains empty path segment`);
-            }
-            if (seg.startsWith('.') && seg !== '$PRE_APPLY_SNAPSHOT') {
-              throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains leading dot segment '${seg}'`);
-            }
-          }
-          if (!target.startsWith('snapshots/') && !target.startsWith('$PRE_APPLY_SNAPSHOT/')) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must start with 'snapshots/' or '$PRE_APPLY_SNAPSHOT/'`);
-          }
-          if (target.includes('..')) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains '..' traversal sequence`);
-          }
-          if (!/\.(?:sql|db|bak)$/.test(target)) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must have extension .sql, .db, or .bak`);
-          }
-          const SNAPSHOT_PATH_REGEX = /^(?:snapshots|\$PRE_APPLY_SNAPSHOT)\/(?!.*\/\/)((?!\.)[a-zA-Z0-9_.-]+\/)*(?!\.)[a-zA-Z0-9_.-]+\.(?:sql|db|bak)$/;
-          if (!SNAPSHOT_PATH_REGEX.test(target)) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains invalid characters or does not conform to snapshot path pattern`);
-          }
-        }
-      }
-    }
+    validateOfflineInstallSemantics(data);
   } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest') || schemaId.includes('storageConformanceProfile') || (data && Array.isArray(data.required_error_codes))) {
     if (data && Array.isArray(data.parts)) {
       validateS3MultipartSemantics(data);
@@ -3022,6 +3066,25 @@ try {
 }
 H('12c', badFingerprintCaught, 'offline manifest signing key fingerprint equality must be enforced by validatePlatformSemantics');
 
+// 12d. in-memory validation: reject offline manifest with manifest.json or manifest.sig artifact paths (OPEN-1)
+const badManifestJsonArt = JSON.parse(JSON.stringify(dupManifest));
+badManifestJsonArt.artifacts = [{ name: 'manifest', path: 'manifest.json', sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', size_bytes: 1024 }];
+let badManifestJsonCaught = false;
+try {
+  validatePlatformSemantics(badManifestJsonArt, manifestSchemaId);
+} catch (e) {
+  badManifestJsonCaught = e.message.includes('artifact path cannot be') || e.message.includes('manifest.json');
+}
+const badManifestSigArt = JSON.parse(JSON.stringify(dupManifest));
+badManifestSigArt.artifacts = [{ name: 'sig', path: 'manifest.sig', sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', size_bytes: 1024 }];
+let badManifestSigCaught = false;
+try {
+  validatePlatformSemantics(badManifestSigArt, manifestSchemaId);
+} catch (e) {
+  badManifestSigCaught = e.message.includes('artifact path cannot be') || e.message.includes('manifest.sig');
+}
+H('12d', badManifestJsonCaught && badManifestSigCaught, 'offline manifest artifact path cannot include manifest.json or manifest.sig');
+
 // 13. in-memory validation: reject offline manifest with alias collision paths (alias collision)
 const aliasManifest = {
   ...dupManifest,
@@ -3315,6 +3378,45 @@ try {
 }
 H('30f', pcnPermittedNoThrow, 'degraded storage must be permitted when profile does not require immutable storage');
 
+// 30f-2. in-memory validation: allow storage advertisement without Object Lock evidence when immutable_storage_required: false (OPEN-5)
+const pcnNoLockPermitted = JSON.parse(JSON.stringify(pcnDegradedStoragePermitted));
+const storeCapNoLock = pcnNoLockPermitted.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+storeCapNoLock.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
+pcnNoLockPermitted.advertisement_response.conformance_evidence = pcnNoLockPermitted.advertisement_response.conformance_evidence
+  .filter(e => !e.test_identifier.includes('object-lock'))
+  .map(e => ({
+    ...e,
+    status: 'PASS',
+    evidence_pack_digest: 'a105050505050505050505050505050505050505050505050505050505050505'
+  }));
+pcnNoLockPermitted.negotiation_request.requested_optional_capabilities = pcnNoLockPermitted.negotiation_request.requested_optional_capabilities.filter(c => c.capability_name !== 'storage_object_lock');
+pcnNoLockPermitted.agreed_capability_lease.negotiated_optional_capabilities = pcnNoLockPermitted.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'storage_object_lock');
+let pcnNoLockNoThrow = false;
+try {
+  validatePlatformSemantics(pcnNoLockPermitted, pcnSchemaId);
+  pcnNoLockNoThrow = true;
+} catch (e) {
+  pcnNoLockNoThrow = false;
+}
+H('30f-2', pcnNoLockNoThrow, 'storage capability advertisement without Object Lock evidence must be permitted when profile allows non-immutable storage');
+
+// 30f-3. in-memory validation: storage advertisement with lock intent alias strictly requires canonical URN even when immutable_storage_required: false (OPEN-5)
+const pcnLockAliasRejected = JSON.parse(JSON.stringify(pcnNoLockPermitted));
+const storeCapAlias = pcnLockAliasRejected.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+storeCapAlias.evidence_references = ["urn:cybrik:evidence:storage:s3:conformance:v1:object_lock"];
+pcnLockAliasRejected.advertisement_response.conformance_evidence.push({
+  test_identifier: "urn:cybrik:evidence:storage:s3:conformance:v1:object_lock",
+  status: "PASS",
+  evidence_pack_digest: "a105050505050505050505050505050505050505050505050505050505050505"
+});
+let pcnLockAliasCaught = false;
+try {
+  validatePlatformSemantics(pcnLockAliasRejected, pcnSchemaId);
+} catch (e) {
+  pcnLockAliasCaught = e.message.includes('must strictly match canonical URN') || e.message.includes('urn:cybrik:evidence:storage:s3:conformance:v1:object-lock');
+}
+H('30f-3', pcnLockAliasCaught, 'storage advertisement with lock intent alias must strictly require canonical URN even when immutable_storage_required: false');
+
 // 30g. in-memory validation: validate immutable_storage_required in deployment profile schema (Finding 1 / OPEN-5)
 const sampleProfile = JSON.parse(JSON.stringify(readJson(join(PLATFORM_EXAMPLES_DIR, 'onprem-standard-v1.profile.json'))));
 const profileMissingSpec = JSON.parse(JSON.stringify(sampleProfile));
@@ -3579,6 +3681,24 @@ const s3CompleteValid = completeOk.http_status === 200 &&
                         completeBadEtag.error_code === 'InvalidPart' &&
                         (completeBadEtag.reason === 'ETagMismatch' || completeBadEtag.reason === 'PART_ETAG_MISMATCH' || completeBadEtag.reason === 'ETAG_MISMATCH');
 H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MissingStoredPartETag/MISSING_PART/PART_NOT_FOUND or ETagMismatch/PART_ETAG_MISMATCH');
+
+// 37d. S3 CompleteMultipartUpload rejects direct array manifest (OPEN-2 Finding 1)
+const directArrayManifestRes = dispatchS3CompleteMultipartUpload(completeManifest.parts, storedMapOk);
+const s3ArrayManifestValid = directArrayManifestRes.http_status === 400 &&
+                             directArrayManifestRes.error_code === 'InvalidArgument' &&
+                             directArrayManifestRes.reason === 'NonPlainPrototypeManifest';
+H('37d', s3ArrayManifestValid, 'dispatchS3CompleteMultipartUpload must reject direct array manifest with NonPlainPrototypeManifest');
+
+// 37e. S3 CompleteMultipartUpload validates every stored part shape (OPEN-2 Finding 2)
+const nullStoredEntryRes = dispatchS3CompleteMultipartUpload(completeManifest, [null, { etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 }]);
+const primStoredEntryRes = dispatchS3CompleteMultipartUpload(completeManifest, new Map([[1, 'invalid_primitive'], [2, { etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 }]]));
+const s3StoredPartsShapeValid = nullStoredEntryRes.http_status === 400 &&
+                                nullStoredEntryRes.error_code === 'InvalidPart' &&
+                                nullStoredEntryRes.reason === 'InvalidStoredPartShape' &&
+                                primStoredEntryRes.http_status === 400 &&
+                                primStoredEntryRes.error_code === 'InvalidPart' &&
+                                primStoredEntryRes.reason === 'InvalidStoredPartShape';
+H('37e', s3StoredPartsShapeValid, 'dispatchS3CompleteMultipartUpload must validate every stored part shape and reject null/primitive entries with InvalidStoredPartShape');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));
