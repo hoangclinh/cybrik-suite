@@ -3479,26 +3479,67 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
   const validData = JSON.parse(JSON.stringify(sample));
   assert.doesNotThrow(() => validatePlatformSemantics(validData, schemaId));
 
-  // 2. Negative: requested optional capability omitted from agreed lease
+  // 2. Negative: requested optional capability with required_for_optimal: true omitted from ACTIVE_OPTIMAL lease
   const dataOmitted = JSON.parse(JSON.stringify(sample));
-  dataOmitted.agreed_capability_lease.negotiated_optional_capabilities =
-    dataOmitted.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'cache_cluster_replication');
+  dataOmitted.negotiation_status = "AGREED_LEASE_GRANTED";
+  dataOmitted.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  dataOmitted.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_FULL",
+      active_mode: "standalone_noeviction",
+      fallback_applied: "NONE"
+    }
+  ];
   assert.throws(
     () => validatePlatformSemantics(dataOmitted, schemaId),
-    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'cache' is not resolved in agreed_capability_lease/
+    /requested optional capability 'ai_tensor_acceleration' for slot 'ai_model_runtime' is (?:required for optimal operation but is )?not resolved in agreed_capability_lease/
   );
 
-  // 3. Negative: additional requested optional capability omitted from agreed lease
+  // 3. Negative: additional requested optional capability with required_for_optimal: true omitted from agreed lease
   const dataExtraReq = JSON.parse(JSON.stringify(sample));
+  dataExtraReq.negotiation_status = "AGREED_LEASE_GRANTED";
+  dataExtraReq.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  dataExtraReq.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "ai_tensor_acceleration",
+      slot_id: "ai_model_runtime",
+      disposition: "GRANTED_FULL",
+      active_mode: "gpu_direct",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_FULL",
+      active_mode: "standalone_noeviction",
+      fallback_applied: "NONE"
+    }
+  ];
   dataExtraReq.negotiation_request.requested_optional_capabilities.push({
     capability_name: "custom_acceleration",
     slot_id: "ai_model_runtime",
-    required_for_optimal: false,
+    required_for_optimal: true,
     preferred_fallback: "CORE_EMULATION_FALLBACK"
   });
   assert.throws(
     () => validatePlatformSemantics(dataExtraReq, schemaId),
-    /Semantic error: requested optional capability 'custom_acceleration' for slot 'ai_model_runtime' is not resolved in agreed_capability_lease/
+    /requested optional capability 'custom_acceleration' for slot 'ai_model_runtime' is (?:required for optimal operation but is )?not resolved in agreed_capability_lease/
   );
 
   // 4. Negative: slot mismatch with same capability_name (composite key closure)
@@ -3507,7 +3548,7 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
   cacheReq.slot_id = 'database';
   assert.throws(
     () => validatePlatformSemantics(dataSlotMismatch, schemaId),
-    /Semantic error: requested optional capability 'cache_cluster_replication' for slot 'database' is not resolved in agreed_capability_lease/
+    /(?:requested optional capability 'cache_cluster_replication' for slot 'database' is not resolved in agreed_capability_lease|agreed_capability_lease contains unrequested or surplus optional capability 'cache_cluster_replication' for slot 'cache')/
   );
 
   // 5. Negative: duplicate composite key in requested_optional_capabilities (Finding R16-02 / OPEN-5)
@@ -3524,7 +3565,7 @@ test('in-memory validation: requested-to-lease closure verification (Finding F-0
   );
 });
 
-test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional capability passes Ajv but fails validatePlatformSemantics (Finding F-03 / OPEN-5)', () => {
+test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional capability with required_for_optimal: true passes Ajv but fails validatePlatformSemantics (Finding F-03 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
@@ -3532,10 +3573,47 @@ test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional cap
   data.negotiation_status = "AGREED_LEASE_GRANTED";
   data.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
   // negotiation_request requests 3 optional capabilities:
-  // - ai_tensor_acceleration
-  // - storage_object_lock
-  // - cache_cluster_replication
-  // agreed_capability_lease silently omits cache_cluster_replication:
+  // - ai_tensor_acceleration (required_for_optimal: true)
+  // - storage_object_lock (required_for_optimal: false)
+  // - cache_cluster_replication (required_for_optimal: false)
+  // agreed_capability_lease omits ai_tensor_acceleration (required_for_optimal: true):
+  data.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: "storage_object_lock",
+      slot_id: "storage",
+      disposition: "GRANTED_FULL",
+      active_mode: "native_s3_object_lock",
+      fallback_applied: "NONE"
+    },
+    {
+      capability_name: "cache_cluster_replication",
+      slot_id: "cache",
+      disposition: "GRANTED_FULL",
+      active_mode: "standalone_noeviction",
+      fallback_applied: "NONE"
+    }
+  ];
+
+  // 1. Passes Ajv schema validation (schema validates structural array format without verifying request-to-lease closure)
+  const valid = ajv.validate(schemaId, data);
+  assert.ok(valid, 'Omitting requested optional capability must pass Ajv schema validation: ' + ajv.errorsText());
+
+  // 2. Fails validatePlatformSemantics with /is not resolved in agreed_capability_lease/
+  assert.throws(
+    () => validatePlatformSemantics(data, schemaId),
+    /is (?:required for optimal operation but is )?not resolved in agreed_capability_lease/,
+    'ACTIVE_OPTIMAL lease omitting required_for_optimal: true capability must fail validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: ACTIVE_OPTIMAL lease omitting capability with required_for_optimal: false is permitted (OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const data = JSON.parse(JSON.stringify(sample));
+  data.negotiation_status = "AGREED_LEASE_GRANTED";
+  data.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+  // Omits cache_cluster_replication (required_for_optimal: false) while granting ai_tensor_acceleration (required_for_optimal: true)
   data.agreed_capability_lease.negotiated_optional_capabilities = [
     {
       capability_name: "ai_tensor_acceleration",
@@ -3553,16 +3631,9 @@ test('in-memory validation: ACTIVE_OPTIMAL lease omitting requested optional cap
     }
   ];
 
-  // 1. Passes Ajv schema validation (schema validates structural array format without verifying request-to-lease closure)
   const valid = ajv.validate(schemaId, data);
-  assert.ok(valid, 'Omitting requested optional capability must pass Ajv schema validation: ' + ajv.errorsText());
-
-  // 2. Fails validatePlatformSemantics with /is not resolved in agreed_capability_lease/
-  assert.throws(
-    () => validatePlatformSemantics(data, schemaId),
-    /is not resolved in agreed_capability_lease/,
-    'ACTIVE_OPTIMAL lease omitting requested optional capability must fail validatePlatformSemantics with /is not resolved in agreed_capability_lease/'
-  );
+  assert.ok(valid, 'Must pass Ajv schema validation: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(data, schemaId), 'ACTIVE_OPTIMAL lease omitting required_for_optimal: false capability must pass');
 });
 
 test('in-memory validation: standalone advertisement conformance_evidence integrity (Finding F-01 / OPEN-5)', () => {
@@ -3623,11 +3694,11 @@ test('in-memory validation: negotiation request with slot mismatch rejected (Fin
   const valid = ajv.validate(schemaId, data);
   assert.ok(valid, 'Slot-mismatched negotiation request must pass Ajv schema validation: ' + ajv.errorsText());
 
-  // 2. Fails validatePlatformSemantics with /for slot 'storage' is not resolved in agreed_capability_lease/
+  // 2. Fails validatePlatformSemantics with /for slot 'storage' is not resolved in agreed_capability_lease/ or surplus error
   assert.throws(
     () => validatePlatformSemantics(data, schemaId),
-    /for slot 'storage' is not resolved in agreed_capability_lease/,
-    'Slot mismatch (requested slot storage vs lease slot ai_model_runtime) must fail validatePlatformSemantics with /for slot \'storage\' is not resolved in agreed_capability_lease/'
+    /(?:for slot 'storage' is not resolved in agreed_capability_lease|agreed_capability_lease contains unrequested or surplus optional capability 'ai_tensor_acceleration' for slot 'ai_model_runtime')/,
+    'Slot mismatch (requested slot storage vs lease slot ai_model_runtime) must fail validatePlatformSemantics'
   );
 });
 
@@ -4633,7 +4704,7 @@ test('validatePlatformSemantics comprehensive error branches', () => {
   // 27. Requested optional capability not resolved in lease
   const unresolvedReqCapDoc = JSON.parse(JSON.stringify(handshakeSample));
   unresolvedReqCapDoc.agreed_capability_lease.negotiated_optional_capabilities[0].capability_name = 'different_cap_name';
-  assert.throws(() => validatePlatformSemantics(unresolvedReqCapDoc, pcnSchemaId), /is not resolved in agreed_capability_lease/);
+  assert.throws(() => validatePlatformSemantics(unresolvedReqCapDoc, pcnSchemaId), /(?:is (?:required for optimal operation but is )?not resolved in agreed_capability_lease|contains unrequested or surplus optional capability)/);
 
   // 27b. Lease optional capability not requested in negotiation request
   const unrequestedLeaseCapDoc = JSON.parse(JSON.stringify(handshakeSample));
@@ -7131,6 +7202,8 @@ test('semantic validation: validateS3ConformanceProfileSemantics and inherited h
   const nonLockProfile = {
     ...sampleProfile,
     object_lock_supported: false,
+    legal_hold_supported: false,
+    retention_modes_supported: [],
     required_operations: [...S3_15_BASELINE_OPS]
   };
   assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(nonLockProfile));
@@ -7275,6 +7348,8 @@ test('schema-only regression: object_lock_supported: false + 15 operations passe
   const fifteenOpsProfile = {
     ...sample,
     object_lock_supported: false,
+    legal_hold_supported: false,
+    retention_modes_supported: [],
     required_operations: [
       'PutObject',
       'GetObject',
@@ -7491,6 +7566,8 @@ test('schema-only regression: non-lock 15-operation profile omitting PutObject a
   const substitute15OpsProfile = {
     ...sample,
     object_lock_supported: false,
+    legal_hold_supported: false,
+    retention_modes_supported: [],
     required_operations: [
       'GetObject', // PutObject omitted
       'HeadObject',
@@ -8559,4 +8636,696 @@ test('unit regression: isolated Proxy get traps in multipart manifests fail clos
       parts: [isolatedGetPartElement],
     });
   }, /InvalidPart/);
+});
+
+test('unit regression: dispatchS3Error strict unsigned gating and hidden Proxy fail-closed handling (OPEN-2)', () => {
+  const payload = Buffer.from('CYBRIK_UNSIGNED_GATING_TEST_PAYLOAD');
+  const validMd5 = computePayloadMd5(payload);
+
+  // 1. Missing allow_unsigned_payload / is_presigned strictly returns HTTP 400 InvalidDigest
+  const resMissing = dispatchS3Error({
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+  });
+  assert.equal(resMissing.http_status, 400);
+  assert.equal(resMissing.error_code, 'InvalidDigest');
+  assert.equal(resMissing.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 2. Loose aliases strictly return HTTP 400 InvalidDigest
+  const looseAliases = [
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allowUnsignedPayload: true },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', isPresigned: true },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned: true },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: 'true' },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: 1 },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: {} },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: null },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: false },
+    { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', is_presigned: false },
+  ];
+
+  for (const opts of looseAliases) {
+    const resLoose = dispatchS3Error(opts);
+    assert.equal(resLoose.http_status, 400, `Loose alias option ${JSON.stringify(opts)} must return HTTP 400`);
+    assert.equal(resLoose.error_code, 'InvalidDigest');
+    assert.equal(resLoose.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+  }
+
+  // 3. String norm 'UNSIGNED-PAYLOAD' returns HTTP 400 InvalidDigest
+  const resStrNorm = dispatchS3Error('UNSIGNED-PAYLOAD');
+  assert.equal(resStrNorm.http_status, 400);
+  assert.equal(resStrNorm.error_code, 'InvalidDigest');
+  assert.equal(resStrNorm.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 4. Canonical authorized cases return HTTP 200
+  const resAuthAllow = dispatchS3Error({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned_payload: true,
+  });
+  assert.equal(resAuthAllow.http_status, 200);
+  assert.equal(resAuthAllow.error_code, null);
+
+  const resAuthPresigned = dispatchS3Error({
+    payloadBytes: payload,
+    contentMd5Header: validMd5,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    is_presigned: true,
+  });
+  assert.equal(resAuthPresigned.http_status, 200);
+  assert.equal(resAuthPresigned.error_code, null);
+
+  // 5. Hidden Proxy property defense: Proxy hiding properties from ownKeys and throwing on property access
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+  ];
+
+  // 5a. Hidden Proxy manifest wrapper
+  const hiddenManifestProxy = new Proxy({
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  }, {
+    ownKeys() {
+      return []; // hides properties from ownKeys
+    },
+    get(target, prop) {
+      if (prop === 'parts' || prop === 'manifest') {
+        throw new Error(`Trapped hidden property get: ${String(prop)}`);
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const resHiddenMp = dispatchS3CompleteMultipartUpload(hiddenManifestProxy, validStoredParts);
+  assert.equal(resHiddenMp.http_status, 400);
+  assert.equal(resHiddenMp.error_code, 'InvalidPart');
+  assert.equal(resHiddenMp.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(resHiddenMp.reason, 'EmptyPartsList');
+
+  assert.throws(() => {
+    validateS3MultipartSemantics(hiddenManifestProxy);
+  }, /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
+
+  // 5b. Hidden Proxy options wrapper with manifest
+  const resHiddenMpOpts = dispatchS3CompleteMultipartUpload({
+    manifest: hiddenManifestProxy,
+    storedParts: validStoredParts,
+  });
+  assert.equal(resHiddenMpOpts.http_status, 400);
+  assert.equal(resHiddenMpOpts.error_code, 'InvalidPart');
+  assert.equal(resHiddenMpOpts.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 5c. Hidden Proxy part element inside manifest parts array
+  const hiddenPartProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+  }, {
+    ownKeys() {
+      return [];
+    },
+    get(target, prop) {
+      if (prop === 'part_number' || prop === 'etag') {
+        throw new Error(`Trapped hidden part element property: ${String(prop)}`);
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const resHiddenPart = dispatchS3CompleteMultipartUpload({
+    parts: [hiddenPartProxy],
+    total_parts: 1,
+  }, validStoredParts);
+  assert.equal(resHiddenPart.http_status, 400);
+  assert.equal(resHiddenPart.error_code, 'InvalidPart');
+  assert.equal(resHiddenPart.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(resHiddenPart.reason, 'InvalidPartNumber');
+
+  assert.throws(() => {
+    validateS3MultipartSemantics({
+      parts: [hiddenPartProxy],
+    });
+  }, /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/);
+
+  // 5d. Hidden Proxy stored part element
+  const hiddenStoredPartProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    ownKeys() {
+      return [];
+    },
+    get(target, prop) {
+      if (prop === 'part_number' || prop === 'etag' || prop === 'size_bytes') {
+        throw new Error(`Trapped hidden stored part property: ${String(prop)}`);
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const resHiddenStored = dispatchS3CompleteMultipartUpload({
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }],
+  }, [hiddenStoredPartProxy]);
+  assert.equal(resHiddenStored.http_status, 400);
+  assert.equal(resHiddenStored.error_code, 'InvalidPart');
+  assert.equal(resHiddenStored.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(resHiddenStored.reason, 'MissingStoredPartState');
+
+  // 5e. Hidden Proxy PutObject with throwing content_length / size / options access
+  const hiddenPutProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned_payload: true,
+  }, {
+    ownKeys() {
+      return [];
+    },
+    get(target, prop) {
+      if (prop === 'content_length' || prop === 'size' || prop === 'payload') {
+        throw new Error(`Trapped hidden PutObject property: ${String(prop)}`);
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const resHiddenPut = dispatchS3PutObject(hiddenPutProxy);
+  assert.equal(resHiddenPut.http_status, 400);
+  assert.equal(resHiddenPut.error_code, 'InvalidDigest');
+  assert.equal(resHiddenPut.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 5f. Hidden Proxy dispatchS3Error with throwing property access
+  const resHiddenErr = dispatchS3Error(hiddenPutProxy);
+  assert.equal(resHiddenErr.http_status, 400);
+  assert.equal(resHiddenErr.error_code, 'InvalidDigest');
+  assert.equal(resHiddenErr.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('regression: dispatchS3Error with UNSIGNED-PAYLOAD and missing / alias flags returns HTTP 400 InvalidDigest (UNSIGNED_PAYLOAD_NOT_PERMITTED) (OPEN-2)', () => {
+  const payload = Buffer.from('CYBRIK_UNSIGNED_PAYLOAD_ERROR_TEST');
+  const validMd5 = computePayloadMd5(payload);
+
+  // 1. Missing authorization flags -> HTTP 400 InvalidDigest (UNSIGNED_PAYLOAD_NOT_PERMITTED)
+  const resMissing = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    contentMd5Header: validMd5,
+  });
+  assert.equal(resMissing.http_status, 400);
+  assert.equal(resMissing.error_code, 'InvalidDigest');
+  assert.equal(resMissing.code, 'InvalidDigest');
+  assert.equal(resMissing.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 2. Explicit allow_unsigned_payload: false -> HTTP 400 InvalidDigest
+  const resExplicitFalse = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned_payload: false,
+  });
+  assert.equal(resExplicitFalse.http_status, 400);
+  assert.equal(resExplicitFalse.error_code, 'InvalidDigest');
+  assert.equal(resExplicitFalse.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 3. Explicit is_presigned: false -> HTTP 400 InvalidDigest
+  const resPresignedFalse = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    is_presigned: false,
+  });
+  assert.equal(resPresignedFalse.http_status, 400);
+  assert.equal(resPresignedFalse.error_code, 'InvalidDigest');
+  assert.equal(resPresignedFalse.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 4. Alias flag: unsigned_payload_permitted: true -> HTTP 400 InvalidDigest
+  const resAliasPermitted = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    unsigned_payload_permitted: true,
+  });
+  assert.equal(resAliasPermitted.http_status, 400);
+  assert.equal(resAliasPermitted.error_code, 'InvalidDigest');
+  assert.equal(resAliasPermitted.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 5. Alias flag: allowUnsignedPayload: true -> HTTP 400 InvalidDigest
+  const resAliasCamelAllow = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allowUnsignedPayload: true,
+  });
+  assert.equal(resAliasCamelAllow.http_status, 400);
+  assert.equal(resAliasCamelAllow.error_code, 'InvalidDigest');
+  assert.equal(resAliasCamelAllow.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 6. Alias flag: isPresigned: true -> HTTP 400 InvalidDigest
+  const resAliasCamelPresigned = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    isPresigned: true,
+  });
+  assert.equal(resAliasCamelPresigned.http_status, 400);
+  assert.equal(resAliasCamelPresigned.error_code, 'InvalidDigest');
+  assert.equal(resAliasCamelPresigned.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 7. Alias flag: allow_unsigned: true -> HTTP 400 InvalidDigest
+  const resAliasAllowUnsigned = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    allow_unsigned: true,
+  });
+  assert.equal(resAliasAllowUnsigned.http_status, 400);
+  assert.equal(resAliasAllowUnsigned.error_code, 'InvalidDigest');
+  assert.equal(resAliasAllowUnsigned.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 8. Alias flag: unsigned_payload_allowed: true -> HTTP 400 InvalidDigest
+  const resAliasUnsignedAllowed = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    unsigned_payload_allowed: true,
+  });
+  assert.equal(resAliasUnsignedAllowed.http_status, 400);
+  assert.equal(resAliasUnsignedAllowed.error_code, 'InvalidDigest');
+  assert.equal(resAliasUnsignedAllowed.reason, 'UNSIGNED_PAYLOAD_NOT_PERMITTED');
+
+  // 9. Canonical allow_unsigned_payload: true -> HTTP 200
+  const resAuthorized = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    contentMd5Header: validMd5,
+    allow_unsigned_payload: true,
+  });
+  assert.equal(resAuthorized.http_status, 200);
+  assert.equal(resAuthorized.error_code, null);
+
+  // 10. Canonical is_presigned: true -> HTTP 200
+  const resAuthorizedPresigned = dispatchS3Error({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    contentMd5Header: validMd5,
+    is_presigned: true,
+  });
+  assert.equal(resAuthorizedPresigned.http_status, 200);
+  assert.equal(resAuthorizedPresigned.error_code, null);
+});
+
+test('unit regression: Proxy with hidden content_length: 5368709121 that throws on isolated get returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_PAYLOAD');
+  const validSha = computePayloadSha256(payload);
+
+  // 1. Proxy with target content_length: 5368709121 and throwing isolated get trap passed to dispatchS3PutObject
+  const hiddenOversizedPutProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on PutObject option: ${String(prop)}`);
+    },
+  });
+
+  const putRes = dispatchS3PutObject(hiddenOversizedPutProxy);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'EntityTooLarge');
+  assert.equal(putRes.code, 'EntityTooLarge');
+  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.notEqual(putRes.http_status, 200);
+
+  // 2. Proxy with target content_length: 5368709121 and throwing isolated get trap passed to dispatchS3Error
+  const hiddenOversizedErrProxy = new Proxy({
+    payloadBytes: payload,
+    content_length: 5368709121,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get on error option: ${String(prop)}`);
+    },
+  });
+
+  const errRes = dispatchS3Error(hiddenOversizedErrProxy);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'EntityTooLarge');
+  assert.equal(errRes.code, 'EntityTooLarge');
+  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.notEqual(errRes.http_status, 200);
+
+  // 3. Proxy with ownKeys & getOwnPropertyDescriptor revealing content_length: 5368709121
+  const hiddenDescriptorProxy = new Proxy({
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+  }, {
+    ownKeys(target) {
+      return ['payloadBytes', 'x-amz-content-sha256', 'content_length'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'content_length') {
+        return { value: 5368709121, configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      throw new Error(`attack isolated get: ${String(prop)}`);
+    },
+  });
+
+  const descPutRes = dispatchS3PutObject(hiddenDescriptorProxy);
+  assert.equal(descPutRes.http_status, 400);
+  assert.equal(descPutRes.error_code, 'EntityTooLarge');
+  assert.equal(descPutRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  const descErrRes = dispatchS3Error(hiddenDescriptorProxy);
+  assert.equal(descErrRes.http_status, 400);
+  assert.equal(descErrRes.error_code, 'EntityTooLarge');
+  assert.equal(descErrRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 4. Proxy with oversized contentLength / size_bytes variations
+  const sizeBytesProxy = new Proxy({
+    size_bytes: 5368709121,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack isolated get: ${String(prop)}`);
+    },
+  });
+  const sizeBytesRes = dispatchS3PutObject(sizeBytesProxy);
+  assert.equal(sizeBytesRes.http_status, 400);
+  assert.equal(sizeBytesRes.error_code, 'EntityTooLarge');
+  assert.equal(sizeBytesRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+});
+
+test('unit regression: Proxy with hidden configurable properties from ownKeys that throws on property access in multipart returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Manifest wrapper Proxy with hidden configurable property from ownKeys that throws on access
+  const hiddenPropManifestWrapper = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  }, {
+    ownKeys(target) {
+      return [...Reflect.ownKeys(target), 'hidden_trap_prop'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'hidden_trap_prop') {
+        return { value: 'malicious', configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'hidden_trap_prop') {
+        throw new Error('attack on hidden property access');
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res1 = dispatchS3CompleteMultipartUpload(hiddenPropManifestWrapper, validStoredParts);
+  assert.equal(res1.http_status, 400);
+  assert.equal(res1.error_code, 'InvalidPart');
+  assert.equal(res1.code, 'InvalidPart');
+  assert.equal(res1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res1.http_status, 200);
+
+  // 2. Options wrapper containing hidden configurable property Proxy as manifest
+  const res2 = dispatchS3CompleteMultipartUpload({
+    manifest: hiddenPropManifestWrapper,
+    storedParts: validStoredParts,
+  });
+  assert.equal(res2.http_status, 400);
+  assert.equal(res2.error_code, 'InvalidPart');
+  assert.equal(res2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res2.http_status, 200);
+
+  // 3. Manifest parts array Proxy with hidden configurable property from ownKeys that throws on access
+  const rawParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+  ];
+  const hiddenPropPartsArray = new Proxy(rawParts, {
+    ownKeys(target) {
+      return [...Reflect.ownKeys(target), 'hidden_array_trap'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'hidden_array_trap') {
+        return { value: 'malicious', configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'hidden_array_trap') {
+        throw new Error('attack on hidden array property access');
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res3 = dispatchS3CompleteMultipartUpload({
+    manifest: { parts: hiddenPropPartsArray, total_parts: 2 },
+    storedParts: validStoredParts,
+  });
+  assert.equal(res3.http_status, 400);
+  assert.equal(res3.error_code, 'InvalidPart');
+  assert.equal(res3.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res3.http_status, 200);
+
+  // 4. Manifest part element Proxy with hidden configurable property from ownKeys that throws on access
+  const hiddenPropPartElement = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+  }, {
+    ownKeys(target) {
+      return [...Reflect.ownKeys(target), 'hidden_element_trap'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'hidden_element_trap') {
+        return { value: 'malicious', configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'hidden_element_trap') {
+        throw new Error('attack on hidden element property access');
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res4 = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [hiddenPropPartElement],
+      total_parts: 1,
+    },
+    storedParts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  });
+  assert.equal(res4.http_status, 400);
+  assert.equal(res4.error_code, 'InvalidPart');
+  assert.equal(res4.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res4.http_status, 200);
+
+  // 5. Stored parts containing a hidden configurable property Proxy stored part element
+  const hiddenPropStoredPartElement = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    ownKeys(target) {
+      return [...Reflect.ownKeys(target), 'hidden_stored_trap'];
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (prop === 'hidden_stored_trap') {
+        return { value: 'malicious', configurable: true, enumerable: true, writable: true };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    get(target, prop) {
+      if (prop === 'hidden_stored_trap') {
+        throw new Error('attack on hidden stored part property access');
+      }
+      return Reflect.get(target, prop);
+    },
+  });
+
+  const res5 = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    [hiddenPropStoredPartElement]
+  );
+  assert.equal(res5.http_status, 400);
+  assert.equal(res5.error_code, 'InvalidPart');
+  assert.equal(res5.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(res5.http_status, 200);
+
+  // 6. validateS3MultipartSemantics fails closed with InvalidPart on hidden configurable property Proxy
+  assert.throws(() => {
+    validateS3MultipartSemantics(hiddenPropManifestWrapper);
+  }, /InvalidPart/);
+
+  assert.throws(() => {
+    validateS3MultipartSemantics({
+      parts: [hiddenPropPartElement],
+    });
+  }, /InvalidPart/);
+});
+
+test('schema regression: 15-op non-lock profile with object_lock_supported: false, legal_hold_supported: false, supported_retention_modes: [] passes Ajv schema validation truthfully (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const profileDefId = `${s3SchemaId}#/$defs/storageConformanceProfile`;
+
+  const nonLock15Profile = {
+    provider_identifier: 'minio-embedded-nonlock',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+    object_lock_supported: false,
+    legal_hold_supported: false,
+    retention_modes_supported: [],
+    required_operations: [
+      'PutObject',
+      'GetObject',
+      'HeadObject',
+      'DeleteObject',
+      'DeleteObjects',
+      'ListObjectsV2',
+      'HeadBucket',
+      'CreateBucket',
+      'CreateMultipartUpload',
+      'UploadPart',
+      'CompleteMultipartUpload',
+      'AbortMultipartUpload',
+      'ListParts',
+      'PutBucketVersioning',
+      'GetBucketVersioning',
+    ],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [
+      'BadDigest',
+      'InvalidDigest',
+      'NoSuchBucket',
+      'NoSuchKey',
+      'NoSuchUpload',
+      'ObjectLockConfigurationNotFoundError',
+      'PreconditionFailed',
+      'AccessDenied',
+      'EntityTooLarge',
+      'EntityTooSmall',
+      'InvalidArgument',
+      'InvalidPart',
+      'InvalidPartOrder',
+    ],
+  };
+
+  // 1. Passes Ajv schema validation against root S3 schema
+  const validRoot = ajv.validate(s3SchemaId, nonLock15Profile);
+  assert.ok(validRoot, `15-op non-lock profile with object_lock_supported: false, legal_hold_supported: false, retention_modes_supported: [] must pass root schema: ${ajv.errorsText()}`);
+
+  // 2. Passes Ajv schema validation against storageConformanceProfile def
+  const validProfile = ajv.validate(profileDefId, nonLock15Profile);
+  assert.ok(validProfile, `15-op non-lock profile with object_lock_supported: false, legal_hold_supported: false, retention_modes_supported: [] must pass profile def: ${ajv.errorsText()}`);
+
+  // 3. Passes validateS3ConformanceProfileSemantics semantic validation
+  assert.doesNotThrow(() => {
+    validateS3ConformanceProfileSemantics(nonLock15Profile);
+  }, '15-op non-lock profile must pass validateS3ConformanceProfileSemantics');
+});
+
+test('regression: OPEN-5 capability with required_for_optimal: false yields ACTIVE_OPTIMAL when omitted, and required_for_optimal: true yields ACTIVE_DEGRADED (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  assert.ok(existsSync(samplePath), `Sample capability handshake missing: ${samplePath}`);
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Positive baseline: capability with required_for_optimal: false omitted from request yields ACTIVE_OPTIMAL lease
+  const optimalHandshake = JSON.parse(JSON.stringify(sample));
+  optimalHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  optimalHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+
+  // Keep only ai_tensor_acceleration (granted full) and storage_object_lock (granted full); omit cache_cluster_replication (which has required_for_optimal: false)
+  optimalHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+    },
+  ];
+  optimalHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'gpu_direct',
+      fallback_applied: 'NONE',
+    },
+    {
+      capability_name: 'storage_object_lock',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'native_s3_object_lock',
+      fallback_applied: 'NONE',
+    },
+  ];
+
+  // Passes Ajv schema validation
+  const validOptimalSchema = ajv.validate(pcnSchemaId, optimalHandshake);
+  assert.ok(validOptimalSchema, `ACTIVE_OPTIMAL handshake with omitted non-optimal capability must pass schema validation: ${ajv.errorsText()}`);
+
+  // Passes validatePlatformSemantics semantic validation
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(optimalHandshake, pcnSchemaId);
+  }, 'ACTIVE_OPTIMAL lease with non-optimal capability omitted must pass platform semantics');
+
+  // 2. Capability with required_for_optimal: true degraded/with fallback yields ACTIVE_DEGRADED lease
+  const degradedHandshake = JSON.parse(JSON.stringify(sample));
+  degradedHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  degradedHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  degradedHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      required_for_optimal: true,
+      preferred_fallback: 'CORE_EMULATION_FALLBACK',
+    },
+  ];
+  degradedHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'ai_tensor_acceleration',
+      slot_id: 'ai_model_runtime',
+      disposition: 'GRANTED_DEGRADED',
+      active_mode: 'cpu_quantized_emulation',
+      fallback_applied: 'CORE_EMULATION_FALLBACK',
+      notes: 'Inference latency scaled due to fallback',
+    },
+  ];
+
+  // Passes Ajv schema validation
+  const validDegradedSchema = ajv.validate(pcnSchemaId, degradedHandshake);
+  assert.ok(validDegradedSchema, `ACTIVE_DEGRADED handshake must pass schema validation: ${ajv.errorsText()}`);
+
+  // Passes validatePlatformSemantics semantic validation
+  assert.doesNotThrow(() => {
+    validatePlatformSemantics(degradedHandshake, pcnSchemaId);
+  }, 'ACTIVE_DEGRADED lease with degraded required_for_optimal capability must pass platform semantics');
+
+  // 3. Inverting: attempting ACTIVE_OPTIMAL when required_for_optimal: true capability is degraded throws semantic error
+  const invalidOptimalHandshake = JSON.parse(JSON.stringify(degradedHandshake));
+  invalidOptimalHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  invalidOptimalHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+
+  assert.throws(() => {
+    validatePlatformSemantics(invalidOptimalHandshake, pcnSchemaId);
+  }, /Semantic error: ACTIVE_OPTIMAL lease cannot contain degraded capability/);
 });

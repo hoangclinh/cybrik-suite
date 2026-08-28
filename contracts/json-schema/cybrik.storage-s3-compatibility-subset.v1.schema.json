@@ -76,12 +76,10 @@
       "items": {
         "$ref": "#/$defs/retentionMode"
       },
-      "minItems": 2,
       "uniqueItems": true
     },
     "legal_hold_supported": {
-      "type": "boolean",
-      "const": true
+      "type": "boolean"
     },
     "required_operations": {
       "type": "array",
@@ -130,6 +128,19 @@
   },
   "then": {
     "properties": {
+      "legal_hold_supported": {
+        "const": true
+      },
+      "retention_modes_supported": {
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "enum": [
+            "COMPLIANCE",
+            "GOVERNANCE"
+          ]
+        }
+      },
       "required_operations": {
         "minItems": 19,
         "maxItems": 19,
@@ -239,6 +250,12 @@
   },
   "else": {
     "properties": {
+      "legal_hold_supported": {
+        "const": false
+      },
+      "retention_modes_supported": {
+        "maxItems": 0
+      },
       "required_operations": {
         "minItems": 15,
         "maxItems": 15,
@@ -527,12 +544,10 @@
           "items": {
             "$ref": "#/$defs/retentionMode"
           },
-          "minItems": 2,
           "uniqueItems": true
         },
         "legal_hold_supported": {
-          "type": "boolean",
-          "const": true
+          "type": "boolean"
         },
         "required_operations": {
           "type": "array",
@@ -578,6 +593,19 @@
       },
       "then": {
         "properties": {
+          "legal_hold_supported": {
+            "const": true
+          },
+          "retention_modes_supported": {
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "enum": [
+                "COMPLIANCE",
+                "GOVERNANCE"
+              ]
+            }
+          },
           "required_operations": {
             "minItems": 19,
             "maxItems": 19,
@@ -687,6 +715,12 @@
       },
       "else": {
         "properties": {
+          "legal_hold_supported": {
+            "const": false
+          },
+          "retention_modes_supported": {
+            "maxItems": 0
+          },
           "required_operations": {
             "minItems": 15,
             "maxItems": 15,

@@ -399,15 +399,33 @@ export function isMalformedSha256(headerVal) {
   return !/^[0-9a-f]{64}$/.test(headerVal);
 }
 
+export const S3_PROBE_KEYS = [
+  'parts', 'manifest', 'storedParts', 'headers', 'total_parts', 'total_size_bytes',
+  'part_number', 'PartNumber', 'etag', 'ETag', 'size_bytes', 'SizeBytes', 'size',
+  'payload', 'payloadBytes', 'body', 'contentMd5Header', 'content_md5_header',
+  'contentMd5', 'Content-MD5', 'content_md5', 'content_md5_declared', 'content_md5_computed',
+  'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header',
+  'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header',
+  'content_length', 'contentLength', 'content_length_bytes', 'Content-Length', 'content-length',
+  'allow_unsigned_payload', 'is_presigned', 'error_condition', 'expected_error', 'code', 'reason', 'error_code'
+];
+
 export function getOwn(obj, prop) {
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
   try {
     const desc = Object.getOwnPropertyDescriptor(obj, prop);
     if (!desc) return undefined;
     if (desc.get !== undefined || desc.set !== undefined) return undefined;
-    void obj[prop];
+    try {
+      void obj[prop];
+    } catch {
+      throw new Error(`Property access on '${String(prop)}' threw or is invalid`);
+    }
     return desc.value;
-  } catch {
+  } catch (e) {
+    if (e && typeof e.message === 'string' && e.message.startsWith('Property access on')) {
+      throw e;
+    }
     return undefined;
   }
 }
@@ -424,6 +442,23 @@ export function hasOwnAccessors(obj) {
       }
       try {
         void obj[key];
+      } catch {
+        return true;
+      }
+    }
+    for (const key of S3_PROBE_KEYS) {
+      try {
+        const desc = Object.getOwnPropertyDescriptor(obj, key);
+        if (desc) {
+          if (desc.get !== undefined || desc.set !== undefined) {
+            return true;
+          }
+          try {
+            void obj[key];
+          } catch {
+            return true;
+          }
+        }
       } catch {
         return true;
       }
@@ -482,8 +517,65 @@ export function isPlainOrNull(o) {
   }
 }
 
+export function hasOversizedDeclaredLength(obj) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
+  const lengthKeys = [
+    'content_length', 'contentLength', 'content_length_bytes',
+    'size_bytes', 'size', 'Content-Length', 'content-length'
+  ];
+  try {
+    for (const key of lengthKeys) {
+      let desc;
+      try {
+        desc = Object.getOwnPropertyDescriptor(obj, key);
+      } catch {
+        continue;
+      }
+      if (desc && desc.value !== undefined && desc.value !== null) {
+        const val = desc.value;
+        if (typeof val === 'number' && val > 5368709120) return true;
+        if (typeof val === 'bigint' && val > 5368709120n) return true;
+        if (typeof val === 'string') {
+          const parsed = Number(val.trim());
+          if (!Number.isNaN(parsed) && parsed > 5368709120) return true;
+        }
+      }
+    }
+    let headersDesc;
+    try {
+      headersDesc = Object.getOwnPropertyDescriptor(obj, 'headers');
+    } catch {}
+    if (headersDesc && headersDesc.value && typeof headersDesc.value === 'object') {
+      const hdrs = headersDesc.value;
+      for (const key of ['Content-Length', 'content-length', 'size', 'size_bytes', 'content_length', 'contentLength', 'content_length_bytes']) {
+        let hDesc;
+        try {
+          hDesc = Object.getOwnPropertyDescriptor(hdrs, key);
+        } catch {
+          continue;
+        }
+        if (hDesc && hDesc.value !== undefined && hDesc.value !== null) {
+          const val = hDesc.value;
+          if (typeof val === 'number' && val > 5368709120) return true;
+          if (typeof val === 'bigint' && val > 5368709120n) return true;
+          if (typeof val === 'string') {
+            const parsed = Number(val.trim());
+            if (!Number.isNaN(parsed) && parsed > 5368709120) return true;
+          }
+        }
+      }
+    }
+  } catch {}
+  return false;
+}
+
 export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha256Header) {
   try {
+    if (hasOversizedDeclaredLength(optionsOrPayload)) {
+      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
+    }
+
     if (hasOwnHeadersAccessors(optionsOrPayload)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
@@ -533,6 +625,37 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array) && !Array.isArray(optionsOrPayload)) {
     if (!isPlainOrNull(optionsOrPayload)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+    try {
+      void optionsOrPayload.content_length;
+      void optionsOrPayload.contentLength;
+      void optionsOrPayload.content_length_bytes;
+      void optionsOrPayload.size_bytes;
+      void optionsOrPayload.size;
+      void optionsOrPayload['Content-Length'];
+      void optionsOrPayload['content-length'];
+      void optionsOrPayload.payload;
+      void optionsOrPayload.payloadBytes;
+      void optionsOrPayload.body;
+      void optionsOrPayload.headers;
+      void optionsOrPayload.contentMd5Header;
+      void optionsOrPayload.content_md5_header;
+      void optionsOrPayload.contentMd5;
+      void optionsOrPayload['Content-MD5'];
+      void optionsOrPayload.content_md5;
+      void optionsOrPayload.content_md5_declared;
+      void optionsOrPayload['x-amz-content-sha256'];
+      void optionsOrPayload['X-Amz-Content-Sha256'];
+      void optionsOrPayload.contentSha256Header;
+      void optionsOrPayload.content_sha256_header;
+      void optionsOrPayload.contentSha256;
+      void optionsOrPayload.xAmzContentSha256;
+      void optionsOrPayload.x_amz_content_sha256;
+      void optionsOrPayload.sha256Header;
+      void optionsOrPayload.allow_unsigned_payload;
+      void optionsOrPayload.is_presigned;
+    } catch {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     const req = optionsOrPayload;
@@ -810,6 +933,17 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     }
 
     if (hasOwnHeadersAccessors(manifestOrOptions) || hasOwnAccessors(manifestOrOptions) || !isPlainOrNull(manifestOrOptions)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
+    }
+
+    try {
+      void manifestOrOptions.manifest;
+      void manifestOrOptions.storedParts;
+      void manifestOrOptions.parts;
+      void manifestOrOptions.headers;
+      void manifestOrOptions.total_parts;
+      void manifestOrOptions.total_size_bytes;
+    } catch {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
@@ -1203,6 +1337,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   try {
+    if (hasOversizedDeclaredLength(conditionOrOptions)) {
+      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
+    }
+
     if (hasOwnHeadersAccessors(conditionOrOptions)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
@@ -1277,6 +1415,43 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       !(conditionOrOptions instanceof Uint8Array)
     ) {
       if (!isPlainOrNull(conditionOrOptions)) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_PAYLOAD_TYPE',
+        };
+      }
+      try {
+        void conditionOrOptions.content_length;
+        void conditionOrOptions.contentLength;
+        void conditionOrOptions.content_length_bytes;
+        void conditionOrOptions.size_bytes;
+        void conditionOrOptions.size;
+        void conditionOrOptions['Content-Length'];
+        void conditionOrOptions['content-length'];
+        void conditionOrOptions.payload;
+        void conditionOrOptions.payloadBytes;
+        void conditionOrOptions.body;
+        void conditionOrOptions.headers;
+        void conditionOrOptions.contentMd5Header;
+        void conditionOrOptions.content_md5_header;
+        void conditionOrOptions.contentMd5;
+        void conditionOrOptions['Content-MD5'];
+        void conditionOrOptions.content_md5;
+        void conditionOrOptions.content_md5_declared;
+        void conditionOrOptions['x-amz-content-sha256'];
+        void conditionOrOptions['X-Amz-Content-Sha256'];
+        void conditionOrOptions.contentSha256Header;
+        void conditionOrOptions.content_sha256_header;
+        void conditionOrOptions.contentSha256;
+        void conditionOrOptions.xAmzContentSha256;
+        void conditionOrOptions.x_amz_content_sha256;
+        void conditionOrOptions.sha256Header;
+        void conditionOrOptions.allow_unsigned_payload;
+        void conditionOrOptions.is_presigned;
+      } catch {
         return {
           http_status: 400,
           error_code: 'InvalidDigest',
@@ -1522,12 +1697,11 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
 
     if (shaHeader !== undefined) {
       if (shaHeader === 'UNSIGNED-PAYLOAD') {
-        const allowUnsigned = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null)
-          ? (getOwn(conditionOrOptions, 'allow_unsigned_payload') ??
-             getOwn(conditionOrOptions, 'is_presigned'))
-          : undefined;
+        const isAllowed = (typeof conditionOrOptions === 'object' && conditionOrOptions !== null) &&
+          (getOwn(conditionOrOptions, 'allow_unsigned_payload') === true ||
+           getOwn(conditionOrOptions, 'is_presigned') === true);
 
-        if (allowUnsigned === false || errorCondition === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' || expErrorCond === 'UNSIGNED_PAYLOAD_NOT_PERMITTED') {
+        if (!isAllowed || errorCondition === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' || expErrorCond === 'UNSIGNED_PAYLOAD_NOT_PERMITTED') {
           return {
             http_status: 400,
             error_code: 'InvalidDigest',
@@ -1596,14 +1770,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'STREAMING_PAYLOAD_UNSUPPORTED' ||
       norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' ||
       norm === 'MALFORMED_SHA256_HEADER' ||
-      norm === 'UNSIGNED_PAYLOAD_NOT_PERMITTED'
+      norm === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' ||
+      norm === 'UNSIGNED-PAYLOAD'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidDigest',
         status: 400,
         code: 'InvalidDigest',
-        reason: (norm === 'MALFORMED_PAYLOAD_TYPE' || norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' || norm === 'MALFORMED_SHA256_HEADER' || norm === 'UNSIGNED_PAYLOAD_NOT_PERMITTED') ? norm : 'MALFORMED_HEADER_SYNTAX',
+        reason: (norm === 'MALFORMED_PAYLOAD_TYPE' || norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' || norm === 'MALFORMED_SHA256_HEADER' || norm === 'UNSIGNED_PAYLOAD_NOT_PERMITTED' || norm === 'UNSIGNED-PAYLOAD') ? (norm === 'UNSIGNED-PAYLOAD' ? 'UNSIGNED_PAYLOAD_NOT_PERMITTED' : norm) : 'MALFORMED_HEADER_SYNTAX',
       };
     }
     if (
@@ -2097,6 +2272,14 @@ export function validateS3MultipartSemantics(manifest) {
       throw new Error('Semantic error: multipart upload manifest parts array must be an own property (inherited parts prohibited)');
     }
 
+    try {
+      void manifest.parts;
+      void manifest.total_parts;
+      void manifest.total_size_bytes;
+    } catch {
+      throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+    }
+
     const partsDesc = Object.getOwnPropertyDescriptor(manifest, 'parts');
     if (partsDesc && (partsDesc.get !== undefined || partsDesc.set !== undefined)) {
       throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
@@ -2135,6 +2318,17 @@ export function validateS3MultipartSemantics(manifest) {
       const part = parts[i];
       if (!part || typeof part !== 'object' || Array.isArray(part)) {
         throw new Error('Semantic error: multipart manifest part must be an object');
+      }
+      try {
+        void part.part_number;
+        void part.PartNumber;
+        void part.etag;
+        void part.ETag;
+        void part.size_bytes;
+        void part.SizeBytes;
+        void part.size;
+      } catch {
+        throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
       if (hasOwnAccessors(part)) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
@@ -2636,10 +2830,28 @@ export function validatePlatformSemantics(data, schemaId) {
         const hasDegraded = caps.some(cap => {
           const capStatus = cap.disposition || cap.status;
           const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
-          return capStatus === 'GRANTED_DEGRADED' && fallback !== 'NONE';
+          return (capStatus === 'GRANTED_DEGRADED' || capStatus === 'REJECTED_UNSUPPORTED') && fallback !== 'NONE';
         });
-        if (!hasDegraded) {
-          throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback`);
+        const reqCaps = data.negotiation_request?.requested_optional_capabilities || [];
+        const leaseCapMap = new Map();
+        for (const cap of caps) {
+          const key = `${cap.capability_name}::${cap.slot_id}`;
+          leaseCapMap.set(key, cap);
+        }
+        const hasMissingReqOptimal = reqCaps.some(req => {
+          if (req.required_for_optimal === true) {
+            const key = `${req.capability_name}::${req.slot_id}`;
+            const matched = leaseCapMap.get(key);
+            if (!matched) return true;
+            const capStatus = matched.disposition || matched.status;
+            const fallback = matched.fallback_applied || matched.effective_fallback || 'NONE';
+            return capStatus !== 'GRANTED_FULL' || fallback !== 'NONE';
+          }
+          return false;
+        });
+
+        if (!hasDegraded && !hasMissingReqOptimal) {
+          throw new Error(`Semantic error: ACTIVE_DEGRADED lease must contain at least one GRANTED_DEGRADED capability with non-NONE fallback or omit a capability with required_for_optimal: true`);
         }
       }
     }
@@ -2670,10 +2882,11 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    // F-03: Requested-to-lease composite key and cardinality closure (strict bidirectional multiset equality)
+    // F-03: Requested-to-lease composite key and cardinality closure with required_for_optimal semantics
     if (data.negotiation_request && data.agreed_capability_lease) {
       const reqCaps = data.negotiation_request.requested_optional_capabilities || [];
       const leaseCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [];
+      const leaseStatus = data.agreed_capability_lease.lease_status;
 
       // Multiset counts keyed by composite identity (capability_name, slot_id)
       const reqCountMap = new Map();
@@ -2688,20 +2901,6 @@ export function validatePlatformSemantics(data, schemaId) {
         leaseCountMap.set(key, (leaseCountMap.get(key) || 0) + 1);
       }
 
-      // Assert requested capabilities are satisfied with equal cardinality
-      for (const req of reqCaps) {
-        const key = `${req.capability_name}::${req.slot_id}`;
-        const reqCount = reqCountMap.get(key) || 0;
-        const leaseCount = leaseCountMap.get(key) || 0;
-        if (leaseCount < reqCount) {
-          if (req.slot_id) {
-            throw new Error(`Semantic error: requested optional capability '${req.capability_name}' for slot '${req.slot_id}' is not resolved in agreed_capability_lease`);
-          } else {
-            throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is not resolved in agreed_capability_lease`);
-          }
-        }
-      }
-
       // Assert lease contains no surplus or unrequested capabilities
       for (const cap of leaseCaps) {
         const key = `${cap.capability_name}::${cap.slot_id}`;
@@ -2712,6 +2911,22 @@ export function validatePlatformSemantics(data, schemaId) {
             throw new Error(`Semantic error: agreed_capability_lease contains unrequested or surplus optional capability '${cap.capability_name}' for slot '${cap.slot_id}'`);
           } else {
             throw new Error(`Semantic error: agreed_capability_lease contains unrequested or surplus optional capability '${cap.capability_name}'`);
+          }
+        }
+      }
+
+      // Assert requested capabilities with required_for_optimal: true are satisfied in ACTIVE_OPTIMAL
+      for (const req of reqCaps) {
+        const key = `${req.capability_name}::${req.slot_id}`;
+        const reqCount = reqCountMap.get(key) || 0;
+        const leaseCount = leaseCountMap.get(key) || 0;
+        if (leaseCount < reqCount) {
+          if (req.required_for_optimal === true && leaseStatus === 'ACTIVE_OPTIMAL') {
+            if (req.slot_id) {
+              throw new Error(`Semantic error: requested optional capability '${req.capability_name}' for slot '${req.slot_id}' is required for optimal operation but is not resolved in agreed_capability_lease`);
+            } else {
+              throw new Error(`Semantic error: requested optional capability '${req.capability_name}' is required for optimal operation but is not resolved in agreed_capability_lease`);
+            }
           }
         }
       }
@@ -4279,6 +4494,88 @@ try {
 }
 H('30i', pcnDupLeaseKeyCaught, 'duplicate composite key in agreed_capability_lease.negotiated_optional_capabilities must be rejected');
 
+// 30j. in-memory validation: reject ACTIVE_OPTIMAL lease when capability with required_for_optimal: true is missing (OPEN-5)
+const pcnMissingOptimal = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingOptimal.negotiation_status = "AGREED_LEASE_GRANTED";
+pcnMissingOptimal.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+// ai_tensor_acceleration has required_for_optimal: true in sample; omit it from lease
+pcnMissingOptimal.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    disposition: "GRANTED_FULL",
+    active_mode: "native_s3_object_lock",
+    fallback_applied: "NONE"
+  }
+];
+let pcnMissingOptimalCaught = false;
+try {
+  validatePlatformSemantics(pcnMissingOptimal, pcnSchemaId);
+} catch (e) {
+  pcnMissingOptimalCaught = e.message.includes('is required for optimal operation but is not resolved in agreed_capability_lease') || e.message.includes('is not resolved in agreed_capability_lease');
+}
+H('30j', pcnMissingOptimalCaught, 'ACTIVE_OPTIMAL lease omitting capability with required_for_optimal: true must fail validatePlatformSemantics');
+
+// 30k. in-memory validation: permit ACTIVE_OPTIMAL lease when missing capability has required_for_optimal: false (OPEN-5)
+const pcnMissingNonOptimal = JSON.parse(JSON.stringify(pcnSample));
+pcnMissingNonOptimal.negotiation_status = "AGREED_LEASE_GRANTED";
+pcnMissingNonOptimal.agreed_capability_lease.lease_status = "ACTIVE_OPTIMAL";
+// grant ai_tensor_acceleration (required_for_optimal: true) in full, omit cache_cluster_replication (required_for_optimal: false)
+pcnMissingNonOptimal.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "ai_tensor_acceleration",
+    slot_id: "ai_model_runtime",
+    disposition: "GRANTED_FULL",
+    active_mode: "gpu_direct",
+    fallback_applied: "NONE"
+  },
+  {
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    disposition: "GRANTED_FULL",
+    active_mode: "native_s3_object_lock",
+    fallback_applied: "NONE"
+  }
+];
+let pcnMissingNonOptimalPassed = false;
+try {
+  validatePlatformSemantics(pcnMissingNonOptimal, pcnSchemaId);
+  pcnMissingNonOptimalPassed = true;
+} catch (e) {
+  pcnMissingNonOptimalPassed = false;
+}
+H('30k', pcnMissingNonOptimalPassed, 'ACTIVE_OPTIMAL lease omitting capability with required_for_optimal: false must pass validatePlatformSemantics');
+
+// 30l. in-memory validation: permit ACTIVE_DEGRADED lease when capability with required_for_optimal: true is missing (OPEN-5)
+const pcnDegradedMissingOptimal = JSON.parse(JSON.stringify(pcnSample));
+pcnDegradedMissingOptimal.negotiation_status = "DEGRADED_LEASE_GRANTED";
+pcnDegradedMissingOptimal.agreed_capability_lease.lease_status = "ACTIVE_DEGRADED";
+// omit ai_tensor_acceleration (required_for_optimal: true) from lease, grant other capabilities in full
+pcnDegradedMissingOptimal.agreed_capability_lease.negotiated_optional_capabilities = [
+  {
+    capability_name: "storage_object_lock",
+    slot_id: "storage",
+    disposition: "GRANTED_FULL",
+    active_mode: "native_s3_object_lock",
+    fallback_applied: "NONE"
+  },
+  {
+    capability_name: "cache_cluster_replication",
+    slot_id: "cache",
+    disposition: "GRANTED_FULL",
+    active_mode: "standalone_noeviction",
+    fallback_applied: "NONE"
+  }
+];
+let pcnDegradedMissingOptimalPassed = false;
+try {
+  validatePlatformSemantics(pcnDegradedMissingOptimal, pcnSchemaId);
+  pcnDegradedMissingOptimalPassed = true;
+} catch (e) {
+  pcnDegradedMissingOptimalPassed = false;
+}
+H('30l', pcnDegradedMissingOptimalPassed, 'ACTIVE_DEGRADED lease omitting capability with required_for_optimal: true must pass validatePlatformSemantics');
+
 
 
 // ---------------------------------------------------------------------------
@@ -4375,21 +4672,31 @@ const s3FlagsValid = ['crud', 'multipart_upload', 'presigning', 'sig_v4', 'path_
 H('34', s3FlagsValid, 'S3 mandatory operations boolean flags must all be const true');
 
 // 35. S3 root and profile conditional WORM / Object Lock support (Finding 3 / OPEN-2)
-const valid15OpsProfile = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
+const valid15OpsProfile = {
+  ...sampleS3Profile,
+  object_lock_supported: false,
+  legal_hold_supported: false,
+  retention_modes_supported: [],
+  required_operations: sampleS3Profile.required_operations.slice(0, 15)
+};
 const invalid15OpsWithLockTrue = { ...sampleS3Profile, object_lock_supported: true, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
-const invalid19OpsWithLockFalse = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations };
+const invalid19OpsWithLockFalse = { ...valid15OpsProfile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations };
 const missingObjectLockProfile = { ...sampleS3Profile };
 delete missingObjectLockProfile.object_lock_supported;
 const singleModeProfile = { ...sampleS3Profile, retention_modes_supported: ['COMPLIANCE'] };
 const badLegalHoldProfile = { ...sampleS3Profile, legal_hold_supported: false };
+const falseLockBadHoldProfile = { ...valid15OpsProfile, legal_hold_supported: true };
+const falseLockBadModesProfile = { ...valid15OpsProfile, retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'] };
 const s3WormValid = ajv.validate(S3_PROFILE_DEF_ID, valid15OpsProfile) &&
                     ajv.validate(S3_SCHEMA_ID, valid15OpsProfile) &&
                     !ajv.validate(S3_PROFILE_DEF_ID, invalid15OpsWithLockTrue) && ajv.errors.some(e => e.keyword === 'minItems' && e.instancePath === '/required_operations') &&
                     !ajv.validate(S3_PROFILE_DEF_ID, invalid19OpsWithLockFalse) && ajv.errors.some(e => e.keyword === 'maxItems' && e.instancePath === '/required_operations') &&
                     !ajv.validate(S3_PROFILE_DEF_ID, missingObjectLockProfile) && ajv.errors.some(e => e.keyword === 'required' && e.params?.missingProperty === 'object_lock_supported') &&
                     !ajv.validate(S3_PROFILE_DEF_ID, singleModeProfile) && ajv.errors[0].keyword === 'minItems' &&
-                    !ajv.validate(S3_PROFILE_DEF_ID, badLegalHoldProfile) && ajv.errors[0].keyword === 'const';
-H('35', s3WormValid, 'S3 schema must support conditional 15/19-op profiles (object_lock_supported boolean, retention_modes_supported: minItems 2, legal_hold_supported: true)');
+                    !ajv.validate(S3_PROFILE_DEF_ID, badLegalHoldProfile) && ajv.errors[0].keyword === 'const' &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, falseLockBadHoldProfile) && ajv.errors[0].keyword === 'const' &&
+                    !ajv.validate(S3_PROFILE_DEF_ID, falseLockBadModesProfile) && ajv.errors[0].keyword === 'maxItems';
+H('35', s3WormValid, 'S3 schema must support conditional 15/19-op profiles (object_lock_supported boolean, retention_modes_supported conditional, legal_hold_supported conditional)');
 
 // 36. S3 version_id on retention evidence (Finding 3)
 const sampleRetentionRecord = readJson(join(STORAGE_EXAMPLES_DIR, 'positive/s3-object-retention-compliance.json'));
