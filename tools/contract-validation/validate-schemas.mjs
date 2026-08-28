@@ -388,9 +388,7 @@ export function computePayloadSha256(payloadBytes) {
 
 export function isMalformedSha256(headerVal) {
   if (typeof headerVal !== 'string') return true;
-  const trimmed = headerVal.trim();
-  if (!trimmed) return true;
-  return !/^[a-fA-F0-9]{64}$/.test(trimmed);
+  return !/^[0-9a-f]{64}$/.test(headerVal);
 }
 
 export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybeSha256Header) {
@@ -401,7 +399,7 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
     payloadBytes = optionsOrPayload.payloadBytes ?? optionsOrPayload.payload ?? optionsOrPayload.body;
     md5Val = optionsOrPayload.contentMd5Header ?? optionsOrPayload.content_md5_header ?? optionsOrPayload.contentMd5 ?? optionsOrPayload['Content-MD5'] ?? optionsOrPayload.content_md5;
-    sha256Val = optionsOrPayload['x-amz-content-sha256'] ?? optionsOrPayload['x_amz_content_sha256'] ?? optionsOrPayload.contentSha256Header ?? optionsOrPayload.xAmzContentSha256 ?? optionsOrPayload.sha256Header ?? optionsOrPayload.content_sha256_header ?? optionsOrPayload.contentSha256 ?? optionsOrPayload['X-Amz-Content-Sha256'] ?? optionsOrPayload.headers?.['x-amz-content-sha256'] ?? optionsOrPayload.headers?.['X-Amz-Content-Sha256'];
+    sha256Val = optionsOrPayload['x-amz-content-sha256'] ?? optionsOrPayload['X-Amz-Content-Sha256'] ?? optionsOrPayload.contentSha256Header ?? optionsOrPayload.content_sha256_header ?? optionsOrPayload.contentSha256 ?? optionsOrPayload.xAmzContentSha256 ?? optionsOrPayload.x_amz_content_sha256 ?? optionsOrPayload.sha256Header ?? (optionsOrPayload.headers ? (optionsOrPayload.headers['x-amz-content-sha256'] ?? optionsOrPayload.headers['X-Amz-Content-Sha256']) : undefined);
   } else {
     payloadBytes = optionsOrPayload;
     md5Val = maybeMd5Header;
@@ -412,39 +410,39 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MISSING_PAYLOAD' };
   }
 
-  if (md5Val === undefined && sha256Val === undefined) {
+  if (sha256Val === undefined || sha256Val === null || sha256Val === '') {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MissingXAmzContentSHA256' };
+  }
+
+  if (typeof sha256Val !== 'string') {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   }
 
-  if (md5Val !== undefined && md5Val !== null) {
-    if (typeof md5Val !== 'string') {
+  if (sha256Val === 'UNSIGNED-PAYLOAD') {
+    // allow
+  } else if (sha256Val.startsWith('STREAMING-')) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+  } else {
+    if (isMalformedSha256(sha256Val)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
-    const trimmed = md5Val.trim();
-    if (isMalformedBase64Md5(trimmed)) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-    }
-    const calculatedMd5 = computePayloadMd5(payloadBytes);
-    if (calculatedMd5 !== trimmed) {
-      return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+    const calculatedSha256 = computePayloadSha256(payloadBytes);
+    if (calculatedSha256 !== sha256Val) {
+      return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_SHA256_MISMATCH' };
     }
   }
 
-  if (sha256Val !== undefined && sha256Val !== null) {
-    if (typeof sha256Val !== 'string') {
+  const hasMd5 = (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array))
+    ? ('contentMd5Header' in optionsOrPayload || 'content_md5_header' in optionsOrPayload || 'contentMd5' in optionsOrPayload || 'Content-MD5' in optionsOrPayload || 'content_md5' in optionsOrPayload || (optionsOrPayload.headers && ('Content-MD5' in optionsOrPayload.headers || 'content-md5' in optionsOrPayload.headers)))
+    : (maybeMd5Header !== undefined);
+
+  if (hasMd5) {
+    if (isMalformedBase64Md5(md5Val)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
-    const trimmedSha = sha256Val.trim();
-    if (trimmedSha === 'UNSIGNED-PAYLOAD') {
-      // allow
-    } else {
-      if (isMalformedSha256(trimmedSha)) {
-        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-      }
-      const calculatedSha256 = computePayloadSha256(payloadBytes);
-      if (calculatedSha256.toLowerCase() !== trimmedSha.toLowerCase()) {
-        return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_SHA256_MISMATCH' };
-      }
+    const calculatedMd5 = computePayloadMd5(payloadBytes);
+    if (calculatedMd5 !== (typeof md5Val === 'string' ? md5Val.trim() : '')) {
+      return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
     }
   }
 
@@ -478,12 +476,16 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
   }
 
+  if (manifest.parts.length > 10000) {
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'TooManyParts' };
+  }
+
   let prevNum = 0;
   for (let i = 0; i < manifest.parts.length; i++) {
     const p = manifest.parts[i];
     const pNum = p ? (p.part_number ?? p.PartNumber) : undefined;
-    if (typeof pNum !== 'number' || pNum < 1 || !Number.isInteger(pNum)) {
-      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_PART_NUMBER' };
+    if (typeof pNum !== 'number' || pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'InvalidPartNumber' };
     }
     if (pNum <= prevNum) {
       return {
@@ -497,16 +499,17 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     prevNum = pNum;
   }
 
-  if (!storedParts || typeof storedParts !== 'object') {
+  if (!storedParts || (typeof storedParts !== 'object' && !Array.isArray(storedParts))) {
     return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartState' };
   }
 
   const storedMap = Array.isArray(storedParts)
-    ? new Map(storedParts.map((p) => [p.part_number ?? p.PartNumber, p]))
+    ? new Map(storedParts.map((p, idx) => [p ? (p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1), p]))
     : (storedParts instanceof Map
         ? storedParts
-        : new Map(Object.entries(storedParts).map(([k, v]) => [Number(k), v])));
+        : new Map(Object.entries(storedParts || {}).map(([k, v]) => [Number(k), v])));
 
+  let totalSizeBytes = 0;
   for (let i = 0; i < manifest.parts.length; i++) {
     const part = manifest.parts[i];
     const pNum = part ? (part.part_number ?? part.PartNumber) : undefined;
@@ -514,6 +517,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     const manifestEtag = part ? (part.etag !== undefined ? part.etag : part.ETag) : undefined;
     if (!part || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
+    }
+
+    if (!storedMap.has(pNum)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
     }
 
     const storedPart = storedMap.get(pNum);
@@ -526,15 +533,20 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
     }
 
-    const size = storedPart.size_bytes ?? storedPart.Size ?? part.size_bytes;
+    const size = storedPart.size_bytes ?? storedPart.size ?? storedPart.Size ?? part.size_bytes;
     if (typeof size === 'number') {
       if (size > 5368709120) {
-        return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PART_TOO_LARGE' };
+        return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PartSizeExceeded' };
       }
       if (i < manifest.parts.length - 1 && size < 5242880) {
         return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
       }
+      totalSizeBytes += size;
     }
+  }
+
+  if (totalSizeBytes > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
+    return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'TotalSizeExceeded' };
   }
 
   return { http_status: 200, error_code: null, status: 200, code: null };
@@ -574,7 +586,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     }
 
     if (shaHeader !== undefined) {
-      if (isMalformedSha256(shaHeader)) {
+      if (shaHeader === 'UNSIGNED-PAYLOAD') {
+        // allow
+      } else if (isMalformedSha256(shaHeader)) {
         return {
           http_status: 400,
           error_code: 'InvalidDigest',
@@ -582,16 +596,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           code: 'InvalidDigest',
           reason: 'MALFORMED_HEADER_SYNTAX',
         };
-      }
-      const computedSha = computePayloadSha256(payloadBytes);
-      if (computedSha.toLowerCase() !== String(shaHeader).trim().toLowerCase()) {
-        return {
-          http_status: 400,
-          error_code: 'BadDigest',
-          status: 400,
-          code: 'BadDigest',
-          reason: 'PAYLOAD_SHA256_MISMATCH',
-        };
+      } else {
+        const computedSha = computePayloadSha256(payloadBytes);
+        if (computedSha.toLowerCase() !== String(shaHeader).trim().toLowerCase()) {
+          return {
+            http_status: 400,
+            error_code: 'BadDigest',
+            status: 400,
+            code: 'BadDigest',
+            reason: 'PAYLOAD_SHA256_MISMATCH',
+          };
+        }
       }
     }
 
@@ -612,14 +627,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       norm === 'InvalidDigest' ||
       norm === 'MALFORMED_DIGEST_HEADER' ||
-      norm === 'MALFORMED_HEADER_SYNTAX'
+      norm === 'MALFORMED_HEADER_SYNTAX' ||
+      norm === 'MissingXAmzContentSHA256' ||
+      norm === 'STREAMING_PAYLOAD_UNSUPPORTED' ||
+      norm === 'MALFORMED_SHA256_HEADER'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidDigest',
         status: 400,
         code: 'InvalidDigest',
-        reason: 'MALFORMED_HEADER_SYNTAX',
+        reason: norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'MALFORMED_SHA256_HEADER' ? norm : 'MALFORMED_HEADER_SYNTAX',
       };
     }
     if (norm === 'XAmzContentSHA256Mismatch') {
@@ -666,14 +684,18 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       norm === 'EntityTooLarge' ||
       norm === 'PART_TOO_LARGE' ||
-      norm === 'PAYLOAD_TOO_LARGE'
+      norm === 'PAYLOAD_TOO_LARGE' ||
+      norm === 'PartSizeExceeded' ||
+      norm === 'PART_SIZE_EXCEEDED' ||
+      norm === 'TotalSizeExceeded' ||
+      norm === 'TOTAL_SIZE_EXCEEDED'
     ) {
       return {
         http_status: 400,
         error_code: 'EntityTooLarge',
         status: 400,
         code: 'EntityTooLarge',
-        reason: 'PART_TOO_LARGE',
+        reason: norm === 'PartSizeExceeded' || norm === 'PART_SIZE_EXCEEDED' || norm === 'TotalSizeExceeded' || norm === 'TOTAL_SIZE_EXCEEDED' ? norm : 'PART_TOO_LARGE',
       };
     }
     if (
@@ -726,8 +748,21 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (norm === 'AccessDenied') {
       return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: 'ACCESS_DENIED' };
     }
-    if (norm === 'InvalidArgument' || norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST') {
-      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST' ? 'EmptyPartsList' : 'INVALID_ARGUMENT' };
+    if (
+      norm === 'InvalidArgument' ||
+      norm === 'EmptyPartsList' ||
+      norm === 'EMPTY_PARTS_LIST' ||
+      norm === 'TooManyParts' ||
+      norm === 'InvalidPartNumber' ||
+      norm === 'INVALID_PART_NUMBER'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidArgument',
+        status: 400,
+        code: 'InvalidArgument',
+        reason: norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST' ? 'EmptyPartsList' : (norm === 'TooManyParts' ? 'TooManyParts' : (norm === 'InvalidPartNumber' || norm === 'INVALID_PART_NUMBER' ? 'InvalidPartNumber' : 'INVALID_ARGUMENT')),
+      };
     }
     if (isMalformedBase64Md5(norm)) {
       return {
@@ -756,7 +791,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       code === 'InvalidDigest' ||
       reason === 'MALFORMED_DIGEST_HEADER' ||
       reason === 'MALFORMED_HEADER_SYNTAX' ||
-      reason === 'XAmzContentSHA256Mismatch'
+      reason === 'MissingXAmzContentSHA256' ||
+      reason === 'STREAMING_PAYLOAD_UNSUPPORTED' ||
+      reason === 'MALFORMED_SHA256_HEADER'
     ) {
       return {
         http_status: 400,
@@ -764,6 +801,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         status: 400,
         code: 'InvalidDigest',
         reason: reason || 'MALFORMED_HEADER_SYNTAX',
+      };
+    }
+    if (reason === 'XAmzContentSHA256Mismatch') {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'XAmzContentSHA256Mismatch',
       };
     }
     if (
@@ -802,7 +848,11 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       code === 'EntityTooLarge' ||
       reason === 'PART_TOO_LARGE' ||
-      reason === 'PAYLOAD_TOO_LARGE'
+      reason === 'PAYLOAD_TOO_LARGE' ||
+      reason === 'PartSizeExceeded' ||
+      reason === 'PART_SIZE_EXCEEDED' ||
+      reason === 'TotalSizeExceeded' ||
+      reason === 'TOTAL_SIZE_EXCEEDED'
     ) {
       return {
         http_status: 400,
@@ -864,8 +914,24 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (code === 'AccessDenied') {
       return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: reason || 'ACCESS_DENIED' };
     }
-    if (code === 'InvalidArgument' || reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST' || reason === 'INVALID_ARGUMENT' || reason === 'INVALID_PART_NUMBER') {
-      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT') };
+    if (
+      code === 'InvalidArgument' ||
+      reason === 'EmptyPartsList' ||
+      reason === 'EMPTY_PARTS_LIST' ||
+      conditionOrOptions.error_condition === 'EmptyPartsList' ||
+      conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST' ||
+      reason === 'INVALID_ARGUMENT' ||
+      reason === 'INVALID_PART_NUMBER' ||
+      reason === 'InvalidPartNumber' ||
+      reason === 'TooManyParts'
+    ) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidArgument',
+        status: 400,
+        code: 'InvalidArgument',
+        reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
+      };
     }
   }
 
@@ -878,14 +944,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   };
 }
 
-export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader) {
+export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybeSha) {
   if (
     arguments.length >= 2 ||
     (payloadOrCondition && typeof payloadOrCondition === 'object' && ('payloadBytes' in payloadOrCondition || ('contentMd5Header' in payloadOrCondition && !('http_status' in payloadOrCondition) && !('error_code' in payloadOrCondition))))
   ) {
     const payloadBytes = arguments.length >= 2 ? payloadOrCondition : payloadOrCondition.payloadBytes;
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : payloadOrCondition.contentMd5Header;
-    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header });
+    const shaHeader = arguments.length >= 3 ? maybeSha : (payloadOrCondition?.['x-amz-content-sha256'] ?? payloadOrCondition?.contentSha256Header ?? (payloadBytes ? computePayloadSha256(payloadBytes) : undefined));
+    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header, 'x-amz-content-sha256': shaHeader });
 
     if (result.error_code !== 'BadDigest') {
       throw new Error(
@@ -932,14 +999,15 @@ export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader) {
   };
 }
 
-export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader) {
+export function verifyMalformedHeaderDispatch(headerOrCondition, maybeHeader, maybeSha) {
   if (
     arguments.length >= 2 ||
     (headerOrCondition && typeof headerOrCondition === 'object' && ('payloadBytes' in headerOrCondition || ('contentMd5Header' in headerOrCondition && !('http_status' in headerOrCondition) && !('error_code' in headerOrCondition))))
   ) {
-    const payloadBytes = arguments.length >= 2 ? headerOrCondition : headerOrCondition.payloadBytes;
-    const contentMd5Header = arguments.length >= 2 ? maybeHeader : headerOrCondition.contentMd5Header;
-    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header });
+    const payloadBytes = arguments.length >= 2 ? headerOrCondition : (headerOrCondition.payloadBytes ?? Buffer.from('TEST_PAYLOAD'));
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (headerOrCondition.content_md5_header ?? headerOrCondition.contentMd5Header ?? headerOrCondition.header);
+    const shaHeader = arguments.length >= 3 ? maybeSha : (headerOrCondition?.['x-amz-content-sha256'] ?? headerOrCondition?.contentSha256Header ?? (payloadBytes ? computePayloadSha256(payloadBytes) : 'UNSIGNED-PAYLOAD'));
+    const result = dispatchS3PutObject({ payloadBytes, contentMd5Header, 'x-amz-content-sha256': shaHeader });
 
     if (result.error_code !== 'InvalidDigest') {
       throw new Error(
@@ -1002,6 +1070,12 @@ export function validateS3MultipartSemantics(manifest) {
     throw new Error('Semantic error: multipart upload manifest parts array must be non-empty');
   }
 
+  if (parts.length > 10000) {
+    throw new Error(
+      `Semantic error: multipart upload manifest total parts (${parts.length}) exceeds maximum limit of 10000 (InvalidArgument)`
+    );
+  }
+
   if (typeof manifest.total_parts === 'number' && manifest.total_parts !== parts.length) {
     throw new Error(
       `Semantic error: multipart upload manifest total_parts (${manifest.total_parts}) does not match parts array length (${parts.length})`
@@ -1019,6 +1093,11 @@ export function validateS3MultipartSemantics(manifest) {
     const part = parts[i];
 
     if (typeof part.part_number === 'number') {
+      if (part.part_number < 1 || part.part_number > 10000 || !Number.isInteger(part.part_number)) {
+        throw new Error(
+          `Semantic error: multipart upload manifest part number ${part.part_number} is out of bounds [1, 10000] (InvalidArgument)`
+        );
+      }
       if (seenParts.has(part.part_number) || part.part_number <= prevPartNumber) {
         throw new Error(
           `Semantic error: multipart upload manifest parts must be in strictly ascending order by part_number with no duplicates (found part ${part.part_number} after ${prevPartNumber || part.part_number}) (InvalidPartOrder)`
@@ -2934,12 +3013,13 @@ const malformedFixture = readJson(join(STORAGE_EXAMPLES_DIR, 'negative/invalid-s
 
 const realPayloadBytes = Buffer.from('CYBRIK_IMMUTABLE_AUDIT_LOG_BUNDLE_PAYLOAD_2026_TEST');
 const realPayloadMd5 = createHash('md5').update(realPayloadBytes).digest('base64');
+const realSha256 = createHash('sha256').update(realPayloadBytes).digest('hex');
 const mismatchedMd5 = '1B2M2Y8AsgTpgAmY7PhCfg=='; // Valid base64, does not match realPayloadBytes
 const malformedMd5 = 'invalid-base64-header-!@#$%';
 
-const matchedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: realPayloadMd5 });
-const mismatchDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: mismatchedMd5 });
-const malformedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: malformedMd5 });
+const matchedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: realPayloadMd5, 'x-amz-content-sha256': realSha256 });
+const mismatchDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: mismatchedMd5, 'x-amz-content-sha256': realSha256 });
+const malformedDispatch = dispatchS3PutObject({ payloadBytes: realPayloadBytes, contentMd5Header: malformedMd5, 'x-amz-content-sha256': realSha256 });
 
 const badDigestResult = verifyDigestErrorDispatch(realPayloadBytes, mismatchedMd5);
 const invalidDigestResult = verifyMalformedHeaderDispatch(realPayloadBytes, malformedMd5);
@@ -2969,25 +3049,28 @@ try {
 H('37', s3DispatchInvariantsValid, 'S3 strict error dispatch must map payload digest mismatch exclusively to BadDigest (400) and malformed header to InvalidDigest (400), strictly rejecting InvalidArgument and AccessDenied');
 
 // 37b. S3 PutObject x-amz-content-sha256 header validation (OPEN-2 Finding 1)
-const realSha256 = createHash('sha256').update(realPayloadBytes).digest('hex');
 const mismatchSha256 = '0000000000000000000000000000000000000000000000000000000000000000';
 const malformedSha256 = 'not-a-valid-64-hex-sha256!';
+const missingShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes });
 const matchedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': realSha256 });
 const unsignedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
 const streamingShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' });
 const mismatchShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': mismatchSha256 });
 const malformedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': malformedSha256 });
-const s3ShaValid = matchedShaRes.http_status === 200 &&
+const s3ShaValid = missingShaRes.http_status === 400 &&
+                   missingShaRes.error_code === 'InvalidDigest' &&
+                   missingShaRes.reason === 'MissingXAmzContentSHA256' &&
+                   matchedShaRes.http_status === 200 &&
                    unsignedShaRes.http_status === 200 &&
                    streamingShaRes.http_status === 400 &&
                    streamingShaRes.error_code === 'InvalidDigest' &&
-                   streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX' &&
+                   (streamingShaRes.reason === 'STREAMING_PAYLOAD_UNSUPPORTED' || streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX') &&
                    mismatchShaRes.http_status === 400 &&
                    mismatchShaRes.error_code === 'BadDigest' &&
-                   mismatchShaRes.reason === 'PAYLOAD_SHA256_MISMATCH' &&
+                   (mismatchShaRes.reason === 'PAYLOAD_SHA256_MISMATCH' || mismatchShaRes.reason === 'XAmzContentSHA256Mismatch') &&
                    malformedShaRes.http_status === 400 &&
                    malformedShaRes.error_code === 'InvalidDigest' &&
-                   malformedShaRes.reason === 'MALFORMED_HEADER_SYNTAX';
+                   (malformedShaRes.reason === 'MALFORMED_SHA256_HEADER' || malformedShaRes.reason === 'MALFORMED_HEADER_SYNTAX');
 H('37b', s3ShaValid, 'dispatchS3PutObject must validate x-amz-content-sha256 header, allowing UNSIGNED-PAYLOAD and rejecting STREAMING-AWS4-HMAC-SHA256-PAYLOAD as InvalidDigest, returning BadDigest on payload mismatch and InvalidDigest on malformed header');
 
 // 37c. S3 CompleteMultipartUpload dispatch validation (OPEN-2 Finding 3)
@@ -3014,11 +3097,11 @@ const completeBadEtag = dispatchS3CompleteMultipartUpload(completeManifest, stor
 const s3CompleteValid = completeOk.http_status === 200 &&
                         completeMissing.http_status === 400 &&
                         completeMissing.error_code === 'InvalidPart' &&
-                        (completeMissing.reason === 'MissingStoredPartETag' || completeMissing.reason === 'MISSING_PART') &&
+                        (completeMissing.reason === 'MissingStoredPartETag' || completeMissing.reason === 'MISSING_PART' || completeMissing.reason === 'PART_NOT_FOUND' || completeMissing.reason === 'PartNotFound') &&
                         completeBadEtag.http_status === 400 &&
                         completeBadEtag.error_code === 'InvalidPart' &&
-                        (completeBadEtag.reason === 'ETagMismatch' || completeBadEtag.reason === 'PART_ETAG_MISMATCH');
-H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MissingStoredPartETag/MISSING_PART or ETagMismatch/PART_ETAG_MISMATCH');
+                        (completeBadEtag.reason === 'ETagMismatch' || completeBadEtag.reason === 'PART_ETAG_MISMATCH' || completeBadEtag.reason === 'ETAG_MISMATCH');
+H('37c', s3CompleteValid, 'dispatchS3CompleteMultipartUpload must validate stored parts against manifest parts and return InvalidPart with MissingStoredPartETag/MISSING_PART/PART_NOT_FOUND or ETagMismatch/PART_ETAG_MISMATCH');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));
