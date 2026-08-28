@@ -39,7 +39,7 @@ In accordance with ADR-0015 §1.2 and Platform Contract §1.1, this specificatio
 ### 2.1 Archive Container Packaging
 An offline installation or update bundle MUST be packaged as a single POSIX.1-2001 PAX format archive (optionally compressed using `gzip` or `zstandard`, indicated by `.tar`, `.tar.gz`, or `.tar.zst` file extensions).
 
-The archive root MUST contain exactly one canonical update manifest named `manifest.json` and its companion detached cryptographic signature named `manifest.sig` at the top level, conforming to parent Platform Contract Proposal §7. All referenced artifact files MUST reside within subdirectories relative to the archive root.
+The archive root MUST contain exactly one canonical update manifest named `manifest.json` and its companion detached cryptographic signature named `manifest.sig` at the top level, conforming to parent Platform Contract Proposal §7. All referenced artifact files MUST reside within subdirectories relative to the archive root (root `manifest.json` and `manifest.sig` are envelope control files and are strictly prohibited from appearing in `artifacts[]`).
 
 ```text
 cybrik-bundle-<release_tag>.tar
@@ -72,16 +72,17 @@ To prevent path traversal, directory escape, alias collisions, archive injection
    ```regex
    ^(?!/)(?!^\./)(?!.*\.\.)(?!.*(?:/\.|//|/$))[a-z0-9._/-]+[a-z0-9._-]$
    ```
-2. **Prohibited Path Elements:**
+2. **Prohibited Path Elements & Envelope Prohibition:**
    - MUST NOT start with a forward slash (`/`) or dot-slash (`./`).
    - MUST NOT contain parent directory traversal sequences (`..`).
    - MUST NOT contain hidden directory dot-segments (`/.` or `/../`).
    - MUST NOT contain double slashes (`//`).
    - MUST NOT terminate with a trailing slash (`/`).
+   - **Root Manifest & Signature Prohibition:** The archive root control files `manifest.json` and `manifest.sig` are the signature verification envelope and trust-anchor files; they are evaluated separately and MUST NOT be declared as entries in `artifacts[]`. Listing `manifest.json` or `manifest.sig` in `artifacts[]` is strictly prohibited and MUST cause immediate validation failure.
 3. **Normalized Path Uniqueness:** All artifact paths MUST be unique under POSIX and RFC 3986 path normalization. If two artifacts resolve to the same normalized filesystem location (e.g., `images/app.tar` and `images/./app.tar`), the bundle MUST fail validation immediately.
 4. **Zero Symlink & Hardlink Prohibition:** Any symlink (relative or absolute) and any hardlink are strictly prohibited in the air-gap PAX archive. Bundles MUST NOT contain any symlinks (relative or absolute) or hardlinks under any circumstances. Extraction verifiers MUST reject any bundle containing symlinks or hardlinks with an immediate fail-closed extraction abort.
 5. **Exhaustive 1:1 Archive Entry Manifest Binding & Fail-Closed Whitelisting:**
-   - EVERY entry in the tar archive (excluding the root directory itself, `manifest.json`, and `manifest.sig`) MUST be explicitly listed in `artifacts[]` with its exact relative path, SHA-256 digest, and byte size.
+   - EVERY entry in the tar archive (excluding the root directory itself, `manifest.json`, and `manifest.sig`) MUST be explicitly listed in `artifacts[]` with its exact relative path, SHA-256 digest, and byte size. Root `manifest.json` and `manifest.sig` are strictly prohibited from being listed in `artifacts[]`.
    - Any unlisted file, unrecognized directory entry, hardlink, symlink (relative or absolute), FIFO / named pipe, unix socket, block device node, or character device node encountered during archive traversal MUST cause an immediate fail-closed extraction abort, workspace purge, and recording of an `ARCHIVE_UNLISTED_ENTRY_ABORT` audit violation.
 
 ### 2.3 Container Image Layout Requirements
@@ -222,7 +223,7 @@ stateDiagram-v2
 ## 4. Exact Digest Pinning & Artifact Integrity Verification
 
 ### 4.1 SHA-256 Digest Pinning
-Every artifact included in the bundle archive MUST have an exact SHA-256 cryptographic checksum declared in the `artifacts[]` table of `manifest.json`.
+Every artifact included in the bundle archive (payload files residing in subdirectories) MUST have an exact SHA-256 cryptographic checksum declared in the `artifacts[]` table of `manifest.json`. Root control files `manifest.json` and `manifest.sig` are strictly prohibited from `artifacts[]`.
 
 - The `sha256` value MUST be a lowercase 64-character hexadecimal string conforming to `^[a-f0-9]{64}$`.
 - The `size_bytes` value MUST be an exact positive integer representing the byte length of the uncompressed or stored artifact file.
@@ -299,7 +300,7 @@ All workflow steps (`preflight_steps`, `apply_steps`, `rollback_steps`) MUST be 
 In Stage 1, the update station processes the raw bundle in an isolated staging workspace (`/tmp/cybrik-update-staging-<uuid>/`) with permissions `0700` without modifying live production state:
 
 1. **Phase 1 Structural Schema Validation:** Validate `manifest.json` against `cybrik.offline-install-update-manifest.v1.schema.json`.
-2. **Phase 2 Semantic Path & Whitelist Validation:** Normalize all `artifacts[].path` entries; ensure no duplicate paths, traversal tokens, symlinks (relative or absolute), or unlisted archive entries exist.
+2. **Phase 2 Semantic Path & Whitelist Validation:** Normalize all `artifacts[].path` entries; ensure no duplicate paths, traversal tokens, symlinks (relative or absolute), root control files (`manifest.json`, `manifest.sig`), or unlisted archive entries exist.
 3. **Trust Anchor Resolution & Key Fingerprint Equality:** Retrieve `operator_trust_root.signing_key_id` from `/etc/cybrik/trust-store/trust-store.json`. Verify key is `ACTIVE` and not revoked in `crl.json`. Verify public key fingerprint matches `operator_trust_root.public_key_fingerprint` conforming to `^sha256:[a-f0-9]{64}$`. Explicitly verify that `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint`; any mismatch fails closed immediately.
 4. **Canonical Signature Verification:** Reconstruct canonical manifest bytes of `manifest.json` via RFC 8785 JCS under I-JSON rules; verify detached `manifest.sig` (strictly 64 bytes) with the trusted Ed25519 public key. Verify `manifest_sequence >= minimum_freshness_sequence`.
 5. **Artifact Integrity Verification:** Streamingly unpack each artifact to the staging directory; compute SHA-256 digest and byte size; verify 100% concordance with `artifacts[]`.
@@ -370,7 +371,7 @@ The offline update manifest is governed by the schema `cybrik.offline-install-up
 | `manifest_sequence` | `integer` | **REQUIRED** | Monotonic positive integer sequence ($\ge 1$) evaluated against `minimum_freshness_sequence` for anti-rollback enforcement |
 | `operator_trust_root` | `object` | **REQUIRED** | Operator signing key metadata containing `signing_key_id`, `public_key_fingerprint` (`^sha256:[a-f0-9]{64}$`), and `signature_algorithm` (`ed25519`) |
 | `detached_signature` | `object` | **REQUIRED** | Detached signature declaration specifying `algorithm` (`ed25519`), `signature_file` (`manifest.sig`), and `key_fingerprint` (`^sha256:[a-f0-9]{64}$`) which MUST exactly match `operator_trust_root.public_key_fingerprint` |
-| `artifacts` | `array` | **REQUIRED** | List of $\ge 1$ artifacts with `name`, `path`, `sha256`, and `size_bytes` |
+| `artifacts` | `array` | **REQUIRED** | List of $\ge 1$ artifacts with `name`, `path`, `sha256`, and `size_bytes`. Root `manifest.json` and `manifest.sig` are envelope control files and are strictly prohibited from `artifacts[]`. |
 | `migration_reversibility_guaranteed` | `boolean` | **REQUIRED** | MUST be constant `true` |
 | `rollback_procedure_reference` | `string` | **REQUIRED** | URI/reference to rollback documentation (min length: 5) |
 | `update_station_workflow` | `object` | **REQUIRED** | Workflow object containing `preflight_steps[]`, `apply_steps[]`, and `rollback_steps[]` adhering to closed declarative action grammar and action parameter schemas |
