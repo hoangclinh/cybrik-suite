@@ -15779,3 +15779,559 @@ test('adversarial regression: comprehensive edge cases across dispatchS3PutObjec
 
   assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"a"', size_bytes: 5 }] }, 'not-valid-stored-parts').reason, 'MissingStoredPartState');
 });
+
+test('OPEN-2 view brand verification: reject impure ArrayBuffer views with MALFORMED_PAYLOAD_TYPE across S3 dispatchers', () => {
+  class CustomUint8Array extends Uint8Array {}
+  class CustomBuffer extends Buffer {}
+
+  const impureViews = [
+    new Int8Array([1, 2, 3]),
+    new Uint16Array([1, 2, 3]),
+    new Int16Array([1, 2, 3]),
+    new Uint32Array([1, 2, 3]),
+    new Int32Array([1, 2, 3]),
+    new Float32Array([1.0, 2.0]),
+    new Float64Array([1.0, 2.0]),
+    new BigInt64Array([1n, 2n]),
+    new BigUint64Array([1n, 2n]),
+    new DataView(new ArrayBuffer(16)),
+    new CustomUint8Array([1, 2, 3]),
+    Object.setPrototypeOf(Buffer.from('custom'), CustomBuffer.prototype),
+  ];
+
+  for (const view of impureViews) {
+    // 1. dispatchS3PutObject direct payload
+    const resPutDirect = dispatchS3PutObject(view);
+    assert.equal(resPutDirect.http_status, 400);
+    assert.equal(resPutDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // dispatchS3PutObject as maybeMd5Header or maybeSha256Header
+    const resPutMd5 = dispatchS3PutObject(Buffer.from('test'), view);
+    assert.equal(resPutMd5.http_status, 400);
+    assert.equal(resPutMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resPutSha = dispatchS3PutObject(Buffer.from('test'), undefined, view);
+    assert.equal(resPutSha.http_status, 400);
+    assert.equal(resPutSha.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // dispatchS3PutObject nested payload/payloadBytes/body
+    const resPutNested1 = dispatchS3PutObject({ payload: view });
+    assert.equal(resPutNested1.http_status, 400);
+    assert.equal(resPutNested1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resPutNested2 = dispatchS3PutObject({ payloadBytes: view });
+    assert.equal(resPutNested2.http_status, 400);
+    assert.equal(resPutNested2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resPutNested3 = dispatchS3PutObject({ body: view });
+    assert.equal(resPutNested3.http_status, 400);
+    assert.equal(resPutNested3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 2. dispatchS3Error direct payload
+    const resErrDirect = dispatchS3Error(view);
+    assert.equal(resErrDirect.http_status, 400);
+    assert.equal(resErrDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // dispatchS3Error as maybeHeader
+    const resErrHdr = dispatchS3Error('InvalidDigest', view);
+    assert.equal(resErrHdr.http_status, 400);
+    assert.equal(resErrHdr.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // dispatchS3Error nested payload/payloadBytes/body
+    const resErrNested1 = dispatchS3Error({ payload: view });
+    assert.equal(resErrNested1.http_status, 400);
+    assert.equal(resErrNested1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resErrNested2 = dispatchS3Error({ payloadBytes: view });
+    assert.equal(resErrNested2.http_status, 400);
+    assert.equal(resErrNested2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resErrNested3 = dispatchS3Error({ body: view });
+    assert.equal(resErrNested3.http_status, 400);
+    assert.equal(resErrNested3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 3. dispatchS3CompleteMultipartUpload direct & maybeStoredParts & nested
+    const resCmpDirect = dispatchS3CompleteMultipartUpload(view);
+    assert.equal(resCmpDirect.http_status, 400);
+    assert.equal(resCmpDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resCmpParts = dispatchS3CompleteMultipartUpload({}, view);
+    assert.equal(resCmpParts.http_status, 400);
+    assert.equal(resCmpParts.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resCmpNested = dispatchS3CompleteMultipartUpload({ payload: view });
+    assert.equal(resCmpNested.http_status, 400);
+    assert.equal(resCmpNested.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 4. validateS3MultipartSemantics direct & nested
+    assert.throws(
+      () => validateS3MultipartSemantics(view),
+      (err) => err.message.includes('MALFORMED_PAYLOAD_TYPE')
+    );
+
+    assert.throws(
+      () => validateS3MultipartSemantics({ payload: view }),
+      (err) => err.message.includes('MALFORMED_PAYLOAD_TYPE')
+    );
+  }
+});
+
+test('OPEN-2/OPEN-5 adversarial regression: prototype-spoofed views across platform semantics and S3 dispatchers', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.platform-capability-negotiation.v1.schema.json';
+  const offlineDistSchemaId = 'https://contracts.cybrik.example/cybrik.core-offline-distribution.v1.schema.json';
+
+  // 1. ArrayBuffer view with prototype re-assigned to Uint8Array.prototype
+  const float32Buf = new Float32Array([1.5, 2.5]).buffer;
+  const spoofedFloat32 = Object.setPrototypeOf(new Float32Array(float32Buf), Uint8Array.prototype);
+  assert.equal(isPureBufferOrUint8Array(spoofedFloat32), false, 'Float32Array spoofed as Uint8Array.prototype must not be pure');
+  assert.equal(isMalformedPayloadType(spoofedFloat32), true, 'Float32Array spoofed as Uint8Array.prototype must be malformed payload');
+  assert.equal(hasAnyAccessorsOrProxy(spoofedFloat32), true, 'Float32Array spoofed as Uint8Array.prototype must trigger accessor/proxy violation');
+  assert.throws(
+    () => createSafePlainSnapshot(spoofedFloat32),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'createSafePlainSnapshot must reject prototype-spoofed Float32Array'
+  );
+
+  // 2. DataView with prototype re-assigned to Uint8Array.prototype
+  const dataViewBuf = new ArrayBuffer(16);
+  const spoofedDataView = Object.setPrototypeOf(new DataView(dataViewBuf), Uint8Array.prototype);
+  assert.equal(isPureBufferOrUint8Array(spoofedDataView), false, 'DataView spoofed as Uint8Array.prototype must not be pure');
+  assert.equal(isMalformedPayloadType(spoofedDataView), true, 'DataView spoofed as Uint8Array.prototype must be malformed payload');
+  assert.equal(hasAnyAccessorsOrProxy(spoofedDataView), true, 'DataView spoofed as Uint8Array.prototype must trigger accessor/proxy violation');
+  assert.throws(
+    () => createSafePlainSnapshot(spoofedDataView),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'createSafePlainSnapshot must reject prototype-spoofed DataView'
+  );
+
+  // 3. Subclassed Uint8Array with overridden Symbol.toStringTag and Uint8Array prototype
+  class SubclassedUint8Array extends Uint8Array {
+    get [Symbol.toStringTag]() {
+      return 'Uint8Array';
+    }
+  }
+  const subclassedU8 = new SubclassedUint8Array(10);
+  assert.equal(isPureBufferOrUint8Array(subclassedU8), false, 'Subclassed Uint8Array must not be pure');
+  assert.equal(isMalformedPayloadType(subclassedU8), true, 'Subclassed Uint8Array must be malformed payload');
+  assert.equal(hasAnyAccessorsOrProxy(subclassedU8), true, 'Subclassed Uint8Array must trigger accessor/proxy violation');
+  assert.throws(
+    () => createSafePlainSnapshot(subclassedU8),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'createSafePlainSnapshot must reject subclassed Uint8Array'
+  );
+
+  // 4. Object.create with Uint8Array.prototype but without Uint8Array internal slot
+  const fakeUint8Object = Object.create(Uint8Array.prototype);
+  assert.equal(isPureBufferOrUint8Array(fakeUint8Object), false, 'Object.create(Uint8Array.prototype) must not be pure');
+  assert.equal(isMalformedPayloadType(fakeUint8Object), true, 'Object.create(Uint8Array.prototype) must be malformed payload');
+  assert.equal(hasAnyAccessorsOrProxy(fakeUint8Object), true, 'Object.create(Uint8Array.prototype) must trigger accessor/proxy violation');
+  assert.throws(
+    () => createSafePlainSnapshot(fakeUint8Object),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'createSafePlainSnapshot must reject fake Uint8Array object'
+  );
+
+  // 5. dispatchS3PutObject with prototype-spoofed views
+  const putSpoofedF32 = dispatchS3PutObject(spoofedFloat32);
+  assert.equal(putSpoofedF32.http_status, 400);
+  assert.equal(putSpoofedF32.error_code, 'InvalidDigest');
+  assert.equal(putSpoofedF32.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putSpoofedDv = dispatchS3PutObject(spoofedDataView);
+  assert.equal(putSpoofedDv.http_status, 400);
+  assert.equal(putSpoofedDv.error_code, 'InvalidDigest');
+  assert.equal(putSpoofedDv.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putSubclassed = dispatchS3PutObject(subclassedU8);
+  assert.equal(putSubclassed.http_status, 400);
+  assert.equal(putSubclassed.error_code, 'InvalidDigest');
+  assert.equal(putSubclassed.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const putFakeObj = dispatchS3PutObject(fakeUint8Object);
+  assert.equal(putFakeObj.http_status, 400);
+  assert.equal(putFakeObj.error_code, 'InvalidDigest');
+  assert.equal(putFakeObj.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 6. dispatchS3Error with prototype-spoofed views
+  const errSpoofedF32 = dispatchS3Error(spoofedFloat32);
+  assert.equal(errSpoofedF32.http_status, 400);
+  assert.equal(errSpoofedF32.error_code, 'InvalidDigest');
+  assert.equal(errSpoofedF32.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errSpoofedDv = dispatchS3Error(spoofedDataView);
+  assert.equal(errSpoofedDv.http_status, 400);
+  assert.equal(errSpoofedDv.error_code, 'InvalidDigest');
+  assert.equal(errSpoofedDv.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errSubclassed = dispatchS3Error(subclassedU8);
+  assert.equal(errSubclassed.http_status, 400);
+  assert.equal(errSubclassed.error_code, 'InvalidDigest');
+  assert.equal(errSubclassed.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errFakeObj = dispatchS3Error(fakeUint8Object);
+  assert.equal(errFakeObj.http_status, 400);
+  assert.equal(errFakeObj.error_code, 'InvalidDigest');
+  assert.equal(errFakeObj.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 7. verifyPayloadSha256 and verifyPayloadMd5 with prototype-spoofed views
+  assert.throws(
+    () => verifyPayloadSha256(spoofedFloat32, 'a'.repeat(64)),
+    /MALFORMED_PAYLOAD_TYPE/,
+    'verifyPayloadSha256 must reject prototype-spoofed Float32Array'
+  );
+  assert.throws(
+    () => verifyPayloadSha256(spoofedDataView, 'a'.repeat(64)),
+    /MALFORMED_PAYLOAD_TYPE/,
+    'verifyPayloadSha256 must reject prototype-spoofed DataView'
+  );
+  assert.throws(
+    () => verifyPayloadMd5(spoofedFloat32, '1B2M2Y8AsgTpgAmY7PhCfg=='),
+    /MALFORMED_PAYLOAD_TYPE/,
+    'verifyPayloadMd5 must reject prototype-spoofed Float32Array'
+  );
+  assert.throws(
+    () => verifyPayloadMd5(spoofedDataView, '1B2M2Y8AsgTpgAmY7PhCfg=='),
+    /MALFORMED_PAYLOAD_TYPE/,
+    'verifyPayloadMd5 must reject prototype-spoofed DataView'
+  );
+
+  // 8. Nested prototype-spoofed views inside negotiation requests fail closed terminally
+  const baseNegotiationRequest = {
+    negotiation_protocol_version: '1.0.0',
+    platform_contract_id: 'cybrik-platform-contract-001',
+    request_id: 'req-negotiate-spoofed-001',
+    requested_slots: [
+      {
+        slot_id: 'inference',
+        required_for_optimal: true,
+        candidate_capabilities: ['cap-infer-v1']
+      }
+    ],
+    client_context: {
+      tenant_id: 'tenant-001'
+    }
+  };
+
+  const reqWithSpoofedF32 = JSON.parse(JSON.stringify(baseNegotiationRequest));
+  reqWithSpoofedF32.client_context.spoofed_view = spoofedFloat32;
+  assert.throws(
+    () => validatePlatformSemantics(reqWithSpoofedF32, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject negotiation request with nested Float32Array prototype spoof'
+  );
+
+  const reqWithSpoofedDv = JSON.parse(JSON.stringify(baseNegotiationRequest));
+  reqWithSpoofedDv.requested_slots[0].spoofed_view = spoofedDataView;
+  assert.throws(
+    () => validatePlatformSemantics(reqWithSpoofedDv, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject negotiation request with nested DataView prototype spoof'
+  );
+
+  // 9. Nested prototype-spoofed views inside capability leases fail closed terminally
+  const baseLease = {
+    negotiation_protocol_version: '1.0.0',
+    platform_contract_id: 'cybrik-platform-contract-001',
+    session_id: 'sess-lease-spoofed-001',
+    lease_grant: {
+      lease_id: 'lease-grant-001',
+      lease_status: 'ACTIVE_OPTIMAL',
+      issued_at: '2026-08-29T00:00:00.000Z',
+      valid_until: '2026-08-29T01:00:00.000Z',
+      ttl_seconds: 3600
+    },
+    capability_leases: [
+      {
+        slot_id: 'storage',
+        capability_name: 'storage_object_lock',
+        conformance_profile: 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json#/$defs/storageConformanceProfile',
+        target_profile_digest: 'a'.repeat(64),
+        evidence_references: [
+          'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations',
+          'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'
+        ]
+      }
+    ],
+    conformance_evidence: [
+      {
+        test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:core-operations',
+        status: 'PASS',
+        evidence_hash: 'a'.repeat(64),
+        version_id: 'v1.0.0'
+      },
+      {
+        test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+        status: 'PASS',
+        evidence_hash: 'b'.repeat(64),
+        version_id: 'v1.0.0'
+      }
+    ]
+  };
+
+  const leaseWithSpoofedF32 = JSON.parse(JSON.stringify(baseLease));
+  leaseWithSpoofedF32.capability_leases[0].spoofed_view = spoofedFloat32;
+  assert.throws(
+    () => validatePlatformSemantics(leaseWithSpoofedF32, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject lease with nested Float32Array prototype spoof'
+  );
+
+  const leaseWithSpoofedDv = JSON.parse(JSON.stringify(baseLease));
+  leaseWithSpoofedDv.conformance_evidence[0].spoofed_view = spoofedDataView;
+  assert.throws(
+    () => validatePlatformSemantics(leaseWithSpoofedDv, pcnSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject lease with nested DataView prototype spoof'
+  );
+
+  // 10. Nested prototype-spoofed views inside offline install artifacts fail closed terminally
+  const baseOfflineManifest = {
+    manifest_version: '0.1.0',
+    package_name: 'cybrik-core-platform',
+    package_version: '1.0.0',
+    artifacts: [
+      {
+        path: 'bin/cybrik-engine',
+        sha256: 'a'.repeat(64),
+        size_bytes: 1048576
+      }
+    ],
+    operator_trust_root: {
+      key_id: 'op-key-001',
+      public_key_fingerprint: 'fp-sha256-abcdef0123456789'
+    },
+    detached_signature: {
+      signature_algorithm: 'ed25519',
+      key_fingerprint: 'fp-sha256-abcdef0123456789',
+      signature_bytes_base64: Buffer.from('sig').toString('base64')
+    },
+    update_station_workflow: {
+      preflight_steps: [],
+      apply_steps: [{ action: 'RESTORE_DATABASE_SNAPSHOT', target: 'snapshots/db_v1.sql' }],
+      rollback_steps: []
+    }
+  };
+
+  const offlineWithSpoofedF32 = JSON.parse(JSON.stringify(baseOfflineManifest));
+  offlineWithSpoofedF32.artifacts[0].digest_payload = spoofedFloat32;
+  assert.throws(
+    () => validateOfflineInstallSemantics(offlineWithSpoofedF32),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/,
+    'validateOfflineInstallSemantics must reject offline manifest with nested Float32Array prototype spoof in artifact'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(offlineWithSpoofedF32, offlineDistSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject offline manifest with nested Float32Array prototype spoof'
+  );
+
+  const offlineWithSpoofedDv = JSON.parse(JSON.stringify(baseOfflineManifest));
+  offlineWithSpoofedDv.update_station_workflow.spoofed_view = spoofedDataView;
+  assert.throws(
+    () => validateOfflineInstallSemantics(offlineWithSpoofedDv),
+    /Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest/,
+    'validateOfflineInstallSemantics must reject offline manifest with nested DataView prototype spoof in workflow'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(offlineWithSpoofedDv, offlineDistSchemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/,
+    'validatePlatformSemantics must reject offline manifest with nested DataView prototype spoof'
+  );
+
+  // 11. Nested prototype-spoofed views inside multipart manifests fail closed terminally
+  const multipartWithSpoofedF32 = {
+    parts: [
+      {
+        part_number: 1,
+        etag: '"0123456789abcdef0123456789abcdef"',
+        size_bytes: 5242880,
+        extra_view: spoofedFloat32
+      }
+    ]
+  };
+  assert.throws(
+    () => validateS3MultipartSemantics(multipartWithSpoofedF32),
+    /Semantic error: multipart upload manifest structure is invalid or malformed/
+  );
+  const mpResF32 = dispatchS3CompleteMultipartUpload(multipartWithSpoofedF32);
+  assert.equal(mpResF32.http_status, 400);
+  assert.equal(mpResF32.error_code, 'InvalidPart');
+  assert.equal(mpResF32.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const multipartWithSpoofedDv = {
+    parts: [
+      {
+        part_number: 1,
+        etag: '"0123456789abcdef0123456789abcdef"',
+        size_bytes: 5242880,
+        extra_view: spoofedDataView
+      }
+    ]
+  };
+  assert.throws(
+    () => validateS3MultipartSemantics(multipartWithSpoofedDv),
+    /Semantic error: multipart upload manifest structure is invalid or malformed/
+  );
+  const mpResDv = dispatchS3CompleteMultipartUpload(multipartWithSpoofedDv);
+  assert.equal(mpResDv.http_status, 400);
+  assert.equal(mpResDv.error_code, 'InvalidPart');
+  assert.equal(mpResDv.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const mpOptResF32 = dispatchS3CompleteMultipartUpload({ manifest: multipartWithSpoofedF32 });
+  assert.equal(mpOptResF32.http_status, 400);
+  assert.equal(mpOptResF32.error_code, 'InvalidPart');
+  assert.equal(mpOptResF32.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const mpStoredResF32 = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] },
+    spoofedFloat32
+  );
+  assert.equal(mpStoredResF32.http_status, 400);
+  assert.equal(mpStoredResF32.error_code, 'InvalidPart');
+  assert.equal(mpStoredResF32.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard', () => {
+  const nonUint8Variants = [
+    { name: 'Int8Array', create: () => new Int8Array([1, 2, 3]) },
+    { name: 'Uint8ClampedArray', create: () => new Uint8ClampedArray([1, 2, 3]) },
+    { name: 'Int16Array', create: () => new Int16Array([1, 2, 3]) },
+    { name: 'Uint16Array', create: () => new Uint16Array([1, 2, 3]) },
+    { name: 'Int32Array', create: () => new Int32Array([1, 2, 3]) },
+    { name: 'Uint32Array', create: () => new Uint32Array([1, 2, 3]) },
+    { name: 'Float32Array', create: () => new Float32Array([1.0, 2.0]) },
+    { name: 'Float64Array', create: () => new Float64Array([1.0, 2.0]) },
+    { name: 'BigInt64Array', create: () => new BigInt64Array([1n, 2n]) },
+    { name: 'BigUint64Array', create: () => new BigUint64Array([1n, 2n]) },
+    { name: 'DataView', create: () => new DataView(new ArrayBuffer(8)) },
+  ];
+
+  for (const variant of nonUint8Variants) {
+    // 1. Re-prototyped to Uint8Array.prototype
+    const u8Spoofed = Object.setPrototypeOf(variant.create(), Uint8Array.prototype);
+    assert.equal(isPureBufferOrUint8Array(u8Spoofed), false, `${variant.name} re-prototyped to Uint8Array.prototype must not be pure`);
+    assert.equal(isMalformedPayloadType(u8Spoofed), true, `${variant.name} re-prototyped to Uint8Array.prototype must be malformed payload`);
+    assert.throws(() => computePayloadMd5(u8Spoofed), /Invalid payload type/);
+    assert.throws(() => computePayloadSha256(u8Spoofed), /Invalid payload type/);
+    assert.throws(() => verifyPayloadSha256(u8Spoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadSha256({ payloadBytes: u8Spoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadMd5(u8Spoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadMd5({ payloadBytes: u8Spoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => createSafePlainSnapshot(u8Spoofed), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot({ payload: u8Spoofed }), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot([u8Spoofed]), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot({ nested: { items: [u8Spoofed] } }), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => validatePlatformSemantics(u8Spoofed, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics({ payload: u8Spoofed }, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics([u8Spoofed], 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics({ nested: { items: [u8Spoofed] } }, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics(u8Spoofed), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics({ payload: u8Spoofed }), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics([{ payload: u8Spoofed }]), /Semantic error/);
+    assert.equal(dispatchS3PutObject(u8Spoofed).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3PutObject({ payload: u8Spoofed, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true }).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error(u8Spoofed).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error({ payload: u8Spoofed }).error_code, 'InvalidDigest');
+
+    // 2. Re-prototyped to Buffer.prototype
+    const bufSpoofed = Object.setPrototypeOf(variant.create(), Buffer.prototype);
+    assert.equal(isPureBufferOrUint8Array(bufSpoofed), false, `${variant.name} re-prototyped to Buffer.prototype must not be pure`);
+    assert.equal(isMalformedPayloadType(bufSpoofed), true, `${variant.name} re-prototyped to Buffer.prototype must be malformed payload`);
+    assert.throws(() => computePayloadMd5(bufSpoofed), /Invalid payload type/);
+    assert.throws(() => computePayloadSha256(bufSpoofed), /Invalid payload type/);
+    assert.throws(() => verifyPayloadSha256(bufSpoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadSha256({ payloadBytes: bufSpoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadMd5(bufSpoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => verifyPayloadMd5({ payloadBytes: bufSpoofed }), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => createSafePlainSnapshot(bufSpoofed), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot({ payload: bufSpoofed }), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot([bufSpoofed]), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => createSafePlainSnapshot({ nested: { items: [bufSpoofed] } }), /Semantic error: accessor properties or Proxy objects are prohibited in platform data/);
+    assert.throws(() => validatePlatformSemantics(bufSpoofed, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics({ payload: bufSpoofed }, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics([bufSpoofed], 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics({ nested: { items: [bufSpoofed] } }, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics(bufSpoofed), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics({ payload: bufSpoofed }), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics([{ payload: bufSpoofed }]), /Semantic error/);
+    assert.equal(dispatchS3PutObject(bufSpoofed).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3PutObject({ payload: bufSpoofed, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true }).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error(bufSpoofed).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error({ payload: bufSpoofed }).error_code, 'InvalidDigest');
+  }
+
+  // 3. Plain objects spoofed to TypedArray prototypes
+  const fakePlainU8 = Object.setPrototypeOf({ 0: 65, 1: 66, length: 2 }, Uint8Array.prototype);
+  const fakePlainBuf = Object.setPrototypeOf({ 0: 65, 1: 66, length: 2 }, Buffer.prototype);
+  for (const fake of [fakePlainU8, fakePlainBuf]) {
+    assert.equal(isPureBufferOrUint8Array(fake), false);
+    assert.equal(isMalformedPayloadType(fake), true);
+    assert.throws(() => computePayloadMd5(fake), /Invalid payload type/);
+    assert.throws(() => computePayloadSha256(fake), /Invalid payload type/);
+    assert.throws(() => createSafePlainSnapshot(fake), /Semantic error/);
+    assert.throws(() => createSafePlainSnapshot({ nested: fake }), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics(fake, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics(fake), /Semantic error/);
+    assert.equal(dispatchS3PutObject(fake).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error(fake).error_code, 'InvalidDigest');
+  }
+
+  // 4. ArrayBuffer instances spoofed to TypedArray prototypes
+  const fakeAbU8 = Object.setPrototypeOf(new ArrayBuffer(8), Uint8Array.prototype);
+  const fakeAbBuf = Object.setPrototypeOf(new ArrayBuffer(8), Buffer.prototype);
+  for (const fake of [fakeAbU8, fakeAbBuf]) {
+    assert.equal(isPureBufferOrUint8Array(fake), false);
+    assert.equal(isMalformedPayloadType(fake), true);
+    assert.throws(() => computePayloadMd5(fake), /Invalid payload type/);
+    assert.throws(() => computePayloadSha256(fake), /Invalid payload type/);
+    assert.throws(() => createSafePlainSnapshot(fake), /Semantic error/);
+    assert.throws(() => createSafePlainSnapshot({ nested: fake }), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics(fake, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validateOfflineInstallSemantics(fake), /Semantic error/);
+    assert.equal(dispatchS3PutObject(fake).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3Error(fake).error_code, 'InvalidDigest');
+  }
+
+  // 5. Zero-getter error isolation on adversarial TypedArray subclasses
+  const constructors = [
+    Int8Array, Uint8ClampedArray, Int16Array, Uint16Array,
+    Int32Array, Uint32Array, Float32Array, Float64Array,
+    BigInt64Array, BigUint64Array
+  ];
+  for (const Ctor of constructors) {
+    let getterHit = false;
+    class EvilSubclass extends Ctor {
+      get evilField() {
+        getterHit = true;
+        return 'evil_value';
+      }
+    }
+    const isBig = Ctor === BigInt64Array || Ctor === BigUint64Array;
+    const evilInstU8 = Object.setPrototypeOf(new EvilSubclass(isBig ? [1n] : [1]), Uint8Array.prototype);
+    const evilInstBuf = Object.setPrototypeOf(new EvilSubclass(isBig ? [1n] : [1]), Buffer.prototype);
+
+    for (const evil of [evilInstU8, evilInstBuf]) {
+      getterHit = false;
+      assert.equal(isPureBufferOrUint8Array(evil), false);
+      assert.equal(getterHit, false, 'isPureBufferOrUint8Array must not trigger getters');
+
+      assert.throws(() => createSafePlainSnapshot(evil), /Semantic error/);
+      assert.equal(getterHit, false, 'createSafePlainSnapshot must not trigger getters on root');
+
+      assert.throws(() => createSafePlainSnapshot({ evil }), /Semantic error/);
+      assert.equal(getterHit, false, 'createSafePlainSnapshot must not trigger getters on nested object');
+
+      assert.throws(() => validatePlatformSemantics({ evil }, 'provider-capability-advertisement'), /Semantic error/);
+      assert.equal(getterHit, false, 'validatePlatformSemantics must not trigger getters');
+
+      assert.throws(() => validateOfflineInstallSemantics({ evil }), /Semantic error/);
+      assert.equal(getterHit, false, 'validateOfflineInstallSemantics must not trigger getters');
+
+      assert.equal(dispatchS3PutObject(evil).error_code, 'InvalidDigest');
+      assert.equal(getterHit, false, 'dispatchS3PutObject must not trigger getters');
+
+      assert.equal(dispatchS3Error(evil).error_code, 'InvalidDigest');
+      assert.equal(getterHit, false, 'dispatchS3Error must not trigger getters');
+    }
+  }
+});
