@@ -32,7 +32,9 @@
     "UploadPart",
     "CompleteMultipartUpload",
     "AbortMultipartUpload",
-    "PutObjectAclUnsupported"
+    "PutObjectAclUnsupported",
+    "ListParts",
+    "PutBucketVersioning"
   ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",

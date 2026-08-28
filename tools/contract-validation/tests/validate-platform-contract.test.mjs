@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -87,7 +87,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
   'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
-  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 15 }, message: 'must NOT have fewer than 15 items' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/then/properties/required_operations/minItems', params: { limit: 19 }, message: 'must NOT have fewer than 19 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
@@ -116,16 +116,16 @@ test('validate negative platform fixtures', () => {
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
 
-    assert.equal(ajv.errors.length, 1, `Expected exactly 1 error for ${file}, got ${ajv.errors.length}: ${ajv.errorsText()}`);
-
+    const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if');
+    assert.equal(filteredErrors.length, 1, `Expected exactly 1 error for ${file}, got ${filteredErrors.length}: ${ajv.errorsText()}`);
 
     const expected = EXPECTED_NEGATIVES[file];
     assert.ok(expected, `No expected error mapped for ${file}`);
-    assert.equal(ajv.errors[0].keyword, expected.keyword, `Mismatch keyword for ${file}`);
-    assert.equal(ajv.errors[0].instancePath, expected.instancePath, `Mismatch instancePath for ${file}`);
-    assert.equal(ajv.errors[0].schemaPath, expected.schemaPath, `Mismatch schemaPath for ${file}`);
-    assert.deepEqual(ajv.errors[0].params, expected.params, `Mismatch params for ${file}`);
-    assert.equal(ajv.errors[0].message, expected.message, `Mismatch message for ${file}`);
+    assert.equal(filteredErrors[0].keyword, expected.keyword, `Mismatch keyword for ${file}`);
+    assert.equal(filteredErrors[0].instancePath, expected.instancePath, `Mismatch instancePath for ${file}`);
+    assert.equal(filteredErrors[0].schemaPath, expected.schemaPath, `Mismatch schemaPath for ${file}`);
+    assert.deepEqual(filteredErrors[0].params, expected.params, `Mismatch params for ${file}`);
+    assert.equal(filteredErrors[0].message, expected.message, `Mismatch message for ${file}`);
   }
 });
 
@@ -7063,4 +7063,200 @@ test('regression: surplus properties in deployment profile slots.storage.specifi
       'Schema error must indicate additionalProperties violation under slots'
     );
   }
+});
+
+test('semantic validation: validateS3ConformanceProfileSemantics and inherited headers defense (OPEN-2)', () => {
+  // 1. Inherited headers getter safety
+  let putGetterInvoked = false;
+  const protoPut = Object.defineProperty({}, 'headers', {
+    get() {
+      putGetterInvoked = true;
+      throw new Error('Explosive headers getter called!');
+    }
+  });
+  const putReq = Object.create(protoPut);
+  putReq.payload = 'test';
+  const putRes = dispatchS3PutObject(putReq);
+  assert.equal(putGetterInvoked, false, 'Inherited headers getter must not be invoked');
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  let errGetterInvoked = false;
+  const protoErr = Object.defineProperty({}, 'headers', {
+    get() {
+      errGetterInvoked = true;
+      throw new Error('Explosive headers getter called!');
+    }
+  });
+  const errReq = Object.create(protoErr);
+  errReq.payload = 'test';
+  const errRes = dispatchS3Error(errReq);
+  assert.equal(errGetterInvoked, false, 'Inherited headers getter must not be invoked');
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. Standalone S3 conformance profile validation
+  const sampleProfile = {
+    provider_identifier: 'minio-enterprise-s3',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true
+    },
+    object_lock_supported: true,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [...S3_19_CLOSED_OPS],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [...S3_CANONICAL_ERROR_CODES]
+  };
+
+  // Full 19-op profile with lock supported passes
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(sampleProfile));
+
+  // 15-op profile with lock unsupported passes
+  const nonLockProfile = {
+    ...sampleProfile,
+    object_lock_supported: false,
+    required_operations: [...S3_15_BASELINE_OPS]
+  };
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(nonLockProfile));
+
+  // Duplicate operations rejected
+  const dupProfile = {
+    ...sampleProfile,
+    required_operations: [...S3_19_CLOSED_OPS, 'GetObject']
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(dupProfile),
+    /required_operations contains duplicate operation 'GetObject'/
+  );
+
+  // Missing baseline op rejected
+  const missingBaseProfile = {
+    ...sampleProfile,
+    required_operations: S3_19_CLOSED_OPS.filter(op => op !== 'GetObject')
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(missingBaseProfile),
+    /missing required S3 operation 'GetObject'/
+  );
+
+  // Lock supported true missing lock op rejected
+  const missingLockProfile = {
+    ...sampleProfile,
+    required_operations: S3_19_CLOSED_OPS.filter(op => op !== 'GetObjectRetention')
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(missingLockProfile),
+    /missing required Object Lock S3 operation 'GetObjectRetention'/
+  );
+
+  // Lock supported false with lock op rejected
+  const falseLockWithLockOp = {
+    ...nonLockProfile,
+    required_operations: [...S3_15_BASELINE_OPS, 'GetObjectRetention']
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(falseLockWithLockOp),
+    /object_lock_supported === false must not contain Object Lock operation 'GetObjectRetention'/
+  );
+});
+
+test('regression: standalone S3 conformance profile with object_lock_supported: true and only 15 operations fails semantic validation (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-storage-s3-subset.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Canonical sample passes both schema and semantic validation
+  assert.ok(ajv.validate(s3SchemaId, sample));
+  assert.doesNotThrow(() => validatePlatformSemantics(sample, s3SchemaId));
+
+  // 2. Profile with object_lock_supported: true and only 15 baseline operations
+  const fifteenOpsProfile = JSON.parse(JSON.stringify(sample));
+  fifteenOpsProfile.object_lock_supported = true;
+  fifteenOpsProfile.required_operations = [
+    'PutObject',
+    'GetObject',
+    'HeadObject',
+    'DeleteObject',
+    'DeleteObjects',
+    'ListObjectsV2',
+    'HeadBucket',
+    'CreateBucket',
+    'CreateMultipartUpload',
+    'UploadPart',
+    'CompleteMultipartUpload',
+    'AbortMultipartUpload',
+    'ListParts',
+    'PutBucketVersioning',
+    'GetBucketVersioning',
+  ];
+  assert.equal(fifteenOpsProfile.required_operations.length, 15);
+
+  // Schema validation fails because object_lock_supported: true mandates 19 operations
+  const validSchema = ajv.validate(s3SchemaId, fifteenOpsProfile);
+  assert.equal(validSchema, false, '15-op profile with object_lock_supported: true must fail schema validation requiring 19 operations');
+
+  // Semantic validation fails closed because object_lock_supported: true mandates all 19 operations
+  assert.throws(
+    () => validatePlatformSemantics(fifteenOpsProfile, s3SchemaId),
+    /missing required Object Lock S3 operation/
+  );
+});
+
+test('regression: standalone S3 conformance profile missing mandatory PutObject fails semantic validation (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-storage-s3-subset.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // 1. Profile missing PutObject but having 18 other operations (including lock operations)
+  const missingPutProfile = JSON.parse(JSON.stringify(sample));
+  missingPutProfile.required_operations = sample.required_operations.filter(op => op !== 'PutObject');
+  assert.equal(missingPutProfile.required_operations.length, 18);
+  assert.ok(!missingPutProfile.required_operations.includes('PutObject'));
+
+  // Schema validation fails because object_lock_supported: true mandates 19 operations
+  const validSchema = ajv.validate(s3SchemaId, missingPutProfile);
+  assert.equal(validSchema, false, '18-op profile with object_lock_supported: true must fail schema validation requiring 19 operations');
+
+  // Semantic validation must fail closed because PutObject is a mandatory baseline operation
+  assert.throws(
+    () => validatePlatformSemantics(missingPutProfile, s3SchemaId),
+    /missing mandatory baseline S3 operation 'PutObject'/
+  );
+
+  // 2. Profile with 15 operations that substitutes PutObject with an Object Lock operation passes schema (15 ops) but fails semantic validation
+  const substituteProfile = JSON.parse(JSON.stringify(sample));
+  substituteProfile.object_lock_supported = false; // even without object_lock_supported
+  substituteProfile.required_operations = [
+    'GetObject', // PutObject omitted
+    'HeadObject',
+    'DeleteObject',
+    'DeleteObjects',
+    'ListObjectsV2',
+    'HeadBucket',
+    'CreateBucket',
+    'CreateMultipartUpload',
+    'UploadPart',
+    'CompleteMultipartUpload',
+    'AbortMultipartUpload',
+    'ListParts',
+    'PutBucketVersioning',
+    'GetBucketVersioning',
+    'PutObjectRetention', // 15th op
+  ];
+  assert.equal(substituteProfile.required_operations.length, 15);
+
+  assert.throws(
+    () => validatePlatformSemantics(substituteProfile, s3SchemaId),
+    /(?:missing mandatory baseline S3 operation 'PutObject'|object_lock_supported === false must not contain Object Lock operation 'PutObjectRetention')/
+  );
 });

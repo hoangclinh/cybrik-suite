@@ -81,6 +81,17 @@ jobs:
         working-directory: tools/contract-validation
         run: npm run validate
 
+      - name: Validate platform contract test suite
+        working-directory: tools/contract-validation
+        run: npm run validate:platform
+
+      - name: Validate S3 compatibility test suite
+        working-directory: tools/contract-validation
+        run: npm run validate:s3
+
+      - name: Run contract validation test suites
+        run: npm --prefix tools/contract-validation test
+
       - name: Test accepted W1 static contract lines (exactly 98 tests)
         working-directory: tools/contract-validation
         run: npm run test:w1-contracts

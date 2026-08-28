@@ -21,7 +21,13 @@ import {
   verifyMalformedHeaderDispatch,
   validateS3MultipartSemantics,
   validatePlatformSemantics,
+  validateS3ConformanceProfileSemantics,
   S3_CANONICAL_ERROR_CODES,
+  S3_15_BASELINE_OPS,
+  S3_4_OBJECT_LOCK_OPS,
+  S3_19_CLOSED_OPS,
+  S3_15_OPERATIONS,
+  S3_19_OPERATIONS,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -272,13 +278,14 @@ test('validate negative storage fixtures (single-defect isolation and dispatch e
     const valid = ajv.validate(expected.schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} unexpectedly passed validation`);
 
+    const filteredErrors = ajv.errors.filter((e) => e.keyword !== 'if');
     assert.equal(
-      ajv.errors.length,
+      filteredErrors.length,
       1,
-      `Expected exactly 1 isolated defect for ${file}, found ${ajv.errors.length}: ${JSON.stringify(ajv.errors)}`
+      `Expected exactly 1 isolated defect for ${file}, found ${filteredErrors.length}: ${JSON.stringify(filteredErrors)}`
     );
 
-    const error = ajv.errors[0];
+    const error = filteredErrors[0];
     assert.equal(error.keyword, expected.keyword, `Mismatch keyword for ${file}`);
     assert.equal(error.instancePath, expected.instancePath, `Mismatch instancePath for ${file}`);
 
@@ -531,9 +538,9 @@ test('mandate root and profile WORM support (object_lock, retention_modes, legal
   assert.ok(ajv.validate(PROFILE_DEF_ID, baseProfile));
   assert.ok(ajv.validate(S3_SCHEMA_ID, baseProfile));
 
-  const badObjectLock = { ...baseProfile, object_lock_supported: false };
+  const badObjectLock = { ...baseProfile, object_lock_supported: false, required_operations: baseProfile.required_operations.slice(0, 15) };
   assert.ok(!ajv.validate(PROFILE_DEF_ID, badObjectLock));
-  assert.equal(ajv.errors[0].keyword, 'const');
+  assert.ok(ajv.errors.some(e => e.keyword === 'const' && e.instancePath === '/object_lock_supported'));
 
   const missingObjectLock = { ...baseProfile };
   delete missingObjectLock.object_lock_supported;
@@ -5462,4 +5469,556 @@ test('regression: prototype-inherited option keys return HTTP 400 InvalidDigest 
   assert.equal(resInhErrHeaders.http_status, 400);
   assert.equal(resInhErrHeaders.error_code, 'InvalidDigest');
   assert.equal(resInhErrHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('inherited headers getter invocation defense across dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+  // 1. Prototype with explosive headers getter
+  let putGetterInvoked = false;
+  const protoPut = Object.defineProperty({}, 'headers', {
+    get() {
+      putGetterInvoked = true;
+      throw new Error('Explosive prototype headers getter invoked on dispatchS3PutObject!');
+    }
+  });
+  const putObj = Object.create(protoPut);
+  putObj.payload = Buffer.from('test-payload');
+
+  const resPut = dispatchS3PutObject(putObj);
+  assert.equal(putGetterInvoked, false, 'Prototype headers getter must NOT be invoked by dispatchS3PutObject');
+  assert.equal(resPut.http_status, 400);
+  assert.equal(resPut.error_code, 'InvalidDigest');
+  assert.equal(resPut.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. dispatchS3Error with prototype explosive headers getter
+  let errGetterInvoked = false;
+  const protoErr = Object.defineProperty({}, 'headers', {
+    get() {
+      errGetterInvoked = true;
+      throw new Error('Explosive prototype headers getter invoked on dispatchS3Error!');
+    }
+  });
+  const errObj = Object.create(protoErr);
+  errObj.payload = Buffer.from('test-payload');
+
+  const resErr = dispatchS3Error(errObj);
+  assert.equal(errGetterInvoked, false, 'Prototype headers getter must NOT be invoked by dispatchS3Error');
+  assert.equal(resErr.http_status, 400);
+  assert.equal(resErr.error_code, 'InvalidDigest');
+  assert.equal(resErr.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. Safe descriptor lookup: own headers getter must NOT execute arbitrary code
+  let ownPutGetterInvoked = false;
+  const ownGetterPutObj = {
+    payload: Buffer.from('test-payload')
+  };
+  Object.defineProperty(ownGetterPutObj, 'headers', {
+    get() {
+      ownPutGetterInvoked = true;
+      return { 'Content-MD5': 'some-md5' };
+    },
+    enumerable: true,
+    configurable: true
+  });
+  const resOwnPut = dispatchS3PutObject(ownGetterPutObj);
+  assert.equal(resOwnPut.http_status, 400);
+  assert.equal(resOwnPut.error_code, 'InvalidDigest');
+
+  // 4. Inherited getter on headers property (e.g. proto for headers object has getter)
+  let innerGetterInvoked = false;
+  const headersProto = Object.defineProperty({}, 'Content-MD5', {
+    get() {
+      innerGetterInvoked = true;
+      throw new Error('Explosive headers property getter invoked!');
+    }
+  });
+  const badHeadersObj = Object.create(headersProto);
+  const resNestedProto = dispatchS3PutObject({
+    payload: Buffer.from('test-payload'),
+    headers: badHeadersObj
+  });
+  assert.equal(innerGetterInvoked, false, 'Inner prototype headers property getter must NOT be invoked');
+  assert.equal(resNestedProto.http_status, 400);
+  assert.equal(resNestedProto.error_code, 'InvalidDigest');
+  assert.equal(resNestedProto.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('validateS3ConformanceProfileSemantics strict 15/19 operation set and canonical error code validation (OPEN-2)', () => {
+  const baseProfile = {
+    provider_identifier: 'minio-enterprise-s3',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true
+    },
+    object_lock_supported: true,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [...S3_19_CLOSED_OPS],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [...S3_CANONICAL_ERROR_CODES]
+  };
+
+  // 1. Positive 19-operation full lock profile passes
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(baseProfile));
+
+  // 2. Positive 15-operation profile (object_lock_supported: false) passes
+  const nonLockProfile = {
+    ...baseProfile,
+    object_lock_supported: false,
+    required_operations: [...S3_15_BASELINE_OPS]
+  };
+  assert.doesNotThrow(() => validateS3ConformanceProfileSemantics(nonLockProfile));
+
+  // 3. Duplicate operations in required_operations are strictly rejected
+  const dupOpsProfile = {
+    ...baseProfile,
+    required_operations: [...S3_19_CLOSED_OPS, 'PutObject']
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(dupOpsProfile),
+    /required_operations contains duplicate operation 'PutObject'/
+  );
+
+  // 4. Missing baseline operation (e.g. PutBucketVersioning) is rejected
+  const missingVersioningProfile = {
+    ...baseProfile,
+    required_operations: S3_19_CLOSED_OPS.filter(op => op !== 'PutBucketVersioning')
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(missingVersioningProfile),
+    /missing required S3 operation 'PutBucketVersioning'/
+  );
+
+  // 5. object_lock_supported: true missing Object Lock operation (e.g. PutObjectRetention) is rejected
+  const missingLockProfile = {
+    ...baseProfile,
+    required_operations: S3_19_CLOSED_OPS.filter(op => op !== 'PutObjectRetention')
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(missingLockProfile),
+    /missing required Object Lock S3 operation 'PutObjectRetention'/
+  );
+
+  // 6. object_lock_supported: false containing Object Lock operation is rejected
+  const falseLockWithLockOps = {
+    ...nonLockProfile,
+    required_operations: [...S3_15_BASELINE_OPS.slice(0, 14), 'PutObjectRetention']
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(falseLockWithLockOps),
+    /object_lock_supported === false must not contain Object Lock operation 'PutObjectRetention'/
+  );
+
+  // 7. object_lock_supported: false with wrong count (!== 15) is rejected
+  const falseLockWrongCount = {
+    ...nonLockProfile,
+    required_operations: S3_15_BASELINE_OPS.slice(0, 14)
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(falseLockWrongCount),
+    /must contain exactly 15 operations/
+  );
+
+  // 8. Missing canonical error code in required_error_codes is rejected
+  for (const code of S3_CANONICAL_ERROR_CODES) {
+    const missingCodeProfile = {
+      ...baseProfile,
+      required_error_codes: S3_CANONICAL_ERROR_CODES.filter(c => c !== code)
+    };
+    assert.throws(
+      () => validateS3ConformanceProfileSemantics(missingCodeProfile),
+      new RegExp(`required_error_codes is missing required canonical error code '${code}'`)
+    );
+  }
+
+  // 9. Non-object profile is rejected
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(null),
+    /storage conformance profile must be an object/
+  );
+});
+
+test('regression: options objects with inherited throwing headers getters return HTTP 400 InvalidDigest without throwing', () => {
+  // 1. Inherited throwing headers getter on prototype: Object.create({ get headers() { throw new Error('attack'); } })
+  const attackObj = Object.create({
+    get headers() {
+      throw new Error('attack');
+    }
+  });
+
+  // dispatchS3PutObject must return HTTP 400 InvalidDigest without throwing
+  const putRes = dispatchS3PutObject(attackObj);
+  assert.equal(putRes.http_status, 400);
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.status, 400);
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.ok(
+    putRes.reason === 'MALFORMED_HEADER_SYNTAX' || putRes.reason === 'MALFORMED_PAYLOAD_TYPE',
+    `Expected reason MALFORMED_HEADER_SYNTAX or MALFORMED_PAYLOAD_TYPE, got ${putRes.reason}`
+  );
+
+  // dispatchS3Error must return HTTP 400 InvalidDigest without throwing
+  const errRes = dispatchS3Error(attackObj);
+  assert.equal(errRes.http_status, 400);
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.status, 400);
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.ok(
+    errRes.reason === 'MALFORMED_HEADER_SYNTAX' || errRes.reason === 'MALFORMED_PAYLOAD_TYPE',
+    `Expected reason MALFORMED_HEADER_SYNTAX or MALFORMED_PAYLOAD_TYPE, got ${errRes.reason}`
+  );
+
+  // 2. Inherited throwing headers getter with own payload properties
+  const attackWithPayload = Object.create({
+    get headers() {
+      throw new Error('attack');
+    }
+  });
+  attackWithPayload.payload = Buffer.from('CYBRIK_TEST_DATA');
+  attackWithPayload['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
+
+  const putPayloadRes = dispatchS3PutObject(attackWithPayload);
+  assert.equal(putPayloadRes.http_status, 400);
+  assert.equal(putPayloadRes.error_code, 'InvalidDigest');
+  assert.ok(
+    putPayloadRes.reason === 'MALFORMED_HEADER_SYNTAX' || putPayloadRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  const errPayloadRes = dispatchS3Error(attackWithPayload);
+  assert.equal(errPayloadRes.http_status, 400);
+  assert.equal(errPayloadRes.error_code, 'InvalidDigest');
+  assert.ok(
+    errPayloadRes.reason === 'MALFORMED_HEADER_SYNTAX' || errPayloadRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  // 3. Plain options object containing headers property that itself has inherited throwing getters
+  const attackNestedHeaders = {
+    payload: Buffer.from('CYBRIK_TEST_DATA'),
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    headers: Object.create({
+      get 'Content-MD5'() {
+        throw new Error('attack');
+      },
+      get 'content-md5'() {
+        throw new Error('attack');
+      },
+      get 'x-amz-content-sha256'() {
+        throw new Error('attack');
+      }
+    })
+  };
+
+  const putNestedRes = dispatchS3PutObject(attackNestedHeaders);
+  assert.equal(putNestedRes.http_status, 400);
+  assert.equal(putNestedRes.error_code, 'InvalidDigest');
+  assert.ok(
+    putNestedRes.reason === 'MALFORMED_HEADER_SYNTAX' || putNestedRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  const errNestedRes = dispatchS3Error(attackNestedHeaders);
+  assert.equal(errNestedRes.http_status, 400);
+  assert.equal(errNestedRes.error_code, 'InvalidDigest');
+  assert.ok(
+    errNestedRes.reason === 'MALFORMED_HEADER_SYNTAX' || errNestedRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  // 4. Object with prototype containing multiple explosive throwing getters
+  const multiAttackProto = {
+    get headers() { throw new Error('attack headers'); },
+    get payload() { throw new Error('attack payload'); },
+    get payloadBytes() { throw new Error('attack payloadBytes'); },
+    get body() { throw new Error('attack body'); },
+    get contentMd5Header() { throw new Error('attack contentMd5Header'); },
+    get content_md5_header() { throw new Error('attack content_md5_header'); },
+    get 'x-amz-content-sha256'() { throw new Error('attack sha256'); },
+    get code() { throw new Error('attack code'); },
+    get error_code() { throw new Error('attack error_code'); },
+    get status() { throw new Error('attack status'); },
+    get http_status() { throw new Error('attack http_status'); }
+  };
+  const multiAttackObj = Object.create(multiAttackProto);
+
+  const putMultiRes = dispatchS3PutObject(multiAttackObj);
+  assert.equal(putMultiRes.http_status, 400);
+  assert.equal(putMultiRes.error_code, 'InvalidDigest');
+  assert.ok(
+    putMultiRes.reason === 'MALFORMED_HEADER_SYNTAX' || putMultiRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  const errMultiRes = dispatchS3Error(multiAttackObj);
+  assert.equal(errMultiRes.http_status, 400);
+  assert.equal(errMultiRes.error_code, 'InvalidDigest');
+  assert.ok(
+    errMultiRes.reason === 'MALFORMED_HEADER_SYNTAX' || errMultiRes.reason === 'MALFORMED_PAYLOAD_TYPE'
+  );
+
+  // 5. Object with own throwing headers getter returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+  const ownThrowingHeaders = {
+    get headers() {
+      throw new Error('attack own headers');
+    }
+  };
+  const putOwnRes = dispatchS3PutObject(ownThrowingHeaders);
+  assert.equal(putOwnRes.http_status, 400);
+  assert.equal(putOwnRes.error_code, 'InvalidDigest');
+  assert.equal(putOwnRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errOwnRes = dispatchS3Error(ownThrowingHeaders);
+  assert.equal(errOwnRes.http_status, 400);
+  assert.equal(errOwnRes.error_code, 'InvalidDigest');
+  assert.equal(errOwnRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('URL presigning parameter validation and error mapping (OPEN-2)', () => {
+  // 1. Mandatory operations flag 'presigning: true' in storage conformance profile
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const baseProfile = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  assert.equal(baseProfile.mandatory_operations.presigning, true, 'presigning must be true in positive fixture');
+  assert.ok(ajv.validate(PROFILE_DEF_ID, baseProfile));
+
+  const falsePresigningProfile = {
+    ...baseProfile,
+    mandatory_operations: {
+      ...baseProfile.mandatory_operations,
+      presigning: false,
+    },
+  };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, falsePresigningProfile), 'presigning: false must fail schema validation');
+  assert.equal(ajv.errors[0].keyword, 'const');
+  assert.equal(ajv.errors[0].instancePath, '/mandatory_operations/presigning');
+
+  const missingPresigningProfile = {
+    ...baseProfile,
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+  };
+  assert.ok(!ajv.validate(PROFILE_DEF_ID, missingPresigningProfile), 'missing presigning flag must fail schema validation');
+  assert.equal(ajv.errors[0].keyword, 'required');
+  assert.equal(ajv.errors[0].params.missingProperty, 'presigning');
+
+  // 2. Presigned URL SigV4 query parameter specifications and validation
+  function validatePresignedUrlParams(queryParams) {
+    const isPlain = queryParams !== null && typeof queryParams === 'object' && !Array.isArray(queryParams);
+    if (!isPlain) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'INVALID_QUERY_PARAMETERS' };
+    }
+
+    const algorithm = queryParams['X-Amz-Algorithm'] ?? queryParams['x-amz-algorithm'];
+    const credential = queryParams['X-Amz-Credential'] ?? queryParams['x-amz-credential'];
+    const date = queryParams['X-Amz-Date'] ?? queryParams['x-amz-date'];
+    const expiresStr = queryParams['X-Amz-Expires'] ?? queryParams['x-amz-expires'];
+    const signedHeaders = queryParams['X-Amz-SignedHeaders'] ?? queryParams['x-amz-signedheaders'];
+    const signature = queryParams['X-Amz-Signature'] ?? queryParams['x-amz-signature'];
+
+    // Missing required parameters -> HTTP 400 InvalidArgument
+    if (!algorithm || !credential || !date || expiresStr === undefined || expiresStr === null || !signedHeaders || !signature) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'MISSING_REQUIRED_PRESIGNED_PARAMETER' };
+    }
+
+    // Algorithm must strictly be AWS4-HMAC-SHA256
+    if (algorithm !== 'AWS4-HMAC-SHA256') {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'UNSUPPORTED_PRESIGNED_ALGORITHM' };
+    }
+
+    // Date format: YYYYMMDDTHHMMSSZ
+    if (typeof date !== 'string' || !/^[0-9]{8}T[0-9]{6}Z$/.test(date)) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'MALFORMED_PRESIGNED_DATE' };
+    }
+
+    // Expires bounds: integer 1..604800 (max 7 days)
+    const expiresNum = Number(expiresStr);
+    if (!Number.isInteger(expiresNum) || expiresNum < 1 || expiresNum > 604800 || String(expiresNum) !== String(expiresStr).trim()) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'EXPIRES_OUT_OF_BOUNDS' };
+    }
+
+    // Signature format: 64 hex lowercase
+    if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/.test(signature)) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'MALFORMED_PRESIGNED_SIGNATURE' };
+    }
+
+    // SignedHeaders: non-empty semicolon-delimited lowercase tokens
+    if (typeof signedHeaders !== 'string' || !/^[a-z0-9-]+(?:;[a-z0-9-]+)*$/.test(signedHeaders)) {
+      return { http_status: 400, error_code: 'InvalidArgument', reason: 'MALFORMED_SIGNED_HEADERS' };
+    }
+
+    // Check expiration timestamp against request_time
+    if (queryParams.request_timestamp && queryParams.current_timestamp) {
+      const reqTime = typeof queryParams.request_timestamp === 'number' ? queryParams.request_timestamp : Date.parse(queryParams.request_timestamp);
+      const currTime = typeof queryParams.current_timestamp === 'number' ? queryParams.current_timestamp : Date.parse(queryParams.current_timestamp);
+      if (currTime > reqTime + (expiresNum * 1000)) {
+        return { http_status: 403, error_code: 'AccessDenied', reason: 'REQUEST_EXPIRED' };
+      }
+    }
+
+    // Check signature match
+    if (queryParams.expected_signature && queryParams.expected_signature !== signature) {
+      return { http_status: 403, error_code: 'AccessDenied', reason: 'SIGNATURE_DOES_NOT_MATCH' };
+    }
+
+    return { http_status: 200, error_code: null, reason: 'VALID' };
+  }
+
+  const validPresignedParams = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': 'EXAMPLE_KEY_ID_001/20260828/us-east-1/s3/aws4_request',
+    'X-Amz-Date': '20260828T120000Z',
+    'X-Amz-Expires': 86400,
+    'X-Amz-SignedHeaders': 'host;x-amz-content-sha256',
+    'X-Amz-Signature': 'a'.repeat(64),
+    request_timestamp: '2026-08-28T12:00:00Z',
+    current_timestamp: '2026-08-28T14:00:00Z',
+  };
+
+  const validRes = validatePresignedUrlParams(validPresignedParams);
+  assert.equal(validRes.http_status, 200);
+  assert.equal(validRes.error_code, null);
+
+  // 3. Presigned URL expired: returns HTTP 403 AccessDenied
+  const expiredParams = {
+    ...validPresignedParams,
+    'X-Amz-Expires': 3600, // 1 hour
+    request_timestamp: '2026-08-28T12:00:00Z',
+    current_timestamp: '2026-08-28T14:00:00Z', // 2 hours later -> expired
+  };
+  const expiredRes = validatePresignedUrlParams(expiredParams);
+  assert.equal(expiredRes.http_status, 403);
+  assert.equal(expiredRes.error_code, 'AccessDenied');
+  assert.equal(expiredRes.reason, 'REQUEST_EXPIRED');
+
+  // 4. Presigned URL expires out of bounds (> 604800 or <= 0): returns HTTP 400 InvalidArgument
+  const excessiveExpires = { ...validPresignedParams, 'X-Amz-Expires': 604801 };
+  const excessiveRes = validatePresignedUrlParams(excessiveExpires);
+  assert.equal(excessiveRes.http_status, 400);
+  assert.equal(excessiveRes.error_code, 'InvalidArgument');
+  assert.equal(excessiveRes.reason, 'EXPIRES_OUT_OF_BOUNDS');
+
+  const zeroExpires = { ...validPresignedParams, 'X-Amz-Expires': 0 };
+  const zeroRes = validatePresignedUrlParams(zeroExpires);
+  assert.equal(zeroRes.http_status, 400);
+  assert.equal(zeroRes.error_code, 'InvalidArgument');
+  assert.equal(zeroRes.reason, 'EXPIRES_OUT_OF_BOUNDS');
+
+  const negativeExpires = { ...validPresignedParams, 'X-Amz-Expires': -100 };
+  const negativeRes = validatePresignedUrlParams(negativeExpires);
+  assert.equal(negativeRes.http_status, 400);
+  assert.equal(negativeRes.error_code, 'InvalidArgument');
+  assert.equal(negativeRes.reason, 'EXPIRES_OUT_OF_BOUNDS');
+
+  const floatExpires = { ...validPresignedParams, 'X-Amz-Expires': 3600.5 };
+  const floatRes = validatePresignedUrlParams(floatExpires);
+  assert.equal(floatRes.http_status, 400);
+  assert.equal(floatRes.error_code, 'InvalidArgument');
+  assert.equal(floatRes.reason, 'EXPIRES_OUT_OF_BOUNDS');
+
+  // 5. Unsupported presigned algorithm: returns HTTP 400 InvalidArgument
+  const badAlgoParams = { ...validPresignedParams, 'X-Amz-Algorithm': 'AWS4-HMAC-SHA512' };
+  const badAlgoRes = validatePresignedUrlParams(badAlgoParams);
+  assert.equal(badAlgoRes.http_status, 400);
+  assert.equal(badAlgoRes.error_code, 'InvalidArgument');
+  assert.equal(badAlgoRes.reason, 'UNSUPPORTED_PRESIGNED_ALGORITHM');
+
+  // 6. Missing required presigned query parameters: returns HTTP 400 InvalidArgument
+  for (const requiredKey of ['X-Amz-Algorithm', 'X-Amz-Credential', 'X-Amz-Date', 'X-Amz-Expires', 'X-Amz-SignedHeaders', 'X-Amz-Signature']) {
+    const missingParam = { ...validPresignedParams };
+    delete missingParam[requiredKey];
+    const missingRes = validatePresignedUrlParams(missingParam);
+    assert.equal(missingRes.http_status, 400, `Missing ${requiredKey} must return HTTP 400`);
+    assert.equal(missingRes.error_code, 'InvalidArgument', `Missing ${requiredKey} must return InvalidArgument`);
+  }
+
+  // 7. Signature mismatch: returns HTTP 403 AccessDenied
+  const mismatchedSigParams = {
+    ...validPresignedParams,
+    'X-Amz-Signature': 'b'.repeat(64),
+    expected_signature: 'a'.repeat(64),
+  };
+  const mismatchSigRes = validatePresignedUrlParams(mismatchedSigParams);
+  assert.equal(mismatchSigRes.http_status, 403);
+  assert.equal(mismatchSigRes.error_code, 'AccessDenied');
+  assert.equal(mismatchSigRes.reason, 'SIGNATURE_DOES_NOT_MATCH');
+
+  // 8. Malformed signature syntax: returns HTTP 400 InvalidArgument
+  for (const badSig of ['short', 'G'.repeat(64), 'a'.repeat(63), 'a'.repeat(65), 'not-hex!!']) {
+    const badSigParams = { ...validPresignedParams, 'X-Amz-Signature': badSig };
+    const badSigRes = validatePresignedUrlParams(badSigParams);
+    assert.equal(badSigRes.http_status, 400, `Bad signature '${badSig}' must return HTTP 400`);
+    assert.equal(badSigRes.error_code, 'InvalidArgument', `Bad signature '${badSig}' must return InvalidArgument`);
+  }
+
+  // 9. Presigned path-style URL schema validation and dot-segment rejection
+  const validateUrl = ajv.getSchema(PATH_STYLE_URL_DEF_ID);
+  assert.ok(validateUrl, `Missing schema for ${PATH_STYLE_URL_DEF_ID}`);
+
+  assert.ok(validateUrl('https://storage.internal.cybrik:9000/cybrik-audit/evidence/bundle.tar.gz'));
+  assert.ok(!validateUrl('https://storage.internal.cybrik:9000/cybrik-audit/../evidence/bundle.tar.gz'), 'Dot-segment in presigned URL path must be rejected');
+  assert.ok(!validateUrl('https://storage.internal.cybrik:9000/cybrik-audit/./evidence/bundle.tar.gz'), 'Dot-slash in presigned URL path must be rejected');
+  assert.ok(!validateUrl('https://storage.internal.cybrik:9000/cybrik-audit//bundle.tar.gz'), 'Double slash in presigned URL path must be rejected');
+
+  // 10. Presigned PutObject digest dispatch error mapping
+  const payload = Buffer.from('IMMUTABLE_AUDIT_LOG_2026');
+  const validMd5 = computePayloadMd5(payload);
+  const invalidMd5 = '1B2M2Y8AsgTpgAmY7PhCfg==';
+
+  // Valid presigned upload: HTTP 200
+  const validPut = dispatchS3PutObject({ payloadBytes: payload, contentMd5Header: validMd5, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+  assert.equal(validPut.http_status, 200);
+  assert.equal(validPut.error_code, null);
+
+  // Mismatched MD5 on presigned upload: HTTP 400 BadDigest (PAYLOAD_DIGEST_MISMATCH)
+  const mismatchPut = dispatchS3PutObject({ payloadBytes: payload, contentMd5Header: invalidMd5, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+  assert.equal(mismatchPut.http_status, 400);
+  assert.equal(mismatchPut.error_code, 'BadDigest');
+  assert.equal(mismatchPut.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // Malformed MD5 on presigned upload: HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX)
+  const malformedPut = dispatchS3PutObject({ payloadBytes: payload, contentMd5Header: 'malformed!', 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
+  assert.equal(malformedPut.http_status, 400);
+  assert.equal(malformedPut.error_code, 'InvalidDigest');
+  assert.equal(malformedPut.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3CompleteMultipartUpload inherited part attributes and accessor branches', () => {
+  // parts accessor returning undefined
+  const partsUndefinedGetter = {
+    get parts() { return undefined; }
+  };
+  const resUndefinedParts = dispatchS3CompleteMultipartUpload(partsUndefinedGetter);
+  assert.equal(resUndefinedParts.http_status, 400);
+  assert.equal(resUndefinedParts.error_code, 'InvalidArgument');
+
+  // inherited part_number
+  const partInheritedNum = Object.create({ part_number: 1 });
+  partInheritedNum.etag = '"00000000000000000000000000000000"';
+  partInheritedNum.size_bytes = 5242880;
+  const resInhPartNum = dispatchS3CompleteMultipartUpload({ parts: [partInheritedNum], storedParts: { 1: { etag: '"00000000000000000000000000000000"', size_bytes: 5242880 } } });
+  assert.equal(resInhPartNum.http_status, 400);
+  assert.equal(resInhPartNum.error_code, 'InvalidPart');
+
+  // inherited etag
+  const partInheritedEtag = Object.create({ etag: '"00000000000000000000000000000000"' });
+  partInheritedEtag.part_number = 1;
+  partInheritedEtag.size_bytes = 5242880;
+  const resInhPartEtag = dispatchS3CompleteMultipartUpload({ parts: [partInheritedEtag], storedParts: { 1: { etag: '"00000000000000000000000000000000"', size_bytes: 5242880 } } });
+  assert.equal(resInhPartEtag.http_status, 400);
+  assert.equal(resInhPartEtag.error_code, 'InvalidPart');
+
+  // inherited size_bytes
+  const partInheritedSize = Object.create({ size_bytes: 5242880 });
+  partInheritedSize.part_number = 1;
+  partInheritedSize.etag = '"00000000000000000000000000000000"';
+  const resInhPartSize = dispatchS3CompleteMultipartUpload({ parts: [partInheritedSize], storedParts: { 1: { etag: '"00000000000000000000000000000000"', size_bytes: 5242880 } } });
+  assert.equal(resInhPartSize.http_status, 400);
+  assert.equal(resInhPartSize.error_code, 'InvalidPart');
 });

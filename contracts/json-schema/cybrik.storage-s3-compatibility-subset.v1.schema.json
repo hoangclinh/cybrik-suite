@@ -89,8 +89,6 @@
       "items": {
         "$ref": "#/$defs/s3OperationName"
       },
-      "minItems": 15,
-      "maxItems": 19,
       "uniqueItems": true
     },
     "addressing_style": {
@@ -125,6 +123,29 @@
     },
     "path_formatting": {
       "$ref": "#/$defs/pathFormatting"
+    }
+  },
+  "if": {
+    "properties": {
+      "object_lock_supported": {
+        "const": true
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "required_operations": {
+        "minItems": 19,
+        "maxItems": 19
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "required_operations": {
+        "minItems": 15,
+        "maxItems": 15
+      }
     }
   },
   "additionalProperties": false,
@@ -321,8 +342,6 @@
           "items": {
             "$ref": "#/$defs/s3OperationName"
           },
-          "minItems": 15,
-          "maxItems": 19,
           "uniqueItems": true
         },
         "addressing_style": {
@@ -354,6 +373,29 @@
           "minItems": 13,
           "maxItems": 13,
           "uniqueItems": true
+        }
+      },
+      "if": {
+        "properties": {
+          "object_lock_supported": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "required_operations": {
+            "minItems": 19,
+            "maxItems": 19
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "required_operations": {
+            "minItems": 15,
+            "maxItems": 15
+          }
         }
       },
       "additionalProperties": false

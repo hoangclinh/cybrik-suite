@@ -447,7 +447,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
     optionsOrPayload instanceof ArrayBuffer ||
     (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
     hasOwnAccessors(optionsOrPayload) ||
-    (typeof optionsOrPayload === 'object' && hasOwnAccessors(optionsOrPayload.headers))
+    (typeof optionsOrPayload === 'object' && hasOwnAccessors(getOwn(optionsOrPayload, 'headers')))
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -458,34 +458,40 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
   let hasMd5 = false;
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array) && !Array.isArray(optionsOrPayload)) {
-    const proto = Object.getPrototypeOf(optionsOrPayload);
-    if (proto !== Object.prototype && proto !== null) {
+    if (!isPlainOrNull(optionsOrPayload)) {
       if (optionsOrPayload instanceof Date || (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array))) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
       }
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
     const req = optionsOrPayload;
-    if ('payload' in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, 'payload')) {
+    if ('payload' in req && !Object.prototype.hasOwnProperty.call(req, 'payload')) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
-    if ('payloadBytes' in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, 'payloadBytes')) {
+    if ('payloadBytes' in req && !Object.prototype.hasOwnProperty.call(req, 'payloadBytes')) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
-    if ('body' in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, 'body')) {
+    if ('body' in req && !Object.prototype.hasOwnProperty.call(req, 'body')) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
-    if ('headers' in optionsOrPayload) {
-      if (!Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers')) {
+    let headersObj = null;
+    if ('headers' in req) {
+      if (!Object.prototype.hasOwnProperty.call(req, 'headers')) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
-      const hdrs = getOwn(optionsOrPayload, 'headers');
+      const headersDesc = Object.getOwnPropertyDescriptor(req, 'headers');
+      if (!headersDesc || headersDesc.get !== undefined || headersDesc.set !== undefined) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
+      const hdrs = headersDesc.value;
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
-      const hdrsProto = Object.getPrototypeOf(hdrs);
-      if (hdrsProto !== Object.prototype && hdrsProto !== null) {
+      if (!isPlainOrNull(hdrs)) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
+      if (hasOwnAccessors(hdrs)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
       }
       for (const k in hdrs) {
         if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
@@ -503,6 +509,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
           return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
         }
       }
+      headersObj = hdrs;
     }
     const digestKeys = [
       'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5',
@@ -511,41 +518,39 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header'
     ];
     for (const k of digestKeys) {
-      if (k in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, k)) {
+      if (k in req && !Object.prototype.hasOwnProperty.call(req, k)) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
     }
     const hasOptionsKeys =
-      'payload' in optionsOrPayload ||
-      'payloadBytes' in optionsOrPayload ||
-      'body' in optionsOrPayload ||
-      'headers' in optionsOrPayload ||
-      'contentMd5Header' in optionsOrPayload ||
-      'content_md5_header' in optionsOrPayload ||
-      'contentMd5' in optionsOrPayload ||
-      'Content-MD5' in optionsOrPayload ||
-      'content_md5' in optionsOrPayload ||
-      'content_md5_declared' in optionsOrPayload ||
-      'content_md5_computed' in optionsOrPayload ||
-      'x-amz-content-sha256' in optionsOrPayload ||
-      'X-Amz-Content-Sha256' in optionsOrPayload ||
-      'contentSha256Header' in optionsOrPayload ||
-      'content_sha256_header' in optionsOrPayload ||
-      'contentSha256' in optionsOrPayload ||
-      'xAmzContentSha256' in optionsOrPayload ||
-      'x_amz_content_sha256' in optionsOrPayload ||
-      'sha256Header' in optionsOrPayload ||
-      'error_condition' in optionsOrPayload ||
-      'expected_error' in optionsOrPayload;
+      'payload' in req ||
+      'payloadBytes' in req ||
+      'body' in req ||
+      'headers' in req ||
+      'contentMd5Header' in req ||
+      'content_md5_header' in req ||
+      'contentMd5' in req ||
+      'Content-MD5' in req ||
+      'content_md5' in req ||
+      'content_md5_declared' in req ||
+      'content_md5_computed' in req ||
+      'x-amz-content-sha256' in req ||
+      'X-Amz-Content-Sha256' in req ||
+      'contentSha256Header' in req ||
+      'content_sha256_header' in req ||
+      'contentSha256' in req ||
+      'xAmzContentSha256' in req ||
+      'x_amz_content_sha256' in req ||
+      'sha256Header' in req ||
+      'error_condition' in req ||
+      'expected_error' in req;
 
-    if (!hasOptionsKeys && Object.keys(optionsOrPayload).length > 0) {
-      payloadBytes = optionsOrPayload;
+    if (!hasOptionsKeys && Object.keys(req).length > 0) {
+      payloadBytes = req;
       md5Val = maybeMd5Header;
       hasMd5 = (maybeMd5Header !== undefined);
       sha256Val = maybeSha256Header;
     } else {
-      const headersObjRaw = getOwn(req, 'headers');
-      const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
       payloadBytes = getOwn(req, 'payloadBytes') ?? getOwn(req, 'payload') ?? getOwn(req, 'body');
       md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
       hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
@@ -832,7 +837,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     conditionOrOptions instanceof ArrayBuffer ||
     (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
     hasOwnAccessors(conditionOrOptions) ||
-    (typeof conditionOrOptions === 'object' && hasOwnAccessors(conditionOrOptions.headers))
+    (typeof conditionOrOptions === 'object' && hasOwnAccessors(getOwn(conditionOrOptions, 'headers')))
   ) {
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
@@ -864,6 +869,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         'headers' in conditionOrOptions));
 
   if (isRequestShape) {
+    let headersObj = null;
     if (
       conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
@@ -871,8 +877,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       !Buffer.isBuffer(conditionOrOptions) &&
       !(conditionOrOptions instanceof Uint8Array)
     ) {
-      const proto = Object.getPrototypeOf(conditionOrOptions);
-      if (proto !== Object.prototype && proto !== null) {
+      if (!isPlainOrNull(conditionOrOptions)) {
         return {
           http_status: 400,
           error_code: 'InvalidDigest',
@@ -918,7 +923,17 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             reason: 'MALFORMED_HEADER_SYNTAX',
           };
         }
-        const hdrs = getOwn(conditionOrOptions, 'headers');
+        const headersDesc = Object.getOwnPropertyDescriptor(conditionOrOptions, 'headers');
+        if (!headersDesc || headersDesc.get !== undefined || headersDesc.set !== undefined) {
+          return {
+            http_status: 400,
+            error_code: 'InvalidDigest',
+            status: 400,
+            code: 'InvalidDigest',
+            reason: 'MALFORMED_HEADER_SYNTAX',
+          };
+        }
+        const hdrs = headersDesc.value;
         if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
           return {
             http_status: 400,
@@ -928,14 +943,22 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             reason: 'MALFORMED_HEADER_SYNTAX',
           };
         }
-        const hdrsProto = Object.getPrototypeOf(hdrs);
-        if (hdrsProto !== Object.prototype && hdrsProto !== null) {
+        if (!isPlainOrNull(hdrs)) {
           return {
             http_status: 400,
             error_code: 'InvalidDigest',
             status: 400,
             code: 'InvalidDigest',
             reason: 'MALFORMED_HEADER_SYNTAX',
+          };
+        }
+        if (hasOwnAccessors(hdrs)) {
+          return {
+            http_status: 400,
+            error_code: 'InvalidDigest',
+            status: 400,
+            code: 'InvalidDigest',
+            reason: 'MALFORMED_PAYLOAD_TYPE',
           };
         }
         for (const k in hdrs) {
@@ -966,6 +989,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             };
           }
         }
+        headersObj = hdrs;
       }
       const digestKeys = [
         'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5',
@@ -986,8 +1010,6 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       }
     }
 
-    const headersObjRaw = getOwn(conditionOrOptions, 'headers');
-    const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
     const shaHeader = getOwn(conditionOrOptions, 'x-amz-content-sha256') ?? getOwn(conditionOrOptions, 'X-Amz-Content-Sha256') ?? getOwn(conditionOrOptions, 'contentSha256Header') ?? getOwn(conditionOrOptions, 'content_sha256_header') ?? getOwn(conditionOrOptions, 'contentSha256') ?? getOwn(conditionOrOptions, 'xAmzContentSha256') ?? getOwn(conditionOrOptions, 'x_amz_content_sha256') ?? getOwn(conditionOrOptions, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
 
     if (shaHeader && typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
@@ -1753,6 +1775,70 @@ export const S3_CANONICAL_ERROR_CODES = [
   'InvalidPartOrder'
 ];
 
+export function validateS3ConformanceProfileSemantics(profile) {
+  if (!profile || typeof profile !== 'object') {
+    throw new Error('Semantic error: storage conformance profile must be an object');
+  }
+
+  const isLockSupported = profile.object_lock_supported === true || profile.mandatory_operations?.object_lock === true;
+  const isLockUnsupported = profile.object_lock_supported === false || profile.mandatory_operations?.object_lock === false;
+
+  if (Array.isArray(profile.required_operations)) {
+    const seenOps = new Set();
+    for (const op of profile.required_operations) {
+      if (seenOps.has(op)) {
+        throw new Error(`Semantic error: storage conformance profile required_operations contains duplicate operation '${op}' (supported_features contains duplicate entries)`);
+      }
+      seenOps.add(op);
+      if (!S3_19_OPERATIONS.has(op)) {
+        throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${op}' outside closed 17-operation baseline`);
+      }
+    }
+
+    // 1. If object_lock_supported === false: verify Object Lock operations are NOT present and count is exactly 15
+    if (isLockUnsupported) {
+      for (const lockOp of S3_4_OBJECT_LOCK_OPS) {
+        if (seenOps.has(lockOp)) {
+          throw new Error(`Semantic error: storage conformance profile with object_lock_supported === false must not contain Object Lock operation '${lockOp}'`);
+        }
+      }
+      if (profile.required_operations.length !== 15) {
+        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === false must contain exactly 15 operations (got ${profile.required_operations.length})`);
+      }
+    }
+
+    // 2. Verify that ALL 15 baseline operations (S3_15_OPERATIONS) are present
+    for (const op of S3_15_BASELINE_OPS) {
+      if (!seenOps.has(op)) {
+        throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 15-operation baseline (storage conformance profile missing required baseline S3 operation '${op}') (missing mandatory baseline S3 operation '${op}')`);
+      }
+    }
+
+    // 3. If object_lock_supported === true: verify that ALL 19 operations (S3_19_OPERATIONS) are present
+    if (isLockSupported) {
+      for (const op of S3_19_CLOSED_OPS) {
+        if (!seenOps.has(op)) {
+          throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline) (missing required Object Lock S3 operation '${op}') (storage conformance profile with object_lock_supported: true missing required Object Lock S3 operation '${op}')`);
+        }
+      }
+      if (profile.required_operations.length !== 19) {
+        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === true must contain exactly 19 operations (got ${profile.required_operations.length})`);
+      }
+    }
+  }
+
+  if (Array.isArray(profile.required_error_codes)) {
+    const errSet = new Set(profile.required_error_codes);
+    for (const code of S3_CANONICAL_ERROR_CODES) {
+      if (!errSet.has(code)) {
+        throw new Error(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`);
+      }
+    }
+  }
+
+  return true;
+}
+
 export const ALL_13_CONFORMANCE_SLOTS = [
   'oci_container_runtime',
   'isolation_substrate',
@@ -2428,21 +2514,9 @@ export function validatePlatformSemantics(data, schemaId) {
     if (data && Array.isArray(data.parts)) {
       validateS3MultipartSemantics(data);
     }
-    // R16-01: All 13 Canonical S3 Error Codes Required in Storage Conformance Profile
+    // R16-01: All 13 Canonical S3 Error Codes Required in Storage Conformance Profile + Strict 15/19 Profile Validation
     if (data && (Array.isArray(data.required_error_codes) || data.provider_identifier || data.required_operations)) {
-      if (Array.isArray(data.required_operations)) {
-        for (const op of data.required_operations) {
-          if (!S3_19_OPERATIONS.has(op)) {
-            throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${op}' outside closed 17-operation baseline`);
-          }
-        }
-      }
-      const errSet = new Set(data.required_error_codes || []);
-      for (const code of S3_CANONICAL_ERROR_CODES) {
-        if (!errSet.has(code)) {
-          throw new Error(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`);
-        }
-      }
+      validateS3ConformanceProfileSemantics(data);
     }
   }
 }
@@ -2660,7 +2734,7 @@ const EXPECTED_PLATFORM_NEGATIVES = {
   'invalid-missing-evidence-advertisement.json': { keyword: 'minItems', instancePath: '/conformance_evidence', schemaPath: '#/properties/conformance_evidence/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'invalid-namespace-advertisement.json': { keyword: 'pattern', instancePath: '/provider_namespace', schemaPath: '#/properties/provider_namespace/pattern', params: { pattern: '^[a-z0-9][a-z0-9-_]*[a-z0-9]$' }, message: 'must match pattern "^[a-z0-9][a-z0-9-_]*[a-z0-9]$"' },
   'invalid-platform-all-false.json': { keyword: 'const', instancePath: '/slots/oci_container_runtime/specification/required', schemaPath: '#/properties/slots/properties/oci_container_runtime/properties/specification/properties/required/const', params: { allowedValue: true }, message: "must be equal to constant" },
-  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/properties/required_operations/minItems', params: { limit: 15 }, message: 'must NOT have fewer than 15 items' },
+  'invalid-s3-missing-crud.json': { keyword: 'minItems', instancePath: '/required_operations', schemaPath: '#/then/properties/required_operations/minItems', params: { limit: 19 }, message: 'must NOT have fewer than 19 items' },
   'invalid-unauthenticated-advertisement.json': { keyword: 'const', instancePath: '/authenticated_discovery', schemaPath: '#/properties/authenticated_discovery/const', params: { allowedValue: true }, message: 'must be equal to constant' },
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
@@ -2700,14 +2774,15 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      if (validate.errors.length !== 1) {
-        fail(`platform negative example ${file}: expected exactly 1 error, got ${validate.errors.length}`);
+      const filteredErrors = validate.errors.filter(e => e.keyword !== 'if');
+      if (filteredErrors.length !== 1) {
+        fail(`platform negative example ${file}: expected exactly 1 error, got ${filteredErrors.length}`);
       }
       const expected = EXPECTED_PLATFORM_NEGATIVES[file];
       if (!expected) {
         fail(`platform negative example ${file}: no expected invariant/error mapped!`);
       } else {
-        const actualErr = validate.errors[0];
+        const actualErr = filteredErrors[0];
         if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath || actualErr.schemaPath !== expected.schemaPath || JSON.stringify(actualErr.params) !== JSON.stringify(expected.params) || actualErr.message !== expected.message) {
           fail(`platform negative example ${file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actualErr)}`);
         }
@@ -2867,10 +2942,11 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      if (ajv.errors.length !== 1) {
-        fail(`storage negative example ${file}: expected exactly 1 error, got ${ajv.errors.length}: ${JSON.stringify(ajv.errors)}`);
+      const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if');
+      if (filteredErrors.length !== 1) {
+        fail(`storage negative example ${file}: expected exactly 1 error, got ${filteredErrors.length}: ${JSON.stringify(filteredErrors)}`);
       } else {
-        const actualErr = ajv.errors[0];
+        const actualErr = filteredErrors[0];
         if (actualErr.keyword !== expected.keyword || actualErr.instancePath !== expected.instancePath) {
           fail(`storage negative example ${file}: expected keyword ${expected.keyword} at ${expected.instancePath}, got ${actualErr.keyword} at ${actualErr.instancePath}`);
         }
@@ -3793,10 +3869,10 @@ const s3FlagsValid = ['crud', 'multipart_upload', 'presigning', 'sig_v4', 'path_
 H('34', s3FlagsValid, 'S3 mandatory operations boolean flags must all be const true');
 
 // 35. S3 mandated root and profile WORM support (Finding 3)
-const badObjectLock = { ...sampleS3Profile, object_lock_supported: false };
+const badObjectLock = { ...sampleS3Profile, object_lock_supported: false, required_operations: sampleS3Profile.required_operations.slice(0, 15) };
 const singleModeProfile = { ...sampleS3Profile, retention_modes_supported: ['COMPLIANCE'] };
 const badLegalHoldProfile = { ...sampleS3Profile, legal_hold_supported: false };
-const s3WormValid = !ajv.validate(S3_PROFILE_DEF_ID, badObjectLock) && ajv.errors[0].keyword === 'const' &&
+const s3WormValid = !ajv.validate(S3_PROFILE_DEF_ID, badObjectLock) && ajv.errors.some(e => e.keyword === 'const' && e.instancePath === '/object_lock_supported') &&
                     !ajv.validate(S3_PROFILE_DEF_ID, singleModeProfile) && ajv.errors[0].keyword === 'minItems' &&
                     !ajv.validate(S3_PROFILE_DEF_ID, badLegalHoldProfile) && ajv.errors[0].keyword === 'const';
 H('35', s3WormValid, 'S3 schema must mandate root/profile WORM support (object_lock_supported: true, retention_modes_supported: minItems 2, legal_hold_supported: true)');
