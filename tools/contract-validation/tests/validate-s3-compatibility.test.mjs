@@ -6424,6 +6424,67 @@ test('unit regression: throwing Proxy passed to dispatchS3Error and dispatchS3Pu
   assert.notEqual(errRes5.http_status, 200);
 });
 
+test('unit regression: throwing Proxy passed to dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics fails closed (OPEN-2)', () => {
+  // 1. Fully throwing Proxy (throws on every trap)
+  const throwingProxyAllTraps = new Proxy({}, {
+    get() { throw new Error('attack get'); },
+    has() { throw new Error('attack has'); },
+    ownKeys() { throw new Error('attack ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+
+  const completeRes1 = dispatchS3CompleteMultipartUpload(throwingProxyAllTraps);
+  assert.equal(completeRes1.http_status, 400);
+  assert.equal(completeRes1.error_code, 'InvalidPart');
+  assert.equal(completeRes1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.notEqual(completeRes1.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics(throwingProxyAllTraps),
+    /Semantic error: multipart/
+  );
+
+  // 2. Proxy parts array throwing on traps
+  const throwingPartsProxy = {
+    parts: new Proxy([], {
+      get(target, prop) {
+        if (prop === 'length') return 1;
+        throw new Error('attack parts get');
+      },
+      has() { throw new Error('attack parts has'); },
+      getOwnPropertyDescriptor() { throw new Error('attack parts getOwnPropertyDescriptor'); },
+    }),
+  };
+
+  const completeRes2 = dispatchS3CompleteMultipartUpload(throwingPartsProxy);
+  assert.equal(completeRes2.http_status, 400);
+  assert.ok(completeRes2.error_code === 'InvalidPart' || completeRes2.error_code === 'InvalidArgument');
+  assert.notEqual(completeRes2.http_status, 200);
+
+  assert.throws(
+    () => validateS3MultipartSemantics(throwingPartsProxy),
+    /Semantic error:/
+  );
+
+  // 3. Proxy storedParts throwing on traps
+  const throwingStoredProxy = {
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+    storedParts: new Proxy({}, {
+      get() { throw new Error('attack stored get'); },
+      has() { throw new Error('attack stored has'); },
+      ownKeys() { throw new Error('attack stored ownKeys'); },
+      getOwnPropertyDescriptor() { throw new Error('attack stored getOwnPropertyDescriptor'); },
+      getPrototypeOf() { throw new Error('attack stored getPrototypeOf'); },
+    }),
+  };
+
+  const completeRes3 = dispatchS3CompleteMultipartUpload(throwingStoredProxy);
+  assert.equal(completeRes3.http_status, 400);
+  assert.equal(completeRes3.error_code, 'InvalidPart');
+  assert.notEqual(completeRes3.http_status, 200);
+});
+
 test('unit regression: prototype-chain payload and code accessors return HTTP 400 InvalidDigest MALFORMED_PAYLOAD_TYPE (OPEN-2)', () => {
   const validPayload = Buffer.from('CYBRIK_PROTO_ACCESSOR_TEST');
   const validSha = computePayloadSha256(validPayload);
@@ -6548,4 +6609,456 @@ test('unit regression: prototype-chain payload and code accessors return HTTP 40
   assert.equal(errClassRes.http_status, 400);
   assert.equal(errClassRes.error_code, 'InvalidDigest');
   assert.equal(errClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('unit regression: throwing Proxy passed to dispatchS3CompleteMultipartUpload fails closed with HTTP 400 InvalidPart / InvalidDigest (never throws unhandled) (OPEN-2 / OPEN-5)', () => {
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Fully throwing Proxy (throws on all traps) as manifestOrOptions
+  const throwingProxyAllTraps = new Proxy({}, {
+    get() { throw new Error('attack get'); },
+    has() { throw new Error('attack has'); },
+    ownKeys() { throw new Error('attack ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+
+  const res1 = dispatchS3CompleteMultipartUpload(throwingProxyAllTraps);
+  assert.equal(res1.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res1.error_code));
+  assert.notEqual(res1.http_status, 200);
+
+  // 2. Options wrapper containing throwing Proxy as manifest
+  const res2 = dispatchS3CompleteMultipartUpload({
+    manifest: throwingProxyAllTraps,
+    storedParts: validStoredParts,
+  });
+  assert.equal(res2.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res2.error_code));
+  assert.notEqual(res2.http_status, 200);
+
+  // 3. Options wrapper containing throwing Proxy as parts array
+  const throwingPartsArrayProxy = new Proxy([], {
+    get(target, prop) {
+      if (prop === 'length') throw new Error('attack parts length');
+      throw new Error(`attack parts get ${String(prop)}`);
+    },
+    ownKeys() { throw new Error('attack parts ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack parts getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack parts getPrototypeOf'); },
+  });
+  const res3 = dispatchS3CompleteMultipartUpload({
+    manifest: { parts: throwingPartsArrayProxy },
+    storedParts: validStoredParts,
+  });
+  assert.equal(res3.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res3.error_code));
+  assert.notEqual(res3.http_status, 200);
+
+  // 4. Manifest with parts array containing a throwing Proxy element
+  const throwingPartElementProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+  }, {
+    get(target, prop) { throw new Error(`attack part element get ${String(prop)}`); },
+    getPrototypeOf() { throw new Error('attack part element getPrototypeOf'); },
+    getOwnPropertyDescriptor() { throw new Error('attack part element getOwnPropertyDescriptor'); },
+  });
+  const res4 = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [throwingPartElementProxy],
+      total_parts: 1,
+    },
+    storedParts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  });
+  assert.equal(res4.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res4.error_code));
+  assert.notEqual(res4.http_status, 200);
+
+  // 5. Throwing Proxy passed as storedParts (2nd argument and inside options)
+  const res5a = dispatchS3CompleteMultipartUpload(validManifest, throwingProxyAllTraps);
+  assert.equal(res5a.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res5a.error_code));
+  assert.notEqual(res5a.http_status, 200);
+
+  const res5b = dispatchS3CompleteMultipartUpload({
+    manifest: validManifest,
+    storedParts: throwingProxyAllTraps,
+  });
+  assert.equal(res5b.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res5b.error_code));
+  assert.notEqual(res5b.http_status, 200);
+
+  // 6. StoredParts containing a throwing Proxy element (in Array and in Map)
+  const throwingStoredPartElementProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    get(target, prop) { throw new Error(`attack storedPart get ${String(prop)}`); },
+    getPrototypeOf() { throw new Error('attack storedPart getPrototypeOf'); },
+    getOwnPropertyDescriptor() { throw new Error('attack storedPart getOwnPropertyDescriptor'); },
+  });
+
+  const res6a = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    [throwingStoredPartElementProxy]
+  );
+  assert.equal(res6a.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res6a.error_code));
+  assert.notEqual(res6a.http_status, 200);
+
+  const res6b = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    new Map([[1, throwingStoredPartElementProxy]])
+  );
+  assert.equal(res6b.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res6b.error_code));
+  assert.notEqual(res6b.http_status, 200);
+
+  // 7. Proxy throwing on getPrototypeOf
+  const throwingProtoProxy = new Proxy({
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }],
+  }, {
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+  const res7 = dispatchS3CompleteMultipartUpload(throwingProtoProxy, validStoredParts);
+  assert.equal(res7.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res7.error_code));
+  assert.notEqual(res7.http_status, 200);
+
+  // 8. Options object with throwing property getter
+  const throwingOptionsGetter = {};
+  Object.defineProperty(throwingOptionsGetter, 'manifest', {
+    get() { throw new Error('attack throwing manifest getter'); },
+    enumerable: true,
+    configurable: true,
+  });
+  const res8 = dispatchS3CompleteMultipartUpload(throwingOptionsGetter);
+  assert.equal(res8.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res8.error_code));
+  assert.notEqual(res8.http_status, 200);
+});
+
+test('harmonized fixture naming: s3_crud_19_ops_with_worm and s3_crud_15_ops_baseline semantic and profile conformance (OPEN-2 / OPEN-5)', () => {
+  // 1. Validate 19-operation profile with Object Lock compliance
+  const wormProfileDoc = {
+    provider_identifier: 'minio-sovereign-worm',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+    object_lock_supported: true,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [
+      ...BASELINE_15_S3_OPERATIONS,
+      ...OBJECT_LOCK_4_S3_OPERATIONS,
+    ],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [...CLOSED_13_S3_ERROR_CODES],
+  };
+
+  assert.equal(wormProfileDoc.required_operations.length, 19);
+  assert.ok(ajv.validate(S3_SCHEMA_ID, wormProfileDoc), '19-op WORM profile must validate against root schema');
+  assert.ok(ajv.validate(PROFILE_DEF_ID, wormProfileDoc), '19-op WORM profile must validate against storageConformanceProfile');
+  assert.doesNotThrow(
+    () => validateS3ConformanceProfileSemantics(wormProfileDoc),
+    '19-op WORM profile must pass validateS3ConformanceProfileSemantics'
+  );
+
+  // 2. Validate 15-operation baseline profile without Object Lock
+  const baselineProfileDoc = {
+    provider_identifier: 's3-standard-baseline',
+    mandatory_operations: {
+      crud: true,
+      multipart_upload: true,
+      presigning: true,
+      sig_v4: true,
+      path_style_access: true,
+      versioning: true,
+      error_mappings: true,
+    },
+    object_lock_supported: false,
+    retention_modes_supported: ['COMPLIANCE', 'GOVERNANCE'],
+    legal_hold_supported: true,
+    required_operations: [...BASELINE_15_S3_OPERATIONS],
+    addressing_style: 'path_style',
+    auth_mechanism: 'AWS4-HMAC-SHA256',
+    required_error_codes: [...CLOSED_13_S3_ERROR_CODES],
+  };
+
+  assert.equal(baselineProfileDoc.required_operations.length, 15);
+  assert.ok(ajv.validate(S3_SCHEMA_ID, baselineProfileDoc), '15-op baseline profile must validate against root schema');
+  assert.ok(ajv.validate(PROFILE_DEF_ID, baselineProfileDoc), '15-op baseline profile must validate against storageConformanceProfile');
+  assert.doesNotThrow(
+    () => validateS3ConformanceProfileSemantics(baselineProfileDoc),
+    '15-op baseline profile must pass validateS3ConformanceProfileSemantics'
+  );
+
+  // 3. Reject 15-operation baseline declaring Object Lock operations without object_lock_supported
+  const invalid15WithLockOp = {
+    ...baselineProfileDoc,
+    required_operations: [...BASELINE_15_S3_OPERATIONS.slice(0, 14), 'PutObjectRetention'],
+  };
+  assert.throws(
+    () => validateS3ConformanceProfileSemantics(invalid15WithLockOp),
+    /must not contain Object Lock operation|storage profile non-lock operations mismatch|required_operations missing/,
+    '15-op profile omitting baseline op in favor of lock op must be rejected'
+  );
+});
+
+test('unit regression: comprehensive multipart inherited attribute and accessor branch coverage (OPEN-2)', () => {
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Inherited part_number, etag, size_bytes in parts array
+  const partWithInheritedNum = Object.create({ part_number: 1 });
+  partWithInheritedNum.etag = '"0123456789abcdef0123456789abcdef"';
+  const resPartNum = dispatchS3CompleteMultipartUpload({ parts: [partWithInheritedNum] }, validStoredParts);
+  assert.equal(resPartNum.http_status, 400);
+
+  const partWithInheritedEtag = Object.create({ etag: '"0123456789abcdef0123456789abcdef"' });
+  partWithInheritedEtag.part_number = 1;
+  const resPartEtag = dispatchS3CompleteMultipartUpload({ parts: [partWithInheritedEtag] }, validStoredParts);
+  assert.equal(resPartEtag.http_status, 400);
+
+  const partWithInheritedSize = Object.create({ size_bytes: 5242880 });
+  partWithInheritedSize.part_number = 1;
+  partWithInheritedSize.etag = '"0123456789abcdef0123456789abcdef"';
+  const resPartSize = dispatchS3CompleteMultipartUpload({ parts: [partWithInheritedSize] }, validStoredParts);
+  assert.equal(resPartSize.http_status, 400);
+
+  // 2. Inherited part attributes in storedParts array
+  const storedWithInheritedNum = Object.create({ part_number: 1 });
+  storedWithInheritedNum.etag = '"0123456789abcdef0123456789abcdef"';
+  storedWithInheritedNum.size_bytes = 5242880;
+  const resStoredArrNum = dispatchS3CompleteMultipartUpload(validManifest, [storedWithInheritedNum]);
+  assert.equal(resStoredArrNum.http_status, 400);
+
+  const storedWithInheritedEtag = Object.create({ etag: '"0123456789abcdef0123456789abcdef"' });
+  storedWithInheritedEtag.part_number = 1;
+  storedWithInheritedEtag.size_bytes = 5242880;
+  const resStoredArrEtag = dispatchS3CompleteMultipartUpload(validManifest, [storedWithInheritedEtag]);
+  assert.equal(resStoredArrEtag.http_status, 400);
+
+  const storedWithInheritedSize = Object.create({ size_bytes: 5242880 });
+  storedWithInheritedSize.part_number = 1;
+  storedWithInheritedSize.etag = '"0123456789abcdef0123456789abcdef"';
+  const resStoredArrSize = dispatchS3CompleteMultipartUpload(validManifest, [storedWithInheritedSize]);
+  assert.equal(resStoredArrSize.http_status, 400);
+
+  // 3. Inherited part attributes in storedParts Map
+  const resStoredMapNum = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, storedWithInheritedNum]]));
+  assert.equal(resStoredMapNum.http_status, 400);
+  const resStoredMapEtag = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, storedWithInheritedEtag]]));
+  assert.equal(resStoredMapEtag.http_status, 400);
+  const resStoredMapSize = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, storedWithInheritedSize]]));
+  assert.equal(resStoredMapSize.http_status, 400);
+
+  // 4. Inherited part attributes in storedParts plain Object
+  const resStoredObjNum = dispatchS3CompleteMultipartUpload(validManifest, { 1: storedWithInheritedNum });
+  assert.equal(resStoredObjNum.http_status, 400);
+  const resStoredObjEtag = dispatchS3CompleteMultipartUpload(validManifest, { 1: storedWithInheritedEtag });
+  assert.equal(resStoredObjEtag.http_status, 400);
+  const resStoredObjSize = dispatchS3CompleteMultipartUpload(validManifest, { 1: storedWithInheritedSize });
+  assert.equal(resStoredObjSize.http_status, 400);
+
+  // 5. Inherited headers, manifest, parts on manifestOrOptions
+  const optsWithInheritedHdrs = Object.create({ headers: {} });
+  optsWithInheritedHdrs.parts = validManifest.parts;
+  const resInheritedHdrs = dispatchS3CompleteMultipartUpload(optsWithInheritedHdrs, validStoredParts);
+  assert.equal(resInheritedHdrs.http_status, 400);
+
+  const optsWithInheritedManifest = Object.create({ manifest: validManifest });
+  const resInheritedManifest = dispatchS3CompleteMultipartUpload(optsWithInheritedManifest, validStoredParts);
+  assert.equal(resInheritedManifest.http_status, 400);
+
+  const optsWithInheritedParts = Object.create({ parts: validManifest.parts });
+  const resInheritedParts = dispatchS3CompleteMultipartUpload(optsWithInheritedParts, validStoredParts);
+  assert.equal(resInheritedParts.http_status, 400);
+
+  class CustomHeaders { constructor() { this['content-type'] = 'text/plain'; } }
+  const optsWithClassHdrs = { headers: new CustomHeaders(), parts: validManifest.parts };
+  const resClassHdrs = dispatchS3CompleteMultipartUpload(optsWithClassHdrs, validStoredParts);
+  assert.equal(resClassHdrs.http_status, 400);
+
+  // 6. Inherited payload, payloadBytes, body, and digest keys in dispatchS3Error
+  const errInheritedPayload = Object.create({ payload: 'test' });
+  const resErrPayload = dispatchS3Error(errInheritedPayload);
+  assert.equal(resErrPayload.http_status, 400);
+
+  const errInheritedPayloadBytes = Object.create({ payloadBytes: Buffer.from('test') });
+  const resErrPayloadBytes = dispatchS3Error(errInheritedPayloadBytes);
+  assert.equal(resErrPayloadBytes.http_status, 400);
+
+  const errInheritedBody = Object.create({ body: 'test' });
+  const resErrBody = dispatchS3Error(errInheritedBody);
+  assert.equal(resErrBody.http_status, 400);
+
+  const errInheritedShaHeader = Object.create({ 'x-amz-content-sha256': 'abc' });
+  const resErrShaHeader = dispatchS3Error(errInheritedShaHeader);
+  assert.equal(resErrShaHeader.http_status, 400);
+
+  // 7. Inherited payload, payloadBytes, body, headers, and digest keys in dispatchS3PutObject
+  const putInheritedPayload = Object.create({ payload: 'test' });
+  const resPutPayload = dispatchS3PutObject(putInheritedPayload);
+  assert.equal(resPutPayload.http_status, 400);
+
+  const putInheritedPayloadBytes = Object.create({ payloadBytes: Buffer.from('test') });
+  const resPutPayloadBytes = dispatchS3PutObject(putInheritedPayloadBytes);
+  assert.equal(resPutPayloadBytes.http_status, 400);
+
+  const putInheritedBody = Object.create({ body: 'test' });
+  const resPutBody = dispatchS3PutObject(putInheritedBody);
+  assert.equal(resPutBody.http_status, 400);
+
+  const putInheritedHeaders = Object.create({ headers: {} });
+  const resPutHeaders = dispatchS3PutObject(putInheritedHeaders);
+  assert.equal(resPutHeaders.http_status, 400);
+
+  const putInheritedDigestKey = Object.create({ 'Content-MD5': 'abc' });
+  const resPutDigestKey = dispatchS3PutObject(putInheritedDigestKey);
+  assert.equal(resPutDigestKey.http_status, 400);
+
+  const hdrsWithInheritedKey = Object.create({ 'Content-MD5': 'abc' });
+  const resHdrsInheritedKey = dispatchS3PutObject({ payload: 'abc', headers: hdrsWithInheritedKey });
+  assert.equal(resHdrsInheritedKey.http_status, 400);
+
+  const hdrsWithInheritedKey2 = Object.create({ 'custom-header': 'abc' });
+  const resHdrsInheritedKey2 = dispatchS3PutObject({ payload: 'abc', headers: hdrsWithInheritedKey2 });
+  assert.equal(resHdrsInheritedKey2.http_status, 400);
+
+  // 8. Object.prototype pollution defense across dispatchers and validators
+  try {
+    Object.prototype.payload = 'polluted-payload';
+    assert.equal(dispatchS3PutObject({}).http_status, 400);
+    assert.equal(dispatchS3Error({}).http_status, 400);
+  } finally {
+    delete Object.prototype.payload;
+  }
+
+  try {
+    Object.prototype.payloadBytes = Buffer.from('polluted');
+    assert.equal(dispatchS3PutObject({}).http_status, 400);
+    assert.equal(dispatchS3Error({}).http_status, 400);
+  } finally {
+    delete Object.prototype.payloadBytes;
+  }
+
+  try {
+    Object.prototype.body = 'polluted-body';
+    assert.equal(dispatchS3PutObject({}).http_status, 400);
+    assert.equal(dispatchS3Error({}).http_status, 400);
+  } finally {
+    delete Object.prototype.body;
+  }
+
+  try {
+    Object.prototype.headers = { 'x-amz-content-sha256': 'polluted' };
+    assert.equal(dispatchS3PutObject({ payload: 'valid' }).http_status, 400);
+  } finally {
+    delete Object.prototype.headers;
+  }
+
+  try {
+    Object.prototype['Content-MD5'] = 'polluted-md5';
+    assert.equal(dispatchS3PutObject({ payload: 'valid', headers: {} }).http_status, 400);
+    assert.equal(dispatchS3Error({}).http_status, 400);
+  } finally {
+    delete Object.prototype['Content-MD5'];
+  }
+
+  try {
+    Object.prototype['x-amz-content-sha256'] = 'polluted-sha';
+    assert.equal(dispatchS3PutObject({ payload: 'valid', headers: {} }).http_status, 400);
+    assert.equal(dispatchS3Error({}).http_status, 400);
+  } finally {
+    delete Object.prototype['x-amz-content-sha256'];
+  }
+
+  try {
+    Object.prototype.manifest = { parts: [] };
+    assert.equal(dispatchS3CompleteMultipartUpload({}).http_status, 400);
+  } finally {
+    delete Object.prototype.manifest;
+  }
+
+  try {
+    Object.prototype.parts = [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }];
+    assert.equal(dispatchS3CompleteMultipartUpload({}).http_status, 400);
+  } finally {
+    delete Object.prototype.parts;
+  }
+
+  try {
+    Object.prototype.part_number = 1;
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{}] }, validStoredParts).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, [{}]).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, new Map([[1, {}]])).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, { 1: {} }).http_status, 400);
+  } finally {
+    delete Object.prototype.part_number;
+  }
+
+  try {
+    Object.prototype.etag = '"0123456789abcdef0123456789abcdef"';
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1 }] }, validStoredParts).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, [{ part_number: 1, size_bytes: 5242880 }]).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, new Map([[1, { part_number: 1, size_bytes: 5242880 }]])).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, { 1: { part_number: 1, size_bytes: 5242880 } }).http_status, 400);
+  } finally {
+    delete Object.prototype.etag;
+  }
+
+  try {
+    Object.prototype.size_bytes = 5242880;
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] }, validStoredParts).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }]).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, new Map([[1, { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }]])).http_status, 400);
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, { 1: { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' } }).http_status, 400);
+  } finally {
+    delete Object.prototype.size_bytes;
+  }
+
+  try {
+    Object.prototype.total_parts = 1;
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, validStoredParts).http_status, 400);
+  } finally {
+    delete Object.prototype.total_parts;
+  }
+
+  try {
+    Object.prototype.total_size_bytes = 5242880;
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, validStoredParts).http_status, 400);
+  } finally {
+    delete Object.prototype.total_size_bytes;
+  }
 });

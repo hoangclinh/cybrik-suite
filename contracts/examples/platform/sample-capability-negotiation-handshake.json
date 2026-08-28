@@ -121,7 +121,7 @@
         ]
       },
       {
-        "capability_name": "s3_crud_17_ops_with_worm",
+        "capability_name": "s3_crud_19_ops_with_worm",
         "slot_id": "storage",
         "is_mandatory": true,
         "supported_features": [
@@ -150,7 +150,7 @@
           "fallback_mode": "NONE_REQUIRED"
         },
         "evidence_references": [
-          "urn:cybrik:evidence:storage:s3-17-ops:v1",
+          "urn:cybrik:evidence:storage:s3-19-ops:v1",
           "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"
         ]
       },
@@ -320,7 +320,7 @@
         "report_uri": "https://reports.cybrik.example/evidence/ev-net-01.json"
       },
       {
-        "test_identifier": "urn:cybrik:evidence:storage:s3-17-ops:v1",
+        "test_identifier": "urn:cybrik:evidence:storage:s3-19-ops:v1",
         "status": "PASS",
         "evidence_pack_digest": "a105050505050505050505050505050505050505050505050505050505050505",
         "executed_at": "2026-08-27T12:00:00Z",

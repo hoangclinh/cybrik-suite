@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -1028,11 +1028,11 @@ test('in-memory validation: reject hidden degradation in ACTIVE_OPTIMAL lease', 
   assert.throws(() => validatePlatformSemantics(data, schemaId), /ACTIVE_OPTIMAL lease cannot contain degraded capability/);
 });
 
-test('in-memory validation: reject storage capability missing 17-op baseline or Object Lock evidence', () => {
+test('in-memory validation: reject storage capability missing 15 baseline operations / 19 closed operations or Object Lock evidence', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
-  // Missing operation from 17-op baseline
+  // Missing operation from 15 baseline operations / 19 closed operations
   const data1 = JSON.parse(JSON.stringify(sample));
   const storeCap1 = data1.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCap1.supported_features = storeCap1.supported_features.filter(f => f !== 'PutObjectRetention');
@@ -1041,8 +1041,8 @@ test('in-memory validation: reject storage capability missing 17-op baseline or 
   // Missing Object Lock retention evidence
   const data2 = JSON.parse(JSON.stringify(sample));
   const storeCap2 = data2.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1"];
-  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1');
+  storeCap2.evidence_references = ["urn:cybrik:evidence:storage:s3-19-ops:v1"];
+  data2.advertisement_response.conformance_evidence = data2.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock'));
   assert.throws(() => validatePlatformSemantics(data2, schemaId), /lacks Object Lock retention evidence/);
 });
 
@@ -2047,7 +2047,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   // 1. Positive test: Canonical URN urn:cybrik:evidence:storage:s3:conformance:v1:object-lock passes both Ajv schema and semantic validation
   const dataCanonical = JSON.parse(JSON.stringify(sample));
   const storeCapCanonical = dataCanonical.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapCanonical.evidence_references = ["urn:cybrik:evidence:storage:s3-17-ops:v1", "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
+  storeCapCanonical.evidence_references = ["urn:cybrik:evidence:storage:s3-19-ops:v1", "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
   const validCanonical = ajv.validate(schemaId, dataCanonical);
   assert.ok(validCanonical, 'Canonical Object Lock evidence URN must pass Ajv schema validation: ' + ajv.errorsText());
   assert.doesNotThrow(
@@ -2072,7 +2072,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     sc.evidence_references = [legacyUrn];
     dataCan.advertisement_response.conformance_evidence = [
       ...dataCan.advertisement_response.conformance_evidence.filter(
-        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+        e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
       ),
       {
         test_identifier: legacyUrn,
@@ -2097,7 +2097,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   storeCapGeneric.evidence_references = ["urn:cybrik:evidence:generic-storage-report-01"];
   dataGeneric.advertisement_response.conformance_evidence = [
     ...dataGeneric.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
     ),
     {
       test_identifier: "urn:cybrik:evidence:generic-storage-report-01",
@@ -2129,7 +2129,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
     sc.evidence_references = [looseUrn];
     dataLoose.advertisement_response.conformance_evidence = [
       ...dataLoose.advertisement_response.conformance_evidence.filter(
-        e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+        e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
       ),
       {
         test_identifier: looseUrn,
@@ -2154,7 +2154,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   storeCapFake.evidence_references = ["ev-fake-non-urn"];
   dataFake.advertisement_response.conformance_evidence = [
     ...dataFake.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
     ),
     {
       test_identifier: "ev-fake-non-urn",
@@ -2193,7 +2193,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   storeCapFail.evidence_references = ["urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"];
   dataFailStatus.advertisement_response.conformance_evidence = [
     ...dataFailStatus.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
     ),
     {
       test_identifier: "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock",
@@ -2217,7 +2217,7 @@ test('in-memory validation: Object Lock evidence validation across Ajv schema an
   scBadDig.evidence_references = ['urn:cybrik:evidence:storage-object-lock:01'];
   dataBadDigest.advertisement_response.conformance_evidence = [
     ...dataBadDigest.advertisement_response.conformance_evidence.filter(
-      e => e.test_identifier !== 'urn:cybrik:evidence:storage:object-lock:v1' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' && e.test_identifier !== 'urn:cybrik:evidence:storage:s3-17-ops:v1'
+      e => !e.test_identifier.includes('object-lock') && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')
     ),
     {
       test_identifier: 'urn:cybrik:evidence:storage-object-lock:01',
@@ -4867,7 +4867,7 @@ test('in-memory validation: canonical Object Lock URN urn:cybrik:evidence:storag
   const handshakeWithCanonicalLock = JSON.parse(JSON.stringify(handshakeSample));
   const handshakeStorageCap = handshakeWithCanonicalLock.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   handshakeStorageCap.evidence_references = [
-    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    'urn:cybrik:evidence:storage:s3-19-ops:v1',
     canonicalLockUrn
   ];
   handshakeWithCanonicalLock.advertisement_response.conformance_evidence = [
@@ -4961,7 +4961,7 @@ test('platform semantics: universal profile digest disk equality, Object Lock UR
   const negWithConformLock = JSON.parse(JSON.stringify(handshakeSample));
   const storeCap = negWithConformLock.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   storeCap.evidence_references = [
-    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    'urn:cybrik:evidence:storage:s3-19-ops:v1',
     'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
   ];
   negWithConformLock.advertisement_response.conformance_evidence = [
@@ -5305,7 +5305,7 @@ test('in-memory validation: capability containing both canonical URN and legacy 
     const storageCap = dataHs.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
     // Set canonical-plus-alias set in evidence_references
     storageCap.evidence_references = [
-      'urn:cybrik:evidence:storage:s3-17-ops:v1',
+      'urn:cybrik:evidence:storage:s3-19-ops:v1',
       canonicalLockUrn,
       alias,
     ];
@@ -5452,7 +5452,7 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
     const storageCap = dataHs.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
     // Set canonical-plus-alias set in evidence_references
     storageCap.evidence_references = [
-      'urn:cybrik:evidence:storage:s3-17-ops:v1',
+      'urn:cybrik:evidence:storage:s3-19-ops:v1',
       canonicalLockUrn,
       alias,
     ];
@@ -5793,7 +5793,7 @@ test('in-memory validation: standalone and nested negotiation lease parity with 
   const nestedStoreCap = nestedDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   nestedStoreCap.evidence_references = [s3OpsUrn, canonicalLockUrn];
   nestedDoc.advertisement_response.conformance_evidence = [
-    ...nestedDoc.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock') && e.test_identifier !== s3OpsUrn && !e.test_identifier.includes('s3-17-ops')),
+    ...nestedDoc.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock') && e.test_identifier !== s3OpsUrn && !e.test_identifier.includes('s3-17-ops') && !e.test_identifier.includes('s3-19-ops')),
     {
       test_identifier: s3OpsUrn,
       status: 'PASS',
@@ -6028,7 +6028,7 @@ test('in-memory validation: declarations carrying custom PASS storage evidence u
   const handshakeWithCustom = JSON.parse(JSON.stringify(handshakeSample));
   const hsStorageCap = handshakeWithCustom.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
   hsStorageCap.evidence_references = [
-    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    'urn:cybrik:evidence:storage:s3-19-ops:v1',
     canonicalLockUrn,
     customStorageUrn,
   ];
@@ -7750,4 +7750,192 @@ test('unit regression: prototype-chain payload and code accessors return HTTP 40
   assert.equal(errClassRes.http_status, 400);
   assert.equal(errClassRes.error_code, 'InvalidDigest');
   assert.equal(errClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('unit regression: throwing Proxy passed to dispatchS3CompleteMultipartUpload fails closed with HTTP 400 InvalidPart / InvalidDigest (never throws unhandled) (OPEN-2 / OPEN-5)', () => {
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"' },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  // 1. Fully throwing Proxy (throws on all traps) as manifestOrOptions
+  const throwingProxyAllTraps = new Proxy({}, {
+    get() { throw new Error('attack get'); },
+    has() { throw new Error('attack has'); },
+    ownKeys() { throw new Error('attack ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+
+  const res1 = dispatchS3CompleteMultipartUpload(throwingProxyAllTraps);
+  assert.equal(res1.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res1.error_code));
+  assert.notEqual(res1.http_status, 200);
+
+  // 2. Options wrapper containing throwing Proxy as manifest
+  const res2 = dispatchS3CompleteMultipartUpload({
+    manifest: throwingProxyAllTraps,
+    storedParts: validStoredParts,
+  });
+  assert.equal(res2.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res2.error_code));
+  assert.notEqual(res2.http_status, 200);
+
+  // 3. Options wrapper containing throwing Proxy as parts array
+  const throwingPartsArrayProxy = new Proxy([], {
+    get(target, prop) {
+      if (prop === 'length') throw new Error('attack parts length');
+      throw new Error(`attack parts get ${String(prop)}`);
+    },
+    ownKeys() { throw new Error('attack parts ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack parts getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack parts getPrototypeOf'); },
+  });
+  const res3 = dispatchS3CompleteMultipartUpload({
+    manifest: { parts: throwingPartsArrayProxy },
+    storedParts: validStoredParts,
+  });
+  assert.equal(res3.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res3.error_code));
+  assert.notEqual(res3.http_status, 200);
+
+  // 4. Manifest with parts array containing a throwing Proxy element
+  const throwingPartElementProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+  }, {
+    get(target, prop) { throw new Error(`attack part element get ${String(prop)}`); },
+    getPrototypeOf() { throw new Error('attack part element getPrototypeOf'); },
+    getOwnPropertyDescriptor() { throw new Error('attack part element getOwnPropertyDescriptor'); },
+  });
+  const res4 = dispatchS3CompleteMultipartUpload({
+    manifest: {
+      parts: [throwingPartElementProxy],
+      total_parts: 1,
+    },
+    storedParts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  });
+  assert.equal(res4.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res4.error_code));
+  assert.notEqual(res4.http_status, 200);
+
+  // 5. Throwing Proxy passed as storedParts (2nd argument and inside options)
+  const res5a = dispatchS3CompleteMultipartUpload(validManifest, throwingProxyAllTraps);
+  assert.equal(res5a.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res5a.error_code));
+  assert.notEqual(res5a.http_status, 200);
+
+  const res5b = dispatchS3CompleteMultipartUpload({
+    manifest: validManifest,
+    storedParts: throwingProxyAllTraps,
+  });
+  assert.equal(res5b.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res5b.error_code));
+  assert.notEqual(res5b.http_status, 200);
+
+  // 6. StoredParts containing a throwing Proxy element (in Array and in Map)
+  const throwingStoredPartElementProxy = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880,
+  }, {
+    get(target, prop) { throw new Error(`attack storedPart get ${String(prop)}`); },
+    getPrototypeOf() { throw new Error('attack storedPart getPrototypeOf'); },
+    getOwnPropertyDescriptor() { throw new Error('attack storedPart getOwnPropertyDescriptor'); },
+  });
+
+  const res6a = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    [throwingStoredPartElementProxy]
+  );
+  assert.equal(res6a.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res6a.error_code));
+  assert.notEqual(res6a.http_status, 200);
+
+  const res6b = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    new Map([[1, throwingStoredPartElementProxy]])
+  );
+  assert.equal(res6b.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res6b.error_code));
+  assert.notEqual(res6b.http_status, 200);
+
+  // 7. Proxy throwing on getPrototypeOf
+  const throwingProtoProxy = new Proxy({
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }],
+  }, {
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+  const res7 = dispatchS3CompleteMultipartUpload(throwingProtoProxy, validStoredParts);
+  assert.equal(res7.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res7.error_code));
+  assert.notEqual(res7.http_status, 200);
+
+  // 8. Options object with throwing property getter
+  const throwingOptionsGetter = {};
+  Object.defineProperty(throwingOptionsGetter, 'manifest', {
+    get() { throw new Error('attack throwing manifest getter'); },
+    enumerable: true,
+    configurable: true,
+  });
+  const res8 = dispatchS3CompleteMultipartUpload(throwingOptionsGetter);
+  assert.equal(res8.http_status, 400);
+  assert.ok(['InvalidPart', 'InvalidDigest', 'InvalidArgument'].includes(res8.error_code));
+  assert.notEqual(res8.http_status, 200);
+});
+
+test('harmonized fixture naming: s3_crud_19_ops_with_worm and s3_crud_15_ops_baseline storage capabilities in negotiation contracts (OPEN-2 / OPEN-5)', () => {
+  const handshakeSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Verify sample-capability-negotiation-handshake.json carries harmonized s3_crud_19_ops_with_worm
+  const storageCap = handshakeSample.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storageCap, 'Storage capability descriptor must be present in handshake sample');
+  assert.equal(storageCap.capability_name, 's3_crud_19_ops_with_worm', 'Storage capability must be harmonized to s3_crud_19_ops_with_worm');
+  assert.equal(storageCap.supported_features.length, 19, 'Storage capability s3_crud_19_ops_with_worm must contain exactly 19 operations');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(handshakeSample, handshakeSchemaId),
+    'Harmonized sample capability negotiation handshake must pass platform semantics'
+  );
+
+  // 2. Harmonized 15-op baseline capability (s3_crud_15_ops_baseline) on non-immutable profile
+  const privateCloudPath = join(EXAMPLES_DIR, 'private-cloud-v1.profile.json');
+  const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+  const baselineHandshake = JSON.parse(JSON.stringify(handshakeSample));
+  const baseStorageCap = baselineHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  baseStorageCap.capability_name = 's3_crud_15_ops_baseline';
+  baseStorageCap.supported_features = [...S3_15_BASELINE_OPS];
+  baseStorageCap.evidence_references = ['urn:cybrik:evidence:storage:s3-15-ops:v1'];
+  baselineHandshake.advertisement_response.conformance_evidence = [
+    ...baselineHandshake.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('storage')),
+    {
+      test_identifier: 'urn:cybrik:evidence:storage:s3-15-ops:v1',
+      status: 'PASS',
+      evidence_pack_digest: 'a105050505050505050505050505050505050505050505050505050505050505',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/ev-store-15.json',
+    },
+  ];
+  // Target a non-immutable profile (private-cloud-v1)
+  baselineHandshake.target_profile_id = 'private-cloud-v1';
+  baselineHandshake.target_profile_digest = privateCloudDigest;
+  baselineHandshake.advertisement_response.target_profile_digest = privateCloudDigest;
+  baselineHandshake.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  baselineHandshake.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  baselineHandshake.negotiation_request.requested_optional_capabilities = baselineHandshake.negotiation_request.requested_optional_capabilities.filter(c => c.capability_name !== 'storage_object_lock' && c.slot_id !== 'storage');
+  baselineHandshake.agreed_capability_lease.negotiated_optional_capabilities = baselineHandshake.agreed_capability_lease.negotiated_optional_capabilities.filter(c => c.capability_name !== 'storage_object_lock' && c.slot_id !== 'storage');
+
+  assert.ok(ajv.validate(handshakeSchemaId, baselineHandshake), 'Baseline 15-op handshake must pass Ajv validation: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(baselineHandshake, handshakeSchemaId),
+    '15-op baseline handshake on non-immutable profile must pass platform semantics'
+  );
 });

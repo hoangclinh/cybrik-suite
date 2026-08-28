@@ -11,7 +11,7 @@
   "scripts": {
     "validate:all": "npm run validate && npm run validate:platform && npm run validate:s3 && npm test",
     "test": "node --test",
-    "test:coverage": "node --test --experimental-test-coverage tests/validate-platform-contract.test.mjs tests/validate-s3-compatibility.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-branches=85 tests/validate-platform-contract.test.mjs tests/validate-s3-compatibility.test.mjs",
     "test:s3": "node --test tests/validate-s3-compatibility.test.mjs",
     "validate:s3": "node --test tests/validate-s3-compatibility.test.mjs",
     "validate": "node validate.mjs",
