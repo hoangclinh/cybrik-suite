@@ -65,7 +65,8 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
           }
         }
       },
@@ -126,7 +127,7 @@
         "properties": {
           "test_identifier": {
             "type": "string",
-            "pattern": "^urn:cybrik:evidence:[a-zA-Z0-9_-]+(?::[a-zA-Z0-9_-]+)*$"
+            "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
           },
           "status": {
             "const": "PASS"

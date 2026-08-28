@@ -4217,3 +4217,97 @@ test('prototype input hardening: inherited payload, payloadBytes, headers, or pa
   assert.equal(resErrProtoDirectSha.http_status, 400, 'Inherited direct sha256 header in dispatchS3Error must fail closed with 400');
   assert.equal(resErrProtoDirectSha.error_code, 'InvalidDigest');
 });
+
+test('non-enumerable inherited prototype properties fail closed with HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX) (OPEN-2 / OPEN-5)', () => {
+  const payloadBytes = Buffer.from('CYBRIK_NON_ENUMERABLE_INHERITED_HEADERS_2026');
+  const validSha = computePayloadSha256(payloadBytes);
+  const validMd5 = computePayloadMd5(payloadBytes);
+
+  // 1. Direct non-enumerable inherited x-amz-content-sha256
+  const protoSha = Object.defineProperty({}, 'x-amz-content-sha256', {
+    value: 'UNSIGNED-PAYLOAD',
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  const optDirectSha = Object.create(protoSha);
+  optDirectSha.payloadBytes = payloadBytes;
+
+  const resPutDirectSha = dispatchS3PutObject(optDirectSha);
+  assert.equal(resPutDirectSha.http_status, 400);
+  assert.equal(resPutDirectSha.error_code, 'InvalidDigest');
+  assert.equal(resPutDirectSha.code, 'InvalidDigest');
+  assert.equal(resPutDirectSha.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrDirectSha = dispatchS3Error(optDirectSha);
+  assert.equal(resErrDirectSha.http_status, 400);
+  assert.equal(resErrDirectSha.error_code, 'InvalidDigest');
+  assert.equal(resErrDirectSha.code, 'InvalidDigest');
+  assert.equal(resErrDirectSha.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. Direct non-enumerable inherited contentMd5Header / Content-MD5
+  const protoMd5 = Object.defineProperty({}, 'contentMd5Header', {
+    value: validMd5,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  const optDirectMd5 = Object.create(protoMd5);
+  optDirectMd5.payloadBytes = payloadBytes;
+  optDirectMd5['x-amz-content-sha256'] = validSha;
+
+  const resPutDirectMd5 = dispatchS3PutObject(optDirectMd5);
+  assert.equal(resPutDirectMd5.http_status, 400);
+  assert.equal(resPutDirectMd5.error_code, 'InvalidDigest');
+  assert.equal(resPutDirectMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrDirectMd5 = dispatchS3Error(optDirectMd5);
+  assert.equal(resErrDirectMd5.http_status, 400);
+  assert.equal(resErrDirectMd5.error_code, 'InvalidDigest');
+  assert.equal(resErrDirectMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. Non-enumerable inherited property inside headers object
+  const protoHdr = Object.defineProperty({}, 'x-amz-content-sha256', {
+    value: 'UNSIGNED-PAYLOAD',
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  const optNestedHdr = {
+    payloadBytes,
+    headers: Object.create(protoHdr),
+  };
+
+  const resPutNestedHdr = dispatchS3PutObject(optNestedHdr);
+  assert.equal(resPutNestedHdr.http_status, 400);
+  assert.equal(resPutNestedHdr.error_code, 'InvalidDigest');
+  assert.equal(resPutNestedHdr.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrNestedHdr = dispatchS3Error(optNestedHdr);
+  assert.equal(resErrNestedHdr.http_status, 400);
+  assert.equal(resErrNestedHdr.error_code, 'InvalidDigest');
+  assert.equal(resErrNestedHdr.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. Non-enumerable inherited Content-MD5 inside headers object
+  const protoHdrMd5 = Object.defineProperty({}, 'Content-MD5', {
+    value: validMd5,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
+  const optNestedHdrMd5 = {
+    payloadBytes,
+    'x-amz-content-sha256': validSha,
+    headers: Object.create(protoHdrMd5),
+  };
+
+  const resPutNestedMd5 = dispatchS3PutObject(optNestedHdrMd5);
+  assert.equal(resPutNestedMd5.http_status, 400);
+  assert.equal(resPutNestedMd5.error_code, 'InvalidDigest');
+  assert.equal(resPutNestedMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrNestedMd5 = dispatchS3Error(optNestedHdrMd5);
+  assert.equal(resErrNestedMd5.http_status, 400);
+  assert.equal(resErrNestedMd5.error_code, 'InvalidDigest');
+  assert.equal(resErrNestedMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+});

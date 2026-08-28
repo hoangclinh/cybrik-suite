@@ -1218,7 +1218,9 @@ test('in-memory validation: structured evidence URI enforcement in provider capa
     'urn:cybrik:evidence:invalid@char',
     'urn:cybrik:evidence:trailing:',
     ':urn:cybrik:evidence:leading',
-    'urn:cybrik:evidence:space not allowed'
+    'urn:cybrik:evidence:space not allowed',
+    'urn:cybrik:evidence:UPPERCASE-TEST',
+    'urn:cybrik:evidence:MixedCaseTest:v1'
   ];
   for (const uri of invalidURIs) {
     const data = JSON.parse(JSON.stringify(sample));
@@ -6077,5 +6079,252 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
     () => validatePlatformSemantics(noLockAdv, pcaSchemaId),
     /storage slot advertisement lacks Object Lock retention evidence/,
     'Partial storage advertisement lacking Object Lock evidence must be rejected'
+  );
+});
+
+test('in-memory validation: case-variant Object Lock URNs are strictly rejected across partial advertisements, full profiles, and handshakes (OPEN-1 / OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  const caseVariantUrns = [
+    'urn:cybrik:evidence:storage:s3:conformance:v1:Object-Lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:OBJECT_LOCK',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:Object_Lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:OBJECT-LOCK',
+  ];
+
+  const ALL_17_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts'
+  ];
+
+  // 1. Partial Advertisements
+  const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  for (const variantUrn of caseVariantUrns) {
+    // 1a. Case variant as the sole evidence reference
+    const partialDocAlone = JSON.parse(JSON.stringify(partialSample));
+    partialDocAlone.advertised_capabilities = [
+      {
+        capability_name: 's3_storage_provider',
+        slot_id: 'storage',
+        description: 'Storage capability with case-variant Object Lock URN',
+        is_mandatory: true,
+        supported_features: [...ALL_17_OPS],
+        degradation_fallback: 'NONE',
+        evidence_references: [variantUrn],
+      },
+    ];
+    partialDocAlone.conformance_evidence = [
+      {
+        test_identifier: variantUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report',
+      },
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(partialDocAlone, pcaSchemaId),
+      /storage slot advertisement lacks Object Lock retention evidence|invalid storage_object_lock evidence URN/,
+      `Partial advertisement with sole case-variant URN '${variantUrn}' must be strictly rejected`
+    );
+
+    // 1b. Case variant alongside canonical Object Lock URN
+    const partialDocDual = JSON.parse(JSON.stringify(partialSample));
+    partialDocDual.advertised_capabilities = [
+      {
+        capability_name: 's3_storage_provider',
+        slot_id: 'storage',
+        description: 'Storage capability with canonical and case-variant Object Lock URN',
+        is_mandatory: true,
+        supported_features: [...ALL_17_OPS],
+        degradation_fallback: 'NONE',
+        evidence_references: [canonicalLockUrn, variantUrn],
+      },
+    ];
+    partialDocDual.conformance_evidence = [
+      {
+        test_identifier: canonicalLockUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report-canonical',
+      },
+      {
+        test_identifier: variantUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report-variant',
+      },
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(partialDocDual, pcaSchemaId),
+      /invalid storage_object_lock evidence URN .* must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)/,
+      `Partial advertisement with case-variant URN '${variantUrn}' alongside canonical URN must be strictly rejected`
+    );
+  }
+
+  // 2. Full Profile Conformance Declarations
+  const fullSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  for (const variantUrn of caseVariantUrns) {
+    // 2a. Case variant replacing canonical URN in storage capability
+    const fullDocAlone = JSON.parse(JSON.stringify(fullSample));
+    const storageCap = fullDocAlone.advertised_capabilities.find(c => c.slot_id === 'storage');
+    storageCap.evidence_references = storageCap.evidence_references.map(r => r === canonicalLockUrn ? variantUrn : r);
+    fullDocAlone.conformance_evidence = fullDocAlone.conformance_evidence.map(e =>
+      e.test_identifier === canonicalLockUrn
+        ? { ...e, test_identifier: variantUrn }
+        : e
+    );
+    assert.throws(
+      () => validatePlatformSemantics(fullDocAlone, pcaSchemaId),
+      /storage slot advertisement lacks Object Lock retention evidence|invalid storage_object_lock evidence URN/,
+      `Full profile declaration with sole case-variant URN '${variantUrn}' must be strictly rejected`
+    );
+
+    // 2b. Case variant added alongside canonical URN in storage capability
+    const fullDocDual = JSON.parse(JSON.stringify(fullSample));
+    const storageCapDual = fullDocDual.advertised_capabilities.find(c => c.slot_id === 'storage');
+    storageCapDual.evidence_references.push(variantUrn);
+    fullDocDual.conformance_evidence.push({
+      test_identifier: variantUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report-variant',
+    });
+    assert.throws(
+      () => validatePlatformSemantics(fullDocDual, pcaSchemaId),
+      /invalid storage_object_lock evidence URN .* must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)/,
+      `Full profile declaration with case-variant URN '${variantUrn}' alongside canonical URN must be strictly rejected`
+    );
+  }
+
+  // 3. Negotiation Handshakes
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  for (const variantUrn of caseVariantUrns) {
+    // 3a. Case variant replacing canonical URN in handshake advertisement response
+    const handshakeDocAlone = JSON.parse(JSON.stringify(handshakeSample));
+    const hsStorageCap = handshakeDocAlone.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    hsStorageCap.evidence_references = hsStorageCap.evidence_references.map(r => r === canonicalLockUrn ? variantUrn : r);
+    handshakeDocAlone.advertisement_response.conformance_evidence = handshakeDocAlone.advertisement_response.conformance_evidence.map(e =>
+      e.test_identifier === canonicalLockUrn
+        ? { ...e, test_identifier: variantUrn }
+        : e
+    );
+    assert.throws(
+      () => validatePlatformSemantics(handshakeDocAlone, pcnSchemaId),
+      /storage slot advertisement lacks Object Lock retention evidence|invalid storage_object_lock evidence URN/,
+      `Negotiation handshake with sole case-variant URN '${variantUrn}' must be strictly rejected`
+    );
+
+    // 3b. Case variant added alongside canonical URN in handshake advertisement response
+    const handshakeDocDual = JSON.parse(JSON.stringify(handshakeSample));
+    const hsStorageCapDual = handshakeDocDual.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    hsStorageCapDual.evidence_references.push(variantUrn);
+    handshakeDocDual.advertisement_response.conformance_evidence.push({
+      test_identifier: variantUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report-variant',
+    });
+    assert.throws(
+      () => validatePlatformSemantics(handshakeDocDual, pcnSchemaId),
+      /invalid storage_object_lock evidence URN .* must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)/,
+      `Negotiation handshake with case-variant URN '${variantUrn}' alongside canonical URN must be strictly rejected`
+    );
+  }
+});
+
+test('lexical I-JSON validation: proto safety on null prototype without polluting Object.prototype (OPEN-1)', () => {
+  const payload = '{"__proto__": {"polluted": true}}';
+  assert.equal(Object.prototype.polluted, undefined, 'Object.prototype.polluted must be undefined before parsing');
+
+  const parsed = validateIJson(payload, 'proto-pollution-test');
+
+  // Verify Object.prototype was not polluted
+  assert.equal(Object.prototype.polluted, undefined, 'Object.prototype.polluted must remain undefined');
+  assert.equal('polluted' in Object.prototype, false, 'Object.prototype must not have polluted property');
+  assert.equal({}.polluted, undefined, 'Fresh object must not inherit polluted property');
+
+  // Verify parsed object is a null prototype object
+  assert.equal(Object.getPrototypeOf(parsed), null, 'Parsed object must have null prototype');
+
+  // Verify the __proto__ property is safely stored as an own property
+  assert.ok(Object.prototype.hasOwnProperty.call(parsed, '__proto__'), 'Parsed object must have own __proto__ property');
+  assert.equal(parsed.__proto__.polluted, true, 'Parsed __proto__.polluted should be true');
+  assert.equal(Object.getPrototypeOf(parsed.__proto__), null, 'Child object should also have null prototype');
+});
+
+test('in-memory validation: storage_object_lock capability_name strictly enforces canonical URN and full profile digest validation', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const customLockUrn = 'urn:cybrik:evidence:storage:s3:custom:lock:v1';
+
+  const ALL_17_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts'
+  ];
+
+  // 1. Capability with capability_name: 'storage_object_lock' having non-canonical URN
+  const customLockDoc = {
+    target_profile_id: 'onprem-standard-v1',
+    provider_namespace: 'cybrik-provider',
+    claim_type: 'PARTIAL_CAPABILITY_ADVERTISEMENT',
+    advertised_capabilities: [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        description: 'Storage capability named storage_object_lock',
+        is_mandatory: true,
+        supported_features: [...ALL_17_OPS],
+        degradation_fallback: 'NONE',
+        evidence_references: [canonicalLockUrn, customLockUrn],
+      },
+    ],
+    conformance_evidence: [
+      {
+        test_identifier: canonicalLockUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report',
+      },
+      {
+        test_identifier: customLockUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report2',
+      },
+    ],
+    degradation_behavior: 'FAIL_CLOSED',
+    authenticated_discovery: true,
+  };
+
+  assert.throws(
+    () => validatePlatformSemantics(customLockDoc, pcaSchemaId),
+    /storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'/
+  );
+
+  // 2. Full profile declaration with invalid adv.target_profile_digest format
+  const fullSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const fullBadDigest = JSON.parse(JSON.stringify(fullSample));
+  fullBadDigest.target_profile_digest = 'not-a-valid-sha256-hex-digest!';
+  assert.throws(
+    () => validatePlatformSemantics(fullBadDigest, pcaSchemaId),
+    /target_profile_digest/
   );
 });

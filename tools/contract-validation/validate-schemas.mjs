@@ -258,7 +258,7 @@ export function validateIJson(bufferOrString, label = 'JSON') {
     pos++; // skip '{'
     skipWhitespace();
     const seenKeys = new Set();
-    const obj = {};
+    const obj = Object.create(null);
 
     if (pos < len && rawJsonText[pos] === '}') {
       pos++;
@@ -391,6 +391,8 @@ export function isMalformedSha256(headerVal) {
   return !/^[0-9a-f]{64}$/.test(headerVal);
 }
 
+const getOwn = (obj, key) => (obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key)) ? obj[key] : undefined;
+
 export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybeSha256Header) {
   let payloadBytes;
   let md5Val;
@@ -398,6 +400,10 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   let hasMd5 = false;
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
+    const proto = Object.getPrototypeOf(optionsOrPayload);
+    if (proto !== Object.prototype && proto !== null) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
     const req = optionsOrPayload;
     if ('payload' in optionsOrPayload && !Object.prototype.hasOwnProperty.call(optionsOrPayload, 'payload')) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
@@ -412,12 +418,27 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
       if (!Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers')) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
-      const hdrs = optionsOrPayload.headers;
+      const hdrs = getOwn(optionsOrPayload, 'headers');
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
+      const hdrsProto = Object.getPrototypeOf(hdrs);
+      if (hdrsProto !== Object.prototype && hdrsProto !== null) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
       for (const k in hdrs) {
         if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+        }
+      }
+      const digestKeys = [
+        'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5',
+        'content_md5', 'content_md5_declared', 'x-amz-content-sha256',
+        'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header',
+        'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header'
+      ];
+      for (const k of digestKeys) {
+        if (k in hdrs && !Object.prototype.hasOwnProperty.call(hdrs, k)) {
           return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
         }
       }
@@ -433,11 +454,12 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
     }
-    const headersObj = (Object.prototype.hasOwnProperty.call(req, 'headers') && req.headers && typeof req.headers === 'object' && !Array.isArray(req.headers)) ? req.headers : null;
-    payloadBytes = req.payloadBytes ?? req.payload ?? req.body;
-    md5Val = req.contentMd5Header ?? req.content_md5_header ?? req.contentMd5 ?? req['Content-MD5'] ?? req.content_md5 ?? req.content_md5_declared ?? (headersObj ? (headersObj['Content-MD5'] ?? headersObj['content-md5']) : undefined);
-    hasMd5 = ('contentMd5Header' in req || 'content_md5_header' in req || 'contentMd5' in req || 'Content-MD5' in req || 'content_md5' in req || 'content_md5_declared' in req || (headersObj !== null && ('Content-MD5' in headersObj || 'content-md5' in headersObj)));
-    sha256Val = req['x-amz-content-sha256'] ?? req['X-Amz-Content-Sha256'] ?? req.contentSha256Header ?? req.content_sha256_header ?? req.contentSha256 ?? req.xAmzContentSha256 ?? req.x_amz_content_sha256 ?? req.sha256Header ?? (headersObj ? (headersObj['x-amz-content-sha256'] ?? headersObj['X-Amz-Content-Sha256']) : undefined);
+    const headersObjRaw = getOwn(req, 'headers');
+    const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
+    payloadBytes = getOwn(req, 'payloadBytes') ?? getOwn(req, 'payload') ?? getOwn(req, 'body');
+    md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
+    hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
+    sha256Val = getOwn(req, 'x-amz-content-sha256') ?? getOwn(req, 'X-Amz-Content-Sha256') ?? getOwn(req, 'contentSha256Header') ?? getOwn(req, 'content_sha256_header') ?? getOwn(req, 'contentSha256') ?? getOwn(req, 'xAmzContentSha256') ?? getOwn(req, 'x_amz_content_sha256') ?? getOwn(req, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
   } else {
     payloadBytes = optionsOrPayload;
     md5Val = maybeMd5Header;
@@ -450,13 +472,20 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   }
 
   if (hasMd5 && isMalformedBase64Md5(md5Val)) {
-    const malformedReason = (optionsOrPayload && typeof optionsOrPayload === 'object' && (optionsOrPayload.error_condition === 'MALFORMED_DIGEST_HEADER' || optionsOrPayload.expected_error?.error_condition === 'MALFORMED_DIGEST_HEADER')) ? 'MALFORMED_DIGEST_HEADER' : 'MALFORMED_HEADER_SYNTAX';
+    const errorCondition = getOwn(optionsOrPayload, 'error_condition');
+    const expError = getOwn(optionsOrPayload, 'expected_error');
+    const expErrorCond = expError && typeof expError === 'object' ? getOwn(expError, 'error_condition') : undefined;
+    const malformedReason = (errorCondition === 'MALFORMED_DIGEST_HEADER' || expErrorCond === 'MALFORMED_DIGEST_HEADER') ? 'MALFORMED_DIGEST_HEADER' : 'MALFORMED_HEADER_SYNTAX';
     return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: malformedReason };
   }
 
-  if (optionsOrPayload && typeof optionsOrPayload === 'object' && optionsOrPayload.content_md5_declared !== undefined && optionsOrPayload.content_md5_computed !== undefined) {
-    if (optionsOrPayload.content_md5_declared !== optionsOrPayload.content_md5_computed) {
-      return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+  if (optionsOrPayload && typeof optionsOrPayload === 'object') {
+    const contentMd5Declared = getOwn(optionsOrPayload, 'content_md5_declared');
+    const contentMd5Computed = getOwn(optionsOrPayload, 'content_md5_computed');
+    if (contentMd5Declared !== undefined && contentMd5Computed !== undefined) {
+      if (contentMd5Declared !== contentMd5Computed) {
+        return { http_status: 400, error_code: 'BadDigest', status: 400, code: 'BadDigest', reason: 'PAYLOAD_DIGEST_MISMATCH' };
+      }
     }
   }
 
@@ -500,47 +529,51 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 
   if (manifestOrOptions && typeof manifestOrOptions === 'object') {
     if ('manifest' in manifestOrOptions) {
-      if (!Object.prototype.hasOwnProperty.call(manifestOrOptions, 'manifest') || !manifestOrOptions.manifest || typeof manifestOrOptions.manifest !== 'object') {
+      const manifestProp = getOwn(manifestOrOptions, 'manifest');
+      if (!manifestProp || typeof manifestProp !== 'object') {
         return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
       }
-      manifest = manifestOrOptions.manifest;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : (Object.prototype.hasOwnProperty.call(manifestOrOptions, 'storedParts') ? manifestOrOptions.storedParts : undefined);
+      manifest = manifestProp;
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
     } else if (Array.isArray(manifestOrOptions)) {
       manifest = { parts: manifestOrOptions };
       storedParts = maybeStoredParts;
     } else if ('parts' in manifestOrOptions) {
-      if (!Object.prototype.hasOwnProperty.call(manifestOrOptions, 'parts')) {
+      const partsProp = getOwn(manifestOrOptions, 'parts');
+      if (partsProp === undefined) {
         return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
       }
       manifest = manifestOrOptions;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : (Object.prototype.hasOwnProperty.call(manifestOrOptions, 'storedParts') ? manifestOrOptions.storedParts : undefined);
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
     } else {
       manifest = manifestOrOptions;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : (Object.prototype.hasOwnProperty.call(manifestOrOptions, 'storedParts') ? manifestOrOptions.storedParts : undefined);
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : getOwn(manifestOrOptions, 'storedParts');
     }
   } else {
     manifest = manifestOrOptions;
     storedParts = maybeStoredParts;
   }
 
-  if (!manifest || typeof manifest !== 'object' || !('parts' in manifest) || !Object.prototype.hasOwnProperty.call(manifest, 'parts') || !Array.isArray(manifest.parts) || manifest.parts.length === 0) {
+  const parts = getOwn(manifest, 'parts');
+  if (!manifest || typeof manifest !== 'object' || parts === undefined || !Array.isArray(parts) || parts.length === 0) {
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
   }
 
-  if (manifest.parts.length > 10000) {
+  if (parts.length > 10000) {
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'TooManyParts' };
   }
 
   if ('total_parts' in manifest) {
-    if (!Object.prototype.hasOwnProperty.call(manifest, 'total_parts') || typeof manifest.total_parts !== 'number' || !Number.isInteger(manifest.total_parts) || manifest.total_parts !== manifest.parts.length) {
+    const totalParts = getOwn(manifest, 'total_parts');
+    if (totalParts === undefined || typeof totalParts !== 'number' || !Number.isInteger(totalParts) || totalParts !== parts.length) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TotalPartsMismatch' };
     }
   }
 
   let prevNum = 0;
-  for (let i = 0; i < manifest.parts.length; i++) {
-    const p = manifest.parts[i];
-    const pNum = p ? (p.part_number ?? p.PartNumber) : undefined;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? p.part_number ?? p.PartNumber) : undefined;
     if (typeof pNum !== 'number' || pNum < 1 || pNum > 10000 || !Number.isInteger(pNum)) {
       return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'InvalidPartNumber' };
     }
@@ -566,7 +599,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     for (let idx = 0; idx < storedParts.length; idx++) {
       if (Object.prototype.hasOwnProperty.call(storedParts, idx)) {
         const p = storedParts[idx];
-        const pNum = p ? (p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1);
+        const pNum = p ? (getOwn(p, 'part_number') ?? getOwn(p, 'PartNumber') ?? p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1);
         storedMap.set(pNum, p);
       }
     }
@@ -579,11 +612,11 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
   const S3_ETAG_REGEX = /^"[a-fA-F0-9]{32}(?:-[0-9]{1,5})?"$/;
 
   let totalSizeBytes = 0;
-  for (let i = 0; i < manifest.parts.length; i++) {
-    const part = manifest.parts[i];
-    const pNum = part ? (part.part_number ?? part.PartNumber) : undefined;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const pNum = part ? (getOwn(part, 'part_number') ?? getOwn(part, 'PartNumber') ?? part.part_number ?? part.PartNumber) : undefined;
 
-    const manifestEtag = part ? (part.etag !== undefined ? part.etag : part.ETag) : undefined;
+    const manifestEtag = part ? (getOwn(part, 'etag') ?? getOwn(part, 'ETag') ?? part.etag ?? part.ETag) : undefined;
     if (!part || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
     }
@@ -596,7 +629,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     }
 
     const storedPart = storedMap.get(pNum);
-    const storedEtag = storedPart ? (storedPart.etag !== undefined ? storedPart.etag : storedPart.ETag) : undefined;
+    const storedEtag = storedPart ? (getOwn(storedPart, 'etag') ?? getOwn(storedPart, 'ETag') ?? storedPart.etag ?? storedPart.ETag) : undefined;
     if (!storedPart || typeof storedPart !== 'object' || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
     }
@@ -608,30 +641,30 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
     }
 
-    const rawSize = storedPart.size_bytes !== undefined
-      ? storedPart.size_bytes
-      : (storedPart.size !== undefined
-          ? storedPart.size
-          : storedPart.Size);
+    const rawSize = storedPart
+      ? (getOwn(storedPart, 'size_bytes') ?? getOwn(storedPart, 'size') ?? getOwn(storedPart, 'Size') ?? storedPart.size_bytes ?? storedPart.size ?? storedPart.Size)
+      : undefined;
     if (rawSize === undefined || typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
     }
     if (rawSize > 5368709120) {
       return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PartSizeExceeded' };
     }
-    if (i < manifest.parts.length - 1 && rawSize < 5242880) {
+    if (i < parts.length - 1 && rawSize < 5242880) {
       return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
     }
     totalSizeBytes += rawSize;
   }
 
   if ('total_size_bytes' in manifest) {
-    if (!Object.prototype.hasOwnProperty.call(manifest, 'total_size_bytes') || typeof manifest.total_size_bytes !== 'number' || !Number.isInteger(manifest.total_size_bytes) || manifest.total_size_bytes !== totalSizeBytes) {
+    const totalSizeBytesProp = getOwn(manifest, 'total_size_bytes');
+    if (totalSizeBytesProp === undefined || typeof totalSizeBytesProp !== 'number' || !Number.isInteger(totalSizeBytesProp) || totalSizeBytesProp !== totalSizeBytes) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TotalSizeMismatch' };
     }
   }
 
-  if (totalSizeBytes > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
+  const totalSizeBytesProp = getOwn(manifest, 'total_size_bytes');
+  if (totalSizeBytes > 5497558138880 || (typeof totalSizeBytesProp === 'number' && totalSizeBytesProp > 5497558138880)) {
     return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'TotalSizeExceeded' };
   }
 
@@ -667,8 +700,20 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   if (isRequestShape) {
     if (
       conditionOrOptions &&
-      typeof conditionOrOptions === 'object'
+      typeof conditionOrOptions === 'object' &&
+      !Buffer.isBuffer(conditionOrOptions) &&
+      !(conditionOrOptions instanceof Uint8Array)
     ) {
+      const proto = Object.getPrototypeOf(conditionOrOptions);
+      if (proto !== Object.prototype && proto !== null) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_HEADER_SYNTAX',
+        };
+      }
       if ('payload' in conditionOrOptions && !Object.prototype.hasOwnProperty.call(conditionOrOptions, 'payload')) {
         return {
           http_status: 400,
@@ -706,8 +751,18 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             reason: 'MALFORMED_HEADER_SYNTAX',
           };
         }
-        const hdrs = conditionOrOptions.headers;
+        const hdrs = getOwn(conditionOrOptions, 'headers');
         if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
+          return {
+            http_status: 400,
+            error_code: 'InvalidDigest',
+            status: 400,
+            code: 'InvalidDigest',
+            reason: 'MALFORMED_HEADER_SYNTAX',
+          };
+        }
+        const hdrsProto = Object.getPrototypeOf(hdrs);
+        if (hdrsProto !== Object.prototype && hdrsProto !== null) {
           return {
             http_status: 400,
             error_code: 'InvalidDigest',
@@ -718,6 +773,23 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         }
         for (const k in hdrs) {
           if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
+            return {
+              http_status: 400,
+              error_code: 'InvalidDigest',
+              status: 400,
+              code: 'InvalidDigest',
+              reason: 'MALFORMED_HEADER_SYNTAX',
+            };
+          }
+        }
+        const digestKeys = [
+          'contentMd5Header', 'content_md5_header', 'contentMd5', 'Content-MD5',
+          'content_md5', 'content_md5_declared', 'x-amz-content-sha256',
+          'X-Amz-Content-Sha256', 'contentSha256Header', 'content_sha256_header',
+          'contentSha256', 'xAmzContentSha256', 'x_amz_content_sha256', 'sha256Header'
+        ];
+        for (const k of digestKeys) {
+          if (k in hdrs && !Object.prototype.hasOwnProperty.call(hdrs, k)) {
             return {
               http_status: 400,
               error_code: 'InvalidDigest',
@@ -747,10 +819,11 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       }
     }
 
-    const headersObj = (Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers') && conditionOrOptions?.headers && typeof conditionOrOptions.headers === 'object' && !Array.isArray(conditionOrOptions.headers)) ? conditionOrOptions.headers : null;
-    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (conditionOrOptions?.payloadBytes ?? conditionOrOptions?.payload ?? conditionOrOptions?.body);
-    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (conditionOrOptions?.contentMd5Header ?? conditionOrOptions?.content_md5_header ?? conditionOrOptions?.contentMd5 ?? conditionOrOptions?.['Content-MD5'] ?? conditionOrOptions?.content_md5 ?? conditionOrOptions?.content_md5_declared ?? (headersObj ? (headersObj['Content-MD5'] ?? headersObj['content-md5']) : undefined));
-    const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.['X-Amz-Content-Sha256'] ?? conditionOrOptions?.contentSha256Header ?? conditionOrOptions?.content_sha256_header ?? conditionOrOptions?.contentSha256 ?? conditionOrOptions?.xAmzContentSha256 ?? conditionOrOptions?.x_amz_content_sha256 ?? conditionOrOptions?.sha256Header ?? (headersObj ? (headersObj['x-amz-content-sha256'] ?? headersObj['X-Amz-Content-Sha256']) : undefined);
+    const headersObjRaw = getOwn(conditionOrOptions, 'headers');
+    const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
+    const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (getOwn(conditionOrOptions, 'payloadBytes') ?? getOwn(conditionOrOptions, 'payload') ?? getOwn(conditionOrOptions, 'body'));
+    const contentMd5Header = arguments.length >= 2 ? maybeHeader : (getOwn(conditionOrOptions, 'contentMd5Header') ?? getOwn(conditionOrOptions, 'content_md5_header') ?? getOwn(conditionOrOptions, 'contentMd5') ?? getOwn(conditionOrOptions, 'Content-MD5') ?? getOwn(conditionOrOptions, 'content_md5') ?? getOwn(conditionOrOptions, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined));
+    const shaHeader = getOwn(conditionOrOptions, 'x-amz-content-sha256') ?? getOwn(conditionOrOptions, 'X-Amz-Content-Sha256') ?? getOwn(conditionOrOptions, 'contentSha256Header') ?? getOwn(conditionOrOptions, 'content_sha256_header') ?? getOwn(conditionOrOptions, 'contentSha256') ?? getOwn(conditionOrOptions, 'xAmzContentSha256') ?? getOwn(conditionOrOptions, 'x_amz_content_sha256') ?? getOwn(conditionOrOptions, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
 
     if (shaHeader && typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
       return {
@@ -762,21 +835,30 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       };
     }
 
-    if (conditionOrOptions && typeof conditionOrOptions === 'object' && conditionOrOptions.content_md5_declared !== undefined && conditionOrOptions.content_md5_computed !== undefined) {
-      if (conditionOrOptions.content_md5_declared !== conditionOrOptions.content_md5_computed) {
-        return {
-          http_status: 400,
-          error_code: 'BadDigest',
-          status: 400,
-          code: 'BadDigest',
-          reason: 'PAYLOAD_DIGEST_MISMATCH',
-        };
+    if (conditionOrOptions && typeof conditionOrOptions === 'object') {
+      const contentMd5Declared = getOwn(conditionOrOptions, 'content_md5_declared');
+      const contentMd5Computed = getOwn(conditionOrOptions, 'content_md5_computed');
+      if (contentMd5Declared !== undefined && contentMd5Computed !== undefined) {
+        if (contentMd5Declared !== contentMd5Computed) {
+          return {
+            http_status: 400,
+            error_code: 'BadDigest',
+            status: 400,
+            code: 'BadDigest',
+            reason: 'PAYLOAD_DIGEST_MISMATCH',
+          };
+        }
       }
     }
 
-    if (contentMd5Header !== undefined) {
+    const hasMd5Header = (arguments.length >= 2 && maybeHeader !== undefined) || (conditionOrOptions && typeof conditionOrOptions === 'object' && (Object.prototype.hasOwnProperty.call(conditionOrOptions, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(conditionOrOptions, 'content_md5_header') || Object.prototype.hasOwnProperty.call(conditionOrOptions, 'contentMd5') || Object.prototype.hasOwnProperty.call(conditionOrOptions, 'Content-MD5') || Object.prototype.hasOwnProperty.call(conditionOrOptions, 'content_md5') || Object.prototype.hasOwnProperty.call(conditionOrOptions, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))))) || (contentMd5Header !== undefined);
+
+    if (hasMd5Header) {
       if (isMalformedBase64Md5(contentMd5Header)) {
-        const malformedReason = (conditionOrOptions && typeof conditionOrOptions === 'object' && (conditionOrOptions.error_condition === 'MALFORMED_DIGEST_HEADER' || conditionOrOptions.expected_error?.error_condition === 'MALFORMED_DIGEST_HEADER')) ? 'MALFORMED_DIGEST_HEADER' : 'MALFORMED_HEADER_SYNTAX';
+        const errorCondition = getOwn(conditionOrOptions, 'error_condition');
+        const expError = getOwn(conditionOrOptions, 'expected_error');
+        const expErrorCond = expError && typeof expError === 'object' ? getOwn(expError, 'error_condition') : undefined;
+        const malformedReason = (errorCondition === 'MALFORMED_DIGEST_HEADER' || expErrorCond === 'MALFORMED_DIGEST_HEADER') ? 'MALFORMED_DIGEST_HEADER' : 'MALFORMED_HEADER_SYNTAX';
         return {
           http_status: 400,
           error_code: 'InvalidDigest',
@@ -1010,8 +1092,12 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   }
 
   if (conditionOrOptions && typeof conditionOrOptions === 'object') {
-    const code = conditionOrOptions.error_code || conditionOrOptions.code;
-    const reason = conditionOrOptions.error_condition || conditionOrOptions.reason;
+    const proto = Object.getPrototypeOf(conditionOrOptions);
+    if (proto !== Object.prototype && proto !== null) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
+    const code = getOwn(conditionOrOptions, 'error_code') ?? getOwn(conditionOrOptions, 'code');
+    const reason = getOwn(conditionOrOptions, 'error_condition') ?? getOwn(conditionOrOptions, 'reason');
     if (code === 'BadDigest' || reason === 'PAYLOAD_DIGEST_MISMATCH' || reason === 'PAYLOAD_SHA256_MISMATCH' || reason === 'XAmzContentSHA256Mismatch') {
       return {
         http_status: 400,
@@ -1163,8 +1249,6 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       code === 'InvalidArgument' ||
       reason === 'EmptyPartsList' ||
       reason === 'EMPTY_PARTS_LIST' ||
-      conditionOrOptions.error_condition === 'EmptyPartsList' ||
-      conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST' ||
       reason === 'INVALID_ARGUMENT' ||
       reason === 'INVALID_PART_NUMBER' ||
       reason === 'InvalidPartNumber' ||
@@ -1175,7 +1259,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidArgument',
         status: 400,
         code: 'InvalidArgument',
-        reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
+        reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
       };
     }
   }
@@ -1815,7 +1899,8 @@ export function validatePlatformSemantics(data, schemaId) {
             }
           }
           for (const ref of (cap.evidence_references || [])) {
-            const isLockIntent = ref.includes('object-lock') || ref.includes('object_lock') || ref.includes('objectlock');
+            const lowerRef = ref.toLowerCase();
+            const isLockIntent = lowerRef.includes('object-lock') || lowerRef.includes('object_lock') || lowerRef.includes('objectlock');
             if (isLockIntent) {
               if (ref !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock') {
                 throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (aliases strictly prohibited)`);
