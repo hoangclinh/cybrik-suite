@@ -368,21 +368,37 @@ export function isMalformedBase64Md5(headerVal) {
   }
 }
 
+export function isMalformedPayloadType(val) {
+  if (val === undefined || val === null) return false;
+  if (typeof val === 'string') return false;
+  if (Buffer.isBuffer(val)) return false;
+  if (val instanceof Uint8Array) return false;
+  return true;
+}
+
 export function computePayloadMd5(payloadBytes) {
-  const payload = payloadBytes !== undefined && payloadBytes !== null
-    ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
-        ? payloadBytes
-        : Buffer.from(String(payloadBytes), 'utf8'))
-    : Buffer.alloc(0);
+  if (payloadBytes === undefined || payloadBytes === null) {
+    return createHash('md5').update(Buffer.alloc(0)).digest('base64');
+  }
+  if (typeof payloadBytes !== 'string' && !Buffer.isBuffer(payloadBytes) && !(payloadBytes instanceof Uint8Array)) {
+    throw new TypeError('Invalid payload type: payload must be a string, Buffer, or Uint8Array');
+  }
+  const payload = typeof payloadBytes === 'string'
+    ? Buffer.from(payloadBytes, 'utf8')
+    : payloadBytes;
   return createHash('md5').update(payload).digest('base64');
 }
 
 export function computePayloadSha256(payloadBytes) {
-  const payload = payloadBytes !== undefined && payloadBytes !== null
-    ? (Buffer.isBuffer(payloadBytes) || payloadBytes instanceof Uint8Array
-        ? payloadBytes
-        : Buffer.from(String(payloadBytes), 'utf8'))
-    : Buffer.alloc(0);
+  if (payloadBytes === undefined || payloadBytes === null) {
+    return createHash('sha256').update(Buffer.alloc(0)).digest('hex');
+  }
+  if (typeof payloadBytes !== 'string' && !Buffer.isBuffer(payloadBytes) && !(payloadBytes instanceof Uint8Array)) {
+    throw new TypeError('Invalid payload type: payload must be a string, Buffer, or Uint8Array');
+  }
+  const payload = typeof payloadBytes === 'string'
+    ? Buffer.from(payloadBytes, 'utf8')
+    : payloadBytes;
   return createHash('sha256').update(payload).digest('hex');
 }
 
@@ -400,7 +416,7 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   let sha256Val;
   let hasMd5 = false;
 
-  if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
+  if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array) && !Array.isArray(optionsOrPayload)) {
     const proto = Object.getPrototypeOf(optionsOrPayload);
     if (proto !== Object.prototype && proto !== null) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
@@ -455,17 +471,51 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
     }
-    const headersObjRaw = getOwn(req, 'headers');
-    const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
-    payloadBytes = getOwn(req, 'payloadBytes') ?? getOwn(req, 'payload') ?? getOwn(req, 'body');
-    md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
-    hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
-    sha256Val = getOwn(req, 'x-amz-content-sha256') ?? getOwn(req, 'X-Amz-Content-Sha256') ?? getOwn(req, 'contentSha256Header') ?? getOwn(req, 'content_sha256_header') ?? getOwn(req, 'contentSha256') ?? getOwn(req, 'xAmzContentSha256') ?? getOwn(req, 'x_amz_content_sha256') ?? getOwn(req, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
+    const hasOptionsKeys =
+      'payload' in optionsOrPayload ||
+      'payloadBytes' in optionsOrPayload ||
+      'body' in optionsOrPayload ||
+      'headers' in optionsOrPayload ||
+      'contentMd5Header' in optionsOrPayload ||
+      'content_md5_header' in optionsOrPayload ||
+      'contentMd5' in optionsOrPayload ||
+      'Content-MD5' in optionsOrPayload ||
+      'content_md5' in optionsOrPayload ||
+      'content_md5_declared' in optionsOrPayload ||
+      'content_md5_computed' in optionsOrPayload ||
+      'x-amz-content-sha256' in optionsOrPayload ||
+      'X-Amz-Content-Sha256' in optionsOrPayload ||
+      'contentSha256Header' in optionsOrPayload ||
+      'content_sha256_header' in optionsOrPayload ||
+      'contentSha256' in optionsOrPayload ||
+      'xAmzContentSha256' in optionsOrPayload ||
+      'x_amz_content_sha256' in optionsOrPayload ||
+      'sha256Header' in optionsOrPayload ||
+      'error_condition' in optionsOrPayload ||
+      'expected_error' in optionsOrPayload;
+
+    if (!hasOptionsKeys && Object.keys(optionsOrPayload).length > 0) {
+      payloadBytes = optionsOrPayload;
+      md5Val = maybeMd5Header;
+      hasMd5 = (maybeMd5Header !== undefined);
+      sha256Val = maybeSha256Header;
+    } else {
+      const headersObjRaw = getOwn(req, 'headers');
+      const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
+      payloadBytes = getOwn(req, 'payloadBytes') ?? getOwn(req, 'payload') ?? getOwn(req, 'body');
+      md5Val = getOwn(req, 'contentMd5Header') ?? getOwn(req, 'content_md5_header') ?? getOwn(req, 'contentMd5') ?? getOwn(req, 'Content-MD5') ?? getOwn(req, 'content_md5') ?? getOwn(req, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined);
+      hasMd5 = (Object.prototype.hasOwnProperty.call(req, 'contentMd5Header') || Object.prototype.hasOwnProperty.call(req, 'content_md5_header') || Object.prototype.hasOwnProperty.call(req, 'contentMd5') || Object.prototype.hasOwnProperty.call(req, 'Content-MD5') || Object.prototype.hasOwnProperty.call(req, 'content_md5') || Object.prototype.hasOwnProperty.call(req, 'content_md5_declared') || (headersObj !== null && (Object.prototype.hasOwnProperty.call(headersObj, 'Content-MD5') || Object.prototype.hasOwnProperty.call(headersObj, 'content-md5'))));
+      sha256Val = getOwn(req, 'x-amz-content-sha256') ?? getOwn(req, 'X-Amz-Content-Sha256') ?? getOwn(req, 'contentSha256Header') ?? getOwn(req, 'content_sha256_header') ?? getOwn(req, 'contentSha256') ?? getOwn(req, 'xAmzContentSha256') ?? getOwn(req, 'x_amz_content_sha256') ?? getOwn(req, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
+    }
   } else {
     payloadBytes = optionsOrPayload;
     md5Val = maybeMd5Header;
     hasMd5 = (maybeMd5Header !== undefined);
     sha256Val = maybeSha256Header;
+  }
+
+  if (isMalformedPayloadType(payloadBytes)) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
   }
 
   if (sha256Val && typeof sha256Val === 'string' && sha256Val.startsWith('STREAMING-')) {
@@ -719,10 +769,15 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 }
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
+  if (typeof conditionOrOptions === 'number' || typeof conditionOrOptions === 'boolean' || Array.isArray(conditionOrOptions)) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+  }
+
   const isRequestShape =
     arguments.length >= 2 ||
     (conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
+      !Array.isArray(conditionOrOptions) &&
       !Buffer.isBuffer(conditionOrOptions) &&
       !(conditionOrOptions instanceof Uint8Array) &&
       ('payloadBytes' in conditionOrOptions ||
@@ -748,6 +803,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
+      !Array.isArray(conditionOrOptions) &&
       !Buffer.isBuffer(conditionOrOptions) &&
       !(conditionOrOptions instanceof Uint8Array)
     ) {
@@ -869,6 +925,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     const headersObjRaw = getOwn(conditionOrOptions, 'headers');
     const headersObj = (headersObjRaw && typeof headersObjRaw === 'object' && !Array.isArray(headersObjRaw)) ? headersObjRaw : null;
     const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (getOwn(conditionOrOptions, 'payloadBytes') ?? getOwn(conditionOrOptions, 'payload') ?? getOwn(conditionOrOptions, 'body'));
+    if (isMalformedPayloadType(payloadBytes)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : (getOwn(conditionOrOptions, 'contentMd5Header') ?? getOwn(conditionOrOptions, 'content_md5_header') ?? getOwn(conditionOrOptions, 'contentMd5') ?? getOwn(conditionOrOptions, 'Content-MD5') ?? getOwn(conditionOrOptions, 'content_md5') ?? getOwn(conditionOrOptions, 'content_md5_declared') ?? (headersObj ? (getOwn(headersObj, 'Content-MD5') ?? getOwn(headersObj, 'content-md5')) : undefined));
     const shaHeader = getOwn(conditionOrOptions, 'x-amz-content-sha256') ?? getOwn(conditionOrOptions, 'X-Amz-Content-Sha256') ?? getOwn(conditionOrOptions, 'contentSha256Header') ?? getOwn(conditionOrOptions, 'content_sha256_header') ?? getOwn(conditionOrOptions, 'contentSha256') ?? getOwn(conditionOrOptions, 'xAmzContentSha256') ?? getOwn(conditionOrOptions, 'x_amz_content_sha256') ?? getOwn(conditionOrOptions, 'sha256Header') ?? (headersObj ? (getOwn(headersObj, 'x-amz-content-sha256') ?? getOwn(headersObj, 'X-Amz-Content-Sha256')) : undefined);
 
@@ -972,6 +1031,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     }
     if (
       norm === 'InvalidDigest' ||
+      norm === 'MALFORMED_PAYLOAD_TYPE' ||
       norm === 'MALFORMED_DIGEST_HEADER' ||
       norm === 'MALFORMED_HEADER_SYNTAX' ||
       norm === 'MissingXAmzContentSHA256' ||
@@ -984,7 +1044,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidDigest',
         status: 400,
         code: 'InvalidDigest',
-        reason: (norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' || norm === 'MALFORMED_SHA256_HEADER') ? norm : 'MALFORMED_HEADER_SYNTAX',
+        reason: (norm === 'MALFORMED_PAYLOAD_TYPE' || norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' || norm === 'MALFORMED_SHA256_HEADER') ? norm : 'MALFORMED_HEADER_SYNTAX',
       };
     }
     if (
@@ -1156,6 +1216,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     }
     if (
       code === 'InvalidDigest' ||
+      reason === 'MALFORMED_PAYLOAD_TYPE' ||
       reason === 'MALFORMED_DIGEST_HEADER' ||
       reason === 'MALFORMED_HEADER_SYNTAX' ||
       reason === 'MissingXAmzContentSHA256' ||
@@ -1308,6 +1369,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         code: 'InvalidArgument',
         reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT'),
       };
+    }
+    if (!code && !reason && Object.keys(conditionOrOptions).length > 0 && isMalformedPayloadType(conditionOrOptions)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
   }
 
@@ -1573,6 +1637,8 @@ const S3_17_MANDATORY_OPS = [
   'ListParts'
 ];
 
+export const S3_17_OPERATIONS = new Set(S3_17_MANDATORY_OPS);
+
 export const S3_CANONICAL_ERROR_CODES = [
   'BadDigest',
   'InvalidDigest',
@@ -1715,6 +1781,13 @@ export function validatePlatformSemantics(data, schemaId) {
             throw new Error(`Semantic error: advertised_capabilities contains duplicate slot_id '${cap.slot_id}'`);
           }
           seenSlotIds.add(cap.slot_id);
+        }
+        if (cap.slot_id === 'storage' && Array.isArray(cap.supported_features)) {
+          for (const f of cap.supported_features) {
+            if (!S3_17_OPERATIONS.has(f)) {
+              throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+            }
+          }
         }
         if (cap.capability_name === 'storage_object_lock') {
           for (const ref of (cap.evidence_references || [])) {
@@ -1963,6 +2036,13 @@ export function validatePlatformSemantics(data, schemaId) {
         for (const op of S3_17_MANDATORY_OPS) {
           if (!featureSet.has(op)) {
             throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline`);
+          }
+        }
+        if (Array.isArray(storageCap.supported_features)) {
+          for (const f of storageCap.supported_features) {
+            if (!S3_17_OPERATIONS.has(f)) {
+              throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+            }
           }
         }
         const storageRefs = new Set(storageCap.evidence_references || []);
@@ -2222,6 +2302,13 @@ export function validatePlatformSemantics(data, schemaId) {
     }
     // R16-01: All 13 Canonical S3 Error Codes Required in Storage Conformance Profile
     if (data && (Array.isArray(data.required_error_codes) || data.provider_identifier || data.required_operations)) {
+      if (Array.isArray(data.required_operations)) {
+        for (const op of data.required_operations) {
+          if (!S3_17_OPERATIONS.has(op)) {
+            throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${op}' outside closed 17-operation baseline`);
+          }
+        }
+      }
       const errSet = new Set(data.required_error_codes || []);
       for (const code of S3_CANONICAL_ERROR_CODES) {
         if (!errSet.has(code)) {
@@ -3270,6 +3357,17 @@ try {
   H('29a', e.message.includes('missing required S3 operation'), 'storage 17-op baseline check must catch missing operations');
 }
 
+// 29a-2. in-memory validation: reject storage capability containing surplus operations outside closed 17-op baseline
+const pcnStorageSurplusOp = JSON.parse(JSON.stringify(pcnSample));
+const storeCapSurplus = pcnStorageSurplusOp.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+storeCapSurplus.supported_features.push('SurplusUnauthorizedOperation');
+try {
+  validatePlatformSemantics(pcnStorageSurplusOp, pcnSchemaId);
+  fail('storage 17-op closed baseline: expected validatePlatformSemantics to throw on surplus unauthorized operation');
+} catch (e) {
+  H('29a-2', e.message.includes('outside closed 17-operation baseline'), 'storage slot advertisement contains unauthorized operation outside closed 17-operation baseline check must throw');
+}
+
 // 29b. in-memory validation: reject storage capability missing Object Lock retention evidence
 const pcnStorageMissingLockEv = JSON.parse(JSON.stringify(pcnSample));
 const storeCap2 = pcnStorageMissingLockEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
@@ -3699,6 +3797,52 @@ const s3StoredPartsShapeValid = nullStoredEntryRes.http_status === 400 &&
                                 primStoredEntryRes.error_code === 'InvalidPart' &&
                                 primStoredEntryRes.reason === 'InvalidStoredPartShape';
 H('37e', s3StoredPartsShapeValid, 'dispatchS3CompleteMultipartUpload must validate every stored part shape and reject null/primitive entries with InvalidStoredPartShape');
+
+// 37f. Type-gate payload: verify string, Buffer, Uint8Array and fail closed on malformed payload types (OPEN-2 / OPEN-5)
+const invalidPayloadObj = { key: 'val' };
+const invalidPayloadNum = 12345;
+const invalidPayloadBool = true;
+const invalidPayloadArr = ['invalid', 'array'];
+const invalidPayloadFunc = () => {};
+
+let typeGatePass = true;
+
+try { computePayloadSha256(invalidPayloadObj); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadMd5(invalidPayloadObj); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadSha256(invalidPayloadNum); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadMd5(invalidPayloadNum); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadSha256(invalidPayloadBool); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadMd5(invalidPayloadBool); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadSha256(invalidPayloadArr); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadMd5(invalidPayloadArr); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadSha256(invalidPayloadFunc); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+try { computePayloadMd5(invalidPayloadFunc); typeGatePass = false; } catch (e) { if (!(e instanceof TypeError)) typeGatePass = false; }
+
+const putObjRes = dispatchS3PutObject({ payload: invalidPayloadObj, 'x-amz-content-sha256': realSha256 });
+const putNumRes = dispatchS3PutObject({ payload: invalidPayloadNum, 'x-amz-content-sha256': realSha256 });
+const putBoolRes = dispatchS3PutObject({ payload: invalidPayloadBool, 'x-amz-content-sha256': realSha256 });
+const putArrRes = dispatchS3PutObject({ payload: invalidPayloadArr, 'x-amz-content-sha256': realSha256 });
+const putFuncRes = dispatchS3PutObject({ payload: invalidPayloadFunc, 'x-amz-content-sha256': realSha256 });
+
+if (putObjRes.http_status !== 400 || putObjRes.error_code !== 'InvalidDigest' || putObjRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putNumRes.http_status !== 400 || putNumRes.error_code !== 'InvalidDigest' || putNumRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putBoolRes.http_status !== 400 || putBoolRes.error_code !== 'InvalidDigest' || putBoolRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putArrRes.http_status !== 400 || putArrRes.error_code !== 'InvalidDigest' || putArrRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putFuncRes.http_status !== 400 || putFuncRes.error_code !== 'InvalidDigest' || putFuncRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+const errObjRes = dispatchS3Error({ payload: invalidPayloadObj, contentMd5Header: realPayloadMd5 });
+const errNumRes = dispatchS3Error({ payload: invalidPayloadNum, contentMd5Header: realPayloadMd5 });
+const errBoolRes = dispatchS3Error({ payload: invalidPayloadBool, contentMd5Header: realPayloadMd5 });
+const errArrRes = dispatchS3Error({ payload: invalidPayloadArr, contentMd5Header: realPayloadMd5 });
+const errFuncRes = dispatchS3Error({ payload: invalidPayloadFunc, contentMd5Header: realPayloadMd5 });
+
+if (errObjRes.http_status !== 400 || errObjRes.error_code !== 'InvalidDigest' || errObjRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errNumRes.http_status !== 400 || errNumRes.error_code !== 'InvalidDigest' || errNumRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errBoolRes.http_status !== 400 || errBoolRes.error_code !== 'InvalidDigest' || errBoolRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errArrRes.http_status !== 400 || errArrRes.error_code !== 'InvalidDigest' || errArrRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errFuncRes.http_status !== 400 || errFuncRes.error_code !== 'InvalidDigest' || errFuncRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+H('37f', typeGatePass, 'payload digest calculation and S3 dispatchers must type-gate payload to string/Buffer/Uint8Array and fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE / TypeError');
 
 // 26. Lexical I-JSON validation probe for offline manifest (RFC 7493 / JCS Invariants)
 const validManifestBuf = readFileSync(join(PLATFORM_EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'));

@@ -9,6 +9,28 @@
   "type": "object",
   "additionalProperties": false,
   "$defs": {
+    "s3OperationName": {
+      "type": "string",
+      "enum": [
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts"
+      ]
+    },
     "capabilityDescriptor": {
       "type": "object",
       "additionalProperties": false,
@@ -78,6 +100,26 @@
         "supported_features",
         "degradation_fallback",
         "evidence_references"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "slot_id": {
+                "const": "storage"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "supported_features": {
+                "items": {
+                  "$ref": "#/$defs/s3OperationName"
+                }
+              }
+            }
+          }
+        }
       ]
     }
   },

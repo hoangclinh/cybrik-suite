@@ -141,9 +141,7 @@
           "UploadPart",
           "CompleteMultipartUpload",
           "AbortMultipartUpload",
-          "ListParts",
-          "sig_v4",
-          "path_style"
+          "ListParts"
         ],
         "degradation_fallback": {
           "fallback_supported": false,

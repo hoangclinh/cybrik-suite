@@ -1822,11 +1822,13 @@ test('dispatchS3Error and dispatchS3CompleteMultipartUpload full taxonomy and br
 
   const fallbackObjRes = dispatchS3Error({ some_random_key: 'value' });
   assert.equal(fallbackObjRes.http_status, 400);
-  assert.equal(fallbackObjRes.error_code, 'BadDigest');
+  assert.equal(fallbackObjRes.error_code, 'InvalidDigest');
+  assert.equal(fallbackObjRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const fallbackPrimRes = dispatchS3Error(12345);
   assert.equal(fallbackPrimRes.http_status, 400);
-  assert.equal(fallbackPrimRes.error_code, 'BadDigest');
+  assert.equal(fallbackPrimRes.error_code, 'InvalidDigest');
+  assert.equal(fallbackPrimRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 });
 
 test('validateS3MultipartSemantics exhaustive error conditions', () => {
@@ -4791,4 +4793,182 @@ test('dispatchS3CompleteMultipartUpload rejects storedParts with unreferenced nu
   const resArrNonPlain = dispatchS3CompleteMultipartUpload(manifest, arrWithNonPlain);
   assert.equal(resArrNonPlain.http_status, 400);
   assert.equal(resArrNonPlain.error_code, 'InvalidPart');
+});
+
+test('payload type-gating across computePayloadSha256, computePayloadMd5, dispatchS3PutObject, and dispatchS3Error (OPEN-2 / OPEN-5)', () => {
+  const validPayloadStr = 'CYBRIK_PAYLOAD_STRING_TEST_2026';
+  const validPayloadBuf = Buffer.from(validPayloadStr);
+  const validPayloadUint8 = new Uint8Array(validPayloadBuf);
+
+  const validSha = computePayloadSha256(validPayloadBuf);
+  const validMd5 = computePayloadMd5(validPayloadBuf);
+
+  // 1. Valid types (string, Buffer, Uint8Array) pass in computePayloadSha256 and computePayloadMd5
+  assert.equal(computePayloadSha256(validPayloadStr), validSha);
+  assert.equal(computePayloadSha256(validPayloadBuf), validSha);
+  assert.equal(computePayloadSha256(validPayloadUint8), validSha);
+  assert.equal(computePayloadMd5(validPayloadStr), validMd5);
+  assert.equal(computePayloadMd5(validPayloadBuf), validMd5);
+  assert.equal(computePayloadMd5(validPayloadUint8), validMd5);
+
+  // 2. Invalid types throw TypeError in computePayloadSha256 and computePayloadMd5
+  const invalidPayloads = [
+    { key: 'object' },
+    12345,
+    true,
+    ['array', 'item'],
+    () => 'func',
+    Symbol('sym'),
+  ];
+
+  for (const inv of invalidPayloads) {
+    assert.throws(() => computePayloadSha256(inv), TypeError);
+    assert.throws(() => computePayloadMd5(inv), TypeError);
+  }
+
+  // 3. dispatchS3PutObject fails closed with HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+  for (const inv of invalidPayloads) {
+    const resPutObj = dispatchS3PutObject({ payload: inv, 'x-amz-content-sha256': validSha });
+    assert.equal(resPutObj.http_status, 400);
+    assert.equal(resPutObj.error_code, 'InvalidDigest');
+    assert.equal(resPutObj.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resPutPos = dispatchS3PutObject(inv, validMd5, validSha);
+    assert.equal(resPutPos.http_status, 400);
+    assert.equal(resPutPos.error_code, 'InvalidDigest');
+    assert.equal(resPutPos.reason, 'MALFORMED_PAYLOAD_TYPE');
+  }
+
+  // 4. dispatchS3Error fails closed with HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+  for (const inv of invalidPayloads) {
+    const resErrObj = dispatchS3Error({ payload: inv, contentMd5Header: validMd5 });
+    assert.equal(resErrObj.http_status, 400);
+    assert.equal(resErrObj.error_code, 'InvalidDigest');
+    assert.equal(resErrObj.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const resErrPos = dispatchS3Error(inv, validMd5);
+    assert.equal(resErrPos.http_status, 400);
+    assert.equal(resErrPos.error_code, 'InvalidDigest');
+    assert.equal(resErrPos.reason, 'MALFORMED_PAYLOAD_TYPE');
+  }
+
+  // 5. dispatchS3Error with condition string 'MALFORMED_PAYLOAD_TYPE' returns InvalidDigest
+  const strRes = dispatchS3Error('MALFORMED_PAYLOAD_TYPE');
+  assert.equal(strRes.http_status, 400);
+  assert.equal(strRes.error_code, 'InvalidDigest');
+  assert.equal(strRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('regression: structured object payloads fail closed with HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) in dispatchS3PutObject and dispatchS3Error (OPEN-2 / OPEN-5)', () => {
+  const malformedPayloads = [
+    { a: 1 },
+    { b: 2 },
+    [1, 2, 3],
+    12345,
+    true,
+    false,
+  ];
+
+  const validMd5 = '1B2M2Y8AsgTpgAmY7PhCfg==';
+  const validSha = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
+  for (const badPayload of malformedPayloads) {
+    // 1. dispatchS3PutObject with direct structured payload
+    const resDirect = dispatchS3PutObject(badPayload);
+    assert.equal(resDirect.http_status, 400);
+    assert.equal(resDirect.error_code, 'InvalidDigest');
+    assert.equal(resDirect.status, 400);
+    assert.equal(resDirect.code, 'InvalidDigest');
+    assert.equal(resDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 2. dispatchS3PutObject with positional payload and valid headers
+    const resPositional = dispatchS3PutObject(badPayload, validMd5, validSha);
+    assert.equal(resPositional.http_status, 400);
+    assert.equal(resPositional.error_code, 'InvalidDigest');
+    assert.equal(resPositional.status, 400);
+    assert.equal(resPositional.code, 'InvalidDigest');
+    assert.equal(resPositional.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 3. dispatchS3PutObject with options wrapper containing payload
+    const resOptPayload = dispatchS3PutObject({
+      payload: badPayload,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    assert.equal(resOptPayload.http_status, 400);
+    assert.equal(resOptPayload.error_code, 'InvalidDigest');
+    assert.equal(resOptPayload.status, 400);
+    assert.equal(resOptPayload.code, 'InvalidDigest');
+    assert.equal(resOptPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 4. dispatchS3PutObject with options wrapper containing payloadBytes
+    const resOptBytes = dispatchS3PutObject({
+      payloadBytes: badPayload,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    assert.equal(resOptBytes.http_status, 400);
+    assert.equal(resOptBytes.error_code, 'InvalidDigest');
+    assert.equal(resOptBytes.status, 400);
+    assert.equal(resOptBytes.code, 'InvalidDigest');
+    assert.equal(resOptBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 5. dispatchS3PutObject with options wrapper containing body
+    const resOptBody = dispatchS3PutObject({
+      body: badPayload,
+      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    });
+    assert.equal(resOptBody.http_status, 400);
+    assert.equal(resOptBody.error_code, 'InvalidDigest');
+    assert.equal(resOptBody.status, 400);
+    assert.equal(resOptBody.code, 'InvalidDigest');
+    assert.equal(resOptBody.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 6. dispatchS3Error with direct structured payload
+    const resErrDirect = dispatchS3Error(badPayload);
+    assert.equal(resErrDirect.http_status, 400);
+    assert.equal(resErrDirect.error_code, 'InvalidDigest');
+    assert.equal(resErrDirect.status, 400);
+    assert.equal(resErrDirect.code, 'InvalidDigest');
+    assert.equal(resErrDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 7. dispatchS3Error with positional payload and header
+    const resErrPositional = dispatchS3Error(badPayload, validMd5);
+    assert.equal(resErrPositional.http_status, 400);
+    assert.equal(resErrPositional.error_code, 'InvalidDigest');
+    assert.equal(resErrPositional.status, 400);
+    assert.equal(resErrPositional.code, 'InvalidDigest');
+    assert.equal(resErrPositional.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    // 8. dispatchS3Error with request options wrapper
+    const resErrOpt = dispatchS3Error({
+      payload: badPayload,
+      contentMd5Header: validMd5,
+    });
+    assert.equal(resErrOpt.http_status, 400);
+    assert.equal(resErrOpt.error_code, 'InvalidDigest');
+    assert.equal(resErrOpt.status, 400);
+    assert.equal(resErrOpt.code, 'InvalidDigest');
+    assert.equal(resErrOpt.reason, 'MALFORMED_PAYLOAD_TYPE');
+  }
+
+  // 9. dispatchS3Error with string condition and reason objects
+  const resErrStr = dispatchS3Error('MALFORMED_PAYLOAD_TYPE');
+  assert.equal(resErrStr.http_status, 400);
+  assert.equal(resErrStr.error_code, 'InvalidDigest');
+  assert.equal(resErrStr.status, 400);
+  assert.equal(resErrStr.code, 'InvalidDigest');
+  assert.equal(resErrStr.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const resErrReason = dispatchS3Error({ reason: 'MALFORMED_PAYLOAD_TYPE' });
+  assert.equal(resErrReason.http_status, 400);
+  assert.equal(resErrReason.error_code, 'InvalidDigest');
+  assert.equal(resErrReason.status, 400);
+  assert.equal(resErrReason.code, 'InvalidDigest');
+  assert.equal(resErrReason.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const resErrCond = dispatchS3Error({ error_condition: 'MALFORMED_PAYLOAD_TYPE' });
+  assert.equal(resErrCond.http_status, 400);
+  assert.equal(resErrCond.error_code, 'InvalidDigest');
+  assert.equal(resErrCond.status, 400);
+  assert.equal(resErrCond.code, 'InvalidDigest');
+  assert.equal(resErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
 });

@@ -57,8 +57,6 @@
       "description": "Storage",
       "is_mandatory": true,
       "supported_features": [
-        "s3-api-v1.0",
-        "posix-filesystem",
         "PutObject",
         "GetObject",
         "HeadObject",

@@ -6558,3 +6558,141 @@ test('private-cloud-v1 degraded storage handshake without Object Lock succeeds w
     'Degraded storage against onprem-standard-v1 must be rejected because immutable_storage_required is true'
   );
 });
+
+test('schema validation: s3OperationName enum constraints on slot storage supported_features (OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // 1. Advertisement schema rejects non-closed operation on storage slot
+  const sampleDecl = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const validDecl = ajv.validate(pcaSchemaId, sampleDecl);
+  assert.ok(validDecl, 'Canonical sample-full-profile-conformance-declaration must pass schema validation');
+
+  const invalidDecl = JSON.parse(JSON.stringify(sampleDecl));
+  const storeCapAdv = invalidDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storeCapAdv);
+  storeCapAdv.supported_features.push('InvalidStorageOperation');
+  const invalidDeclPass = ajv.validate(pcaSchemaId, invalidDecl);
+  assert.equal(invalidDeclPass, false, 'Advertisement schema must reject unapproved operation in storage supported_features');
+
+  // 2. Negotiation schema rejects non-closed operation on storage slot
+  const sampleHandshake = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const validHandshake = ajv.validate(pcnSchemaId, sampleHandshake);
+  assert.ok(validHandshake, 'Canonical sample-capability-negotiation-handshake must pass schema validation');
+
+  const invalidHandshake = JSON.parse(JSON.stringify(sampleHandshake));
+  const storeCapNeg = invalidHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storeCapNeg);
+  storeCapNeg.supported_features.push('s3-api-v1.0');
+  const invalidHandshakePass = ajv.validate(pcnSchemaId, invalidHandshake);
+  assert.equal(invalidHandshakePass, false, 'Negotiation schema must reject unapproved operation in storage supported_features');
+
+  // 3. Non-storage slot allows standard strings
+  const ociCapAdv = JSON.parse(JSON.stringify(sampleDecl));
+  const ociCap = ociCapAdv.advertised_capabilities.find(c => c.slot_id === 'oci_container_runtime');
+  assert.ok(ociCap);
+  ociCap.supported_features = ['custom_feature_1', 'custom_feature_2'];
+  const validOci = ajv.validate(pcaSchemaId, ociCapAdv);
+  assert.ok(validOci, 'Non-storage slots must allow arbitrary non-empty feature names');
+});
+
+test('storage slot advertisement with surplus operations outside closed 17-op baseline fails semantic validation (OPEN-2 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Storage slot advertisement containing surplus operation 'SurplusOp' is rejected
+  const surplusHandshake = JSON.parse(JSON.stringify(sample));
+  const storeCap = surplusHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap.supported_features.push('SurplusOp');
+
+  assert.throws(
+    () => validatePlatformSemantics(surplusHandshake, schemaId),
+    /Semantic error: storage slot advertisement contains unauthorized operation 'SurplusOp' outside closed 17-operation baseline/
+  );
+
+  // 2. Storage slot advertisement containing surplus operation 'sig_v4' or 'posix-filesystem' is rejected
+  const surplusHandshake2 = JSON.parse(JSON.stringify(sample));
+  const storeCap2 = surplusHandshake2.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap2.supported_features.push('posix-filesystem');
+
+  assert.throws(
+    () => validatePlatformSemantics(surplusHandshake2, schemaId),
+    /Semantic error: storage slot advertisement contains unauthorized operation 'posix-filesystem' outside closed 17-operation baseline/
+  );
+});
+
+test('regression: surplus storage operations outside closed 17-op baseline fail schema and semantic validation (OPEN-2 / OPEN-5)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  // 1. Storage S3 subset contract with surplus operation DeleteBucket fails schema validation and semantic validation
+  const sampleS3 = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-storage-s3-subset.json'), 'utf8'));
+  const surplusS3 = JSON.parse(JSON.stringify(sampleS3));
+  surplusS3.required_operations.push('DeleteBucket');
+
+  const validS3Schema = ajv.validate(s3SchemaId, surplusS3);
+  assert.ok(!validS3Schema, 'Storage subset with surplus operation DeleteBucket must fail schema validation');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' || e.schemaPath.includes('s3Operation')),
+    'Schema error must flag unauthorized operation DeleteBucket'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(surplusS3, s3SchemaId),
+    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    'Storage subset with DeleteBucket must fail semantic validation with closed baseline error'
+  );
+
+  // 2. Partial capability advertisement with 17 ops + DeleteBucket fails semantic validation
+  const sampleAdv = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const ALL_17_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts'
+  ];
+  const surplusAdv = JSON.parse(JSON.stringify(sampleAdv));
+  surplusAdv.advertised_capabilities = [
+    {
+      capability_name: 'storage_s3_surplus',
+      slot_id: 'storage',
+      description: 'Storage capability with surplus operation',
+      is_mandatory: true,
+      supported_features: [...ALL_17_OPS, 'DeleteBucket'],
+      degradation_fallback: 'NONE',
+      evidence_references: ['urn:cybrik:evidence:ev-oci-01']
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(surplusAdv, pcaSchemaId),
+    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    'Storage advertisement with DeleteBucket must fail semantic validation'
+  );
+
+  // 3. Full capability negotiation handshake with surplus operation DeleteBucket in storage supported_features
+  const sampleHandshake = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const surplusHandshake = JSON.parse(JSON.stringify(sampleHandshake));
+  const storageCapAdv = surplusHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storageCapAdv, 'Storage capability must exist in advertisement response');
+  storageCapAdv.supported_features.push('DeleteBucket');
+
+  assert.throws(
+    () => validatePlatformSemantics(surplusHandshake, pcnSchemaId),
+    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    'Capability negotiation handshake with DeleteBucket must fail semantic validation'
+  );
+
+  // 4. Standalone full profile declaration with surplus operation DeleteBucket in storage supported_features
+  const sampleDecl = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const surplusDecl = JSON.parse(JSON.stringify(sampleDecl));
+  const storageCapDecl = surplusDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storageCapDecl, 'Storage capability must exist in full profile declaration');
+  storageCapDecl.supported_features.push('DeleteBucket');
+
+  assert.throws(
+    () => validatePlatformSemantics(surplusDecl, pcaSchemaId),
+    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    'Full profile declaration with DeleteBucket must fail semantic validation'
+  );
+});

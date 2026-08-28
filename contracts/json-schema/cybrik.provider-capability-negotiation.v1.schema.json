@@ -8,6 +8,30 @@
   "title": "CYBRIK Provider Capability Negotiation Handshake v1",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "s3OperationName": {
+      "type": "string",
+      "enum": [
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts"
+      ]
+    }
+  },
   "properties": {
     "handshake_id": {
       "type": "string",
@@ -311,6 +335,26 @@
               "supported_features",
               "degradation_fallback",
               "evidence_references"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "slot_id": {
+                      "const": "storage"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "supported_features": {
+                      "items": {
+                        "$ref": "#/$defs/s3OperationName"
+                      }
+                    }
+                  }
+                }
+              }
             ]
           }
         },
