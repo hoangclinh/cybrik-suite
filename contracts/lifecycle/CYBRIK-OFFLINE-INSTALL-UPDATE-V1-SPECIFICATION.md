@@ -108,10 +108,10 @@ To eliminate signature malleability caused by JSON whitespace, key ordering, and
 1. **Duplicate Key Prohibition:** In accordance with RFC 7493 §2.2 and RFC 8785 §3.2.4, JSON objects MUST NOT contain duplicate keys. Update-station JSON parsers MUST operate in strict duplicate-rejection mode and fail closed immediately upon encountering duplicate object keys.
 2. **IEEE-754 Safe Integer Range Invariant:** In accordance with RFC 7493 §2.1, all numeric values (e.g., `manifest_sequence`, `size_bytes`, `timeout_seconds`) MUST be exact integers within the IEEE-754 double-precision safe integer range $[-(2^{53}-1), 2^{53}-1]$ (i.e. $[-9007199254740991, 9007199254740991]$). Floating-point values, scientific notation, or numbers outside this range MUST be rejected.
 3. **Strict UTF-8 Encoding:** Payloads MUST be strictly UTF-8 encoded without a Byte Order Mark (BOM).
-4. **Detached Ed25519 Signature Only:** In accordance with parent Platform Contract Proposal §7, the cryptographic signature MUST be provided as a detached file `manifest.sig` (located in the pax archive root or delivered alongside `manifest.json`) containing the exact 64-byte Ed25519 binary signature over the RFC 8785 JCS canonical UTF-8 byte stream of `manifest.json`. Embedded signatures, in-band signature envelopes, or signature mirroring inside `manifest.json` are strictly prohibited to ensure deterministic bit-for-bit manifest payload hashing. The manifest JSON includes a `detached_signature` declaration object specifying the algorithm (`"ed25519"`), signature file (`"manifest.sig"`), and the SHA-256 SPKI fingerprint of the signing key.
+4. **Detached Ed25519 Signature Only:** In accordance with parent Platform Contract Proposal §7, the cryptographic signature MUST be provided as a detached file `manifest.sig` (located in the pax archive root or delivered alongside `manifest.json`) containing the exact 64-byte Ed25519 binary signature over the RFC 8785 JCS canonical UTF-8 byte stream of `manifest.json`. Embedded signatures, in-band signature envelopes, or signature mirroring inside `manifest.json` are strictly prohibited to ensure deterministic bit-for-bit manifest payload hashing. The manifest JSON includes a `detached_signature` declaration object specifying the algorithm (`"ed25519"`), signature file (`"manifest.sig"`), and the SHA-256 SPKI fingerprint of the signing key (`key_fingerprint`). The `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint`.
 
 #### Signature Computation Algorithm:
-1. Construct the complete `manifest.json` object containing all required properties (`bundle_identifier`, `release_tag`, `manifest_sequence`, `operator_trust_root`, `detached_signature`, `artifacts`, `migration_reversibility_guaranteed`, `rollback_procedure_reference`, `update_station_workflow`, `canonicalization_scheme`).
+1. Construct the complete `manifest.json` object containing all required properties (`bundle_identifier`, `release_tag`, `manifest_sequence`, `operator_trust_root`, `detached_signature`, `artifacts`, `migration_reversibility_guaranteed`, `rollback_procedure_reference`, `update_station_workflow`, `canonicalization_scheme`), ensuring that `detached_signature.key_fingerprint` exactly matches `operator_trust_root.public_key_fingerprint`.
 2. Validate strict I-JSON rules: verify UTF-8 encoding (no BOM), reject duplicate object keys, and verify all numbers are exact integers within IEEE-754 safe integer range $[-(2^{53}-1), 2^{53}-1]$.
 3. Apply RFC 8785 JCS canonicalization over `manifest.json` to serialize the document into an unambiguous, deterministic UTF-8 byte stream $M_{canon}$.
 4. Compute the Ed25519 signature $\Sigma$ (exact 64 binary octets) over $M_{canon}$ using the operator private key corresponding to `operator_trust_root.signing_key_id`:
@@ -130,7 +130,7 @@ flowchart TD
 #### Verification Algorithm:
 1. Read `manifest.json` and companion detached `manifest.sig` (verifying `manifest.sig` is exactly 64 binary bytes).
 2. Verify strict I-JSON rules on `manifest.json`: reject if duplicate keys, floating-point numbers, or out-of-safe-range numbers are present.
-3. Look up the trusted public key $K_{pub}$ in `/etc/cybrik/trust-store/trust-store.json` matching `operator_trust_root.signing_key_id` and `operator_trust_root.public_key_fingerprint`. Verify `signature_algorithm` is `ed25519`.
+3. Look up the trusted public key $K_{pub}$ in `/etc/cybrik/trust-store/trust-store.json` matching `operator_trust_root.signing_key_id` and `operator_trust_root.public_key_fingerprint`. Verify `signature_algorithm` is `ed25519`. Verify that `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint` (any mismatch between `detached_signature.key_fingerprint` and `operator_trust_root.public_key_fingerprint` MUST cause immediate verification failure and rejection of the bundle).
 4. Canonicalize `manifest.json` using RFC 8785 JCS into canonical byte sequence $M_{canon}$.
 5. Verify Ed25519 signature $\Sigma$ against $M_{canon}$ using $K_{pub}$:
    $$\text{Verify}_{\text{Ed25519}}(K_{pub}, M_{canon}, \Sigma) \stackrel{?}{=} \text{TRUE}$$
@@ -167,7 +167,7 @@ Air-gapped environments MUST maintain a local, operator-curated, write-protected
 ```
 
 #### Key Fingerprint Specification:
-Key fingerprints MUST strictly conform to the format `^sha256:[a-f0-9]{64}$`, computed as the lowercase SHA-256 hexadecimal digest of the canonical SubjectPublicKeyInfo (SPKI) DER byte encoding of the public key, prefixed with `sha256:`.
+Key fingerprints MUST strictly conform to the format `^sha256:[a-f0-9]{64}$`, computed as the lowercase SHA-256 hexadecimal digest of the canonical SubjectPublicKeyInfo (SPKI) DER byte encoding of the public key, prefixed with `sha256:`. Furthermore, `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint`.
 
 The `trust-store.json` file registers trusted signing keys and monotone sequence watermarks:
 ```json
@@ -300,7 +300,7 @@ In Stage 1, the update station processes the raw bundle in an isolated staging w
 
 1. **Phase 1 Structural Schema Validation:** Validate `manifest.json` against `cybrik.offline-install-update-manifest.v1.schema.json`.
 2. **Phase 2 Semantic Path & Whitelist Validation:** Normalize all `artifacts[].path` entries; ensure no duplicate paths, traversal tokens, symlinks (relative or absolute), or unlisted archive entries exist.
-3. **Trust Anchor Resolution:** Retrieve `operator_trust_root.signing_key_id` from `/etc/cybrik/trust-store/trust-store.json`. Verify key is `ACTIVE` and not revoked in `crl.json`. Verify public key fingerprint matches `operator_trust_root.public_key_fingerprint` conforming to `^sha256:[a-f0-9]{64}$`.
+3. **Trust Anchor Resolution & Key Fingerprint Equality:** Retrieve `operator_trust_root.signing_key_id` from `/etc/cybrik/trust-store/trust-store.json`. Verify key is `ACTIVE` and not revoked in `crl.json`. Verify public key fingerprint matches `operator_trust_root.public_key_fingerprint` conforming to `^sha256:[a-f0-9]{64}$`. Explicitly verify that `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint`; any mismatch fails closed immediately.
 4. **Canonical Signature Verification:** Reconstruct canonical manifest bytes of `manifest.json` via RFC 8785 JCS under I-JSON rules; verify detached `manifest.sig` (strictly 64 bytes) with the trusted Ed25519 public key. Verify `manifest_sequence >= minimum_freshness_sequence`.
 5. **Artifact Integrity Verification:** Streamingly unpack each artifact to the staging directory; compute SHA-256 digest and byte size; verify 100% concordance with `artifacts[]`.
 
@@ -369,7 +369,7 @@ The offline update manifest is governed by the schema `cybrik.offline-install-up
 | `release_tag` | `string` | **REQUIRED** | SemVer release tag matching `^v(0\|[1-9]\d*)\.(0\|[1-9]\d*)\.(0\|[1-9]\d*)(?:-([a-z0-9.-]+))?$` |
 | `manifest_sequence` | `integer` | **REQUIRED** | Monotonic positive integer sequence ($\ge 1$) evaluated against `minimum_freshness_sequence` for anti-rollback enforcement |
 | `operator_trust_root` | `object` | **REQUIRED** | Operator signing key metadata containing `signing_key_id`, `public_key_fingerprint` (`^sha256:[a-f0-9]{64}$`), and `signature_algorithm` (`ed25519`) |
-| `detached_signature` | `object` | **REQUIRED** | Detached signature declaration specifying `algorithm` (`ed25519`), `signature_file` (`manifest.sig`), and `key_fingerprint` (`^sha256:[a-f0-9]{64}$`) |
+| `detached_signature` | `object` | **REQUIRED** | Detached signature declaration specifying `algorithm` (`ed25519`), `signature_file` (`manifest.sig`), and `key_fingerprint` (`^sha256:[a-f0-9]{64}$`) which MUST exactly match `operator_trust_root.public_key_fingerprint` |
 | `artifacts` | `array` | **REQUIRED** | List of $\ge 1$ artifacts with `name`, `path`, `sha256`, and `size_bytes` |
 | `migration_reversibility_guaranteed` | `boolean` | **REQUIRED** | MUST be constant `true` |
 | `rollback_procedure_reference` | `string` | **REQUIRED** | URI/reference to rollback documentation (min length: 5) |
@@ -525,6 +525,9 @@ The `artifact_update_mechanism` capability (Slot 13) is evaluated across the fou
 ### 7.2 Isolation Floor Guarantees (ADR-0005)
 1. **S3 Air-Gap Isolation:** In `onprem-airgap-v1`, all image loading, artifact extraction, and migration operations MUST execute with `FAIL_CLOSED_NO_EGRESS` network posture.
 2. **Deterministic Workspace Disposal:** Staging directories and temporary extraction artifacts MUST be created with restricted POSIX permissions (`0700`) and securely purged upon workflow completion or failure.
+
+### 7.3 Signing Key Equality & Fingerprint Invariance Across Profiles
+Across all four deployment profiles (`onprem-airgap-v1`, `onprem-standard-v1`, `hybrid-sovereign-v1`, `private-cloud-v1`) and verification modes, manifest authentication mandates strict signing key equality: `detached_signature.key_fingerprint` MUST exactly match `operator_trust_root.public_key_fingerprint`. Any manifest where `detached_signature.key_fingerprint` differs from `operator_trust_root.public_key_fingerprint` is non-conforming and MUST be rejected immediately during Stage 1 trust anchor resolution prior to cryptographic signature evaluation.
 
 ---
 

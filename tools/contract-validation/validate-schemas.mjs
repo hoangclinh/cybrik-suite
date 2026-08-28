@@ -399,7 +399,7 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
     const req = optionsOrPayload;
-    if (Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers')) {
+    if ('headers' in optionsOrPayload) {
       const hdrs = optionsOrPayload.headers;
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
@@ -415,6 +415,10 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
     md5Val = maybeMd5Header;
     hasMd5 = (maybeMd5Header !== undefined);
     sha256Val = maybeSha256Header;
+  }
+
+  if (sha256Val && typeof sha256Val === 'string' && sha256Val.startsWith('STREAMING-')) {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' };
   }
 
   if (hasMd5 && isMalformedBase64Md5(md5Val)) {
@@ -442,8 +446,6 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 
   if (sha256Val === 'UNSIGNED-PAYLOAD') {
     // allow
-  } else if (sha256Val.startsWith('STREAMING-')) {
-    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
   } else {
     if (isMalformedSha256(sha256Val)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
@@ -624,7 +626,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
-      Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers')
+      'headers' in conditionOrOptions
     ) {
       const hdrs = conditionOrOptions.headers;
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
@@ -642,6 +644,16 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (conditionOrOptions?.payloadBytes ?? conditionOrOptions?.payload ?? conditionOrOptions?.body);
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : (conditionOrOptions?.contentMd5Header ?? conditionOrOptions?.content_md5_header ?? conditionOrOptions?.contentMd5 ?? conditionOrOptions?.['Content-MD5'] ?? conditionOrOptions?.content_md5 ?? conditionOrOptions?.content_md5_declared ?? (headersObj ? (headersObj['Content-MD5'] ?? headersObj['content-md5']) : undefined));
     const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.['X-Amz-Content-Sha256'] ?? conditionOrOptions?.contentSha256Header ?? conditionOrOptions?.content_sha256_header ?? conditionOrOptions?.contentSha256 ?? conditionOrOptions?.xAmzContentSha256 ?? conditionOrOptions?.x_amz_content_sha256 ?? conditionOrOptions?.sha256Header ?? (headersObj ? (headersObj['x-amz-content-sha256'] ?? headersObj['X-Amz-Content-Sha256']) : undefined);
+
+    if (shaHeader && typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
+      return {
+        http_status: 400,
+        error_code: 'InvalidDigest',
+        status: 400,
+        code: 'InvalidDigest',
+        reason: 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256',
+      };
+    }
 
     if (conditionOrOptions && typeof conditionOrOptions === 'object' && conditionOrOptions.content_md5_declared !== undefined && conditionOrOptions.content_md5_computed !== undefined) {
       if (conditionOrOptions.content_md5_declared !== conditionOrOptions.content_md5_computed) {
@@ -666,31 +678,11 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           reason: malformedReason,
         };
       }
-      if (payloadBytes !== undefined && payloadBytes !== null) {
-        const computed = computePayloadMd5(payloadBytes);
-        if (computed !== (typeof contentMd5Header === 'string' ? contentMd5Header.trim() : '')) {
-          return {
-            http_status: 400,
-            error_code: 'BadDigest',
-            status: 400,
-            code: 'BadDigest',
-            reason: 'PAYLOAD_DIGEST_MISMATCH',
-          };
-        }
-      }
     }
 
     if (shaHeader !== undefined) {
       if (shaHeader === 'UNSIGNED-PAYLOAD') {
         // allow
-      } else if (typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
-        return {
-          http_status: 400,
-          error_code: 'InvalidDigest',
-          status: 400,
-          code: 'InvalidDigest',
-          reason: 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256',
-        };
       } else if (typeof shaHeader !== 'string' || isMalformedSha256(shaHeader)) {
         return {
           http_status: 400,
@@ -708,6 +700,21 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
             status: 400,
             code: 'BadDigest',
             reason: 'PAYLOAD_SHA256_MISMATCH',
+          };
+        }
+      }
+    }
+
+    if (contentMd5Header !== undefined) {
+      if (payloadBytes !== undefined && payloadBytes !== null) {
+        const computed = computePayloadMd5(payloadBytes);
+        if (computed !== (typeof contentMd5Header === 'string' ? contentMd5Header.trim() : '')) {
+          return {
+            http_status: 400,
+            error_code: 'BadDigest',
+            status: 400,
+            code: 'BadDigest',
+            reason: 'PAYLOAD_DIGEST_MISMATCH',
           };
         }
       }
@@ -1837,6 +1844,13 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
+    if (data && data.operator_trust_root && data.detached_signature) {
+      const rootFp = data.operator_trust_root.public_key_fingerprint;
+      const sigFp = data.detached_signature.key_fingerprint;
+      if (rootFp && sigFp && rootFp !== sigFp) {
+        throw new Error(`Semantic error: offline manifest detached_signature.key_fingerprint ('${sigFp}') does not match operator_trust_root.public_key_fingerprint ('${rootFp}')`);
+      }
+    }
     if (data.artifacts) {
       const paths = new Set();
       for (const art of data.artifacts) {
@@ -2729,6 +2743,18 @@ try {
 }
 H('12b', badRestoreDoubleSlashCaught && badRestoreLeadingDotCaught, 'strict snapshot restore target path constraints (no //, no leading dot) must be enforced by validatePlatformSemantics');
 
+// 12c. in-memory validation: reject offline manifest with mismatched key fingerprints in validatePlatformSemantics (Finding 3 / OPEN-1)
+const badFingerprintManifest = JSON.parse(JSON.stringify(dupManifest));
+badFingerprintManifest.artifacts = [dupManifest.artifacts[0]];
+badFingerprintManifest.detached_signature.key_fingerprint = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+let badFingerprintCaught = false;
+try {
+  validatePlatformSemantics(badFingerprintManifest, manifestSchemaId);
+} catch (e) {
+  badFingerprintCaught = e.message.includes('does not match operator_trust_root.public_key_fingerprint');
+}
+H('12c', badFingerprintCaught, 'offline manifest signing key fingerprint equality must be enforced by validatePlatformSemantics');
+
 // 13. in-memory validation: reject offline manifest with alias collision paths (alias collision)
 const aliasManifest = {
   ...dupManifest,
@@ -3248,7 +3274,7 @@ const s3ShaValid = missingShaRes.http_status === 400 &&
                    unsignedShaRes.http_status === 200 &&
                    streamingShaRes.http_status === 400 &&
                    streamingShaRes.error_code === 'InvalidDigest' &&
-                   (streamingShaRes.reason === 'STREAMING_PAYLOAD_UNSUPPORTED' || streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX') &&
+                   (streamingShaRes.reason === 'STREAMING_PAYLOAD_UNSUPPORTED' || streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX' || streamingShaRes.reason === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256') &&
                    mismatchShaRes.http_status === 400 &&
                    mismatchShaRes.error_code === 'BadDigest' &&
                    (mismatchShaRes.reason === 'PAYLOAD_SHA256_MISMATCH' || mismatchShaRes.reason === 'XAmzContentSHA256Mismatch') &&

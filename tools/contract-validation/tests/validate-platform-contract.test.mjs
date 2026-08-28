@@ -5404,3 +5404,25 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
     );
   }
 });
+
+test('validatePlatformSemantics enforces signing key fingerprint equality on offline update manifest (Finding 1 & 3 / OPEN-1)', () => {
+  const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const manifestSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  // 1. Valid matching fingerprints pass validation
+  assert.doesNotThrow(() => validatePlatformSemantics(manifestSample, manifestSchemaId));
+
+  // 2. Mismatched key fingerprint in detached_signature passes Ajv schema structurally
+  const mismatchedManifest = JSON.parse(JSON.stringify(manifestSample));
+  mismatchedManifest.detached_signature.key_fingerprint = 'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+
+  const schemaValid = ajv.validate(manifestSchemaId, mismatchedManifest);
+  assert.ok(schemaValid, `Mismatched fingerprint manifest must pass Ajv schema: ` + ajv.errorsText());
+
+  // 3. Mismatched key fingerprint throws semantic error
+  assert.throws(
+    () => validatePlatformSemantics(mismatchedManifest, manifestSchemaId),
+    new RegExp(`Semantic error: offline manifest detached_signature\\.key_fingerprint \\('${mismatchedManifest.detached_signature.key_fingerprint}'\\) does not match operator_trust_root\\.public_key_fingerprint \\('${mismatchedManifest.operator_trust_root.public_key_fingerprint}'\\)`),
+    'Mismatched key fingerprint must throw semantic error'
+  );
+});

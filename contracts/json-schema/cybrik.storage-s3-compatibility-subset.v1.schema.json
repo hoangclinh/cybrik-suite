@@ -171,17 +171,17 @@
     },
     "objectKey": {
       "type": "string",
-      "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "pattern": "^(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$",
       "description": "Normalized S3 object key without leading slash, adjacent slashes, dot-segments, or trailing slash."
     },
     "s3Uri": {
       "type": "string",
-      "pattern": "^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "pattern": "^s3:\\/\\/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\\/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$",
       "description": "Canonical S3 URI format s3://bucket/key without dot-segments, adjacent slashes, or trailing slash."
     },
     "pathStyleUrl": {
       "type": "string",
-      "pattern": "^https?://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "pattern": "^https?:\\/\\/[a-zA-Z0-9.-]+(?::[0-9]+)?\\/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\\/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))(?:[a-zA-Z0-9._/~-]|%[0-9A-F]{2})+$",
       "description": "Forced path-style access URL http(s)://endpoint/bucket/key without dot-segments, adjacent slashes, or trailing slash."
     },
     "sha256Hex": {

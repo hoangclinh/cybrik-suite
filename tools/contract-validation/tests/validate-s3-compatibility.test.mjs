@@ -1422,7 +1422,7 @@ test('dispatchS3PutObject x-amz-content-sha256 validation (OPEN-2 Finding 1)', (
   assert.equal(streamingRes.http_status, 400);
   assert.equal(streamingRes.error_code, 'InvalidDigest');
   assert.equal(streamingRes.code, 'InvalidDigest');
-  assert.equal(streamingRes.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(streamingRes.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
 
   // 4. Mismatched SHA256 returns 400 BadDigest / PAYLOAD_SHA256_MISMATCH
   const mismatchRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': mismatchedSha256 });
@@ -2226,7 +2226,7 @@ test('dispatchS3PutObject rejects streaming payload sentinel STREAMING-AWS4-HMAC
   assert.equal(res.http_status, 400, 'Streaming payload sentinel must return HTTP 400');
   assert.equal(res.error_code, 'InvalidDigest', 'Streaming payload sentinel must return InvalidDigest');
   assert.equal(res.code, 'InvalidDigest');
-  assert.equal(res.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(res.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
 });
 
 test('dispatchS3CompleteMultipartUpload zero parts returns HTTP 400 InvalidArgument with EmptyPartsList (Finding 2 / OPEN-2)', () => {
@@ -3760,4 +3760,146 @@ test('verifyDigestErrorDispatch and verifyMalformedHeaderDispatch object request
   });
   assert.equal(malformedResult.http_status, 400);
   assert.equal(malformedResult.error_code, 'InvalidDigest');
+});
+
+test('dispatchS3PutObject and dispatchS3Error guard inherited invalid headers (Finding 1 / OPEN-2)', () => {
+  const payload = Buffer.from('TEST_INHERITED_HEADERS');
+  const validSha = computePayloadSha256(payload);
+
+  for (const invalidHeaders of [null, undefined, 'invalid-string', 123, [], false]) {
+    const protoObj = Object.create({ headers: invalidHeaders });
+    protoObj.payloadBytes = payload;
+    protoObj['x-amz-content-sha256'] = validSha;
+
+    const putRes = dispatchS3PutObject(protoObj);
+    assert.equal(putRes.http_status, 400, `dispatchS3PutObject must fail closed on inherited headers: ${invalidHeaders}`);
+    assert.equal(putRes.error_code, 'InvalidDigest');
+    assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+    const errRes = dispatchS3Error(protoObj);
+    assert.equal(errRes.http_status, 400, `dispatchS3Error must fail closed on inherited headers: ${invalidHeaders}`);
+    assert.equal(errRes.error_code, 'InvalidDigest');
+    assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+  }
+});
+
+test('dispatchS3PutObject and dispatchS3Error prioritize streaming SHA sentinel before MD5 validation and mismatch (Finding 2 / OPEN-2)', () => {
+  const payload = Buffer.from('TEST_STREAMING_PRIORITY');
+  const mismatchedMd5 = '1B2M2Y8AsgTpgAmY7PhCfg==';
+  const malformedMd5 = 'not-valid-base64!';
+
+  // In dispatchS3PutObject with mismatched MD5 and streaming SHA
+  const putMismatchedMd5 = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: mismatchedMd5,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(putMismatchedMd5.http_status, 400);
+  assert.equal(putMismatchedMd5.error_code, 'InvalidDigest');
+  assert.equal(putMismatchedMd5.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // In dispatchS3PutObject with malformed MD5 and streaming SHA
+  const putMalformedMd5 = dispatchS3PutObject({
+    payloadBytes: payload,
+    contentMd5Header: malformedMd5,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(putMalformedMd5.http_status, 400);
+  assert.equal(putMalformedMd5.error_code, 'InvalidDigest');
+  assert.equal(putMalformedMd5.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // In dispatchS3Error with mismatched declared/computed MD5 and streaming SHA
+  const errDeclaredMismatch = dispatchS3Error({
+    payloadBytes: payload,
+    content_md5_declared: '1111111111111111111111==',
+    content_md5_computed: '2222222222222222222222==',
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(errDeclaredMismatch.http_status, 400);
+  assert.equal(errDeclaredMismatch.error_code, 'InvalidDigest');
+  assert.equal(errDeclaredMismatch.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // In dispatchS3Error with malformed MD5 and streaming SHA
+  const errMalformedMd5 = dispatchS3Error({
+    payloadBytes: payload,
+    contentMd5Header: malformedMd5,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(errMalformedMd5.http_status, 400);
+  assert.equal(errMalformedMd5.error_code, 'InvalidDigest');
+  assert.equal(errMalformedMd5.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // In dispatchS3Error with mismatched MD5 and streaming SHA
+  const errMismatchedMd5 = dispatchS3Error({
+    payloadBytes: payload,
+    contentMd5Header: mismatchedMd5,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(errMismatchedMd5.http_status, 400);
+  assert.equal(errMismatchedMd5.error_code, 'InvalidDigest');
+  assert.equal(errMismatchedMd5.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  // Wrapped headers object
+  const compoundHeaders = {
+    payloadBytes: payload,
+    headers: {
+      'Content-MD5': mismatchedMd5,
+      'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+    },
+  };
+
+  const putWrapped = dispatchS3PutObject(compoundHeaders);
+  assert.equal(putWrapped.http_status, 400);
+  assert.equal(putWrapped.error_code, 'InvalidDigest');
+  assert.equal(putWrapped.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+
+  const errWrapped = dispatchS3Error(compoundHeaders);
+  assert.equal(errWrapped.http_status, 400);
+  assert.equal(errWrapped.error_code, 'InvalidDigest');
+  assert.equal(errWrapped.reason, 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256');
+});
+
+test('RFC 3986 valid keys containing ~ and %20 pass schema and URI checks (Finding 3 / OPEN-2)', () => {
+  const validateKey = ajv.getSchema(OBJECT_KEY_DEF_ID);
+  const validateUri = ajv.getSchema(S3_URI_DEF_ID);
+  const validateUrl = ajv.getSchema(PATH_STYLE_URL_DEF_ID);
+
+  assert.ok(validateKey, `Schema validator missing for ${OBJECT_KEY_DEF_ID}`);
+  assert.ok(validateUri, `Schema validator missing for ${S3_URI_DEF_ID}`);
+  assert.ok(validateUrl, `Schema validator missing for ${PATH_STYLE_URL_DEF_ID}`);
+
+  const validKeySamples = [
+    'path~v1/%20file.json',
+    'audit-logs/~2026/evidence%20bundle.tar.gz',
+    'releases/v1.0.0~rc1/%20payload.json',
+    'prefix~beta/nested%20dir/item.txt',
+    'path~v1/file~2.json',
+    '%20leading-space-encoded/file.json',
+  ];
+
+  for (const key of validKeySamples) {
+    assert.ok(validateKey(key), `Object key '${key}' containing ~ or %20 must pass schema validation`);
+  }
+
+  const validUriSamples = [
+    's3://my-bucket/path~v1/%20file.json',
+    's3://cybrik-audit/audit-logs/~2026/evidence%20bundle.tar.gz',
+    's3://telemetry.archive-2026/releases/v1.0.0~rc1/%20payload.json',
+    's3://my-bucket/prefix~beta/nested%20dir/item.txt',
+  ];
+
+  for (const uri of validUriSamples) {
+    assert.ok(validateUri(uri), `s3Uri '${uri}' containing ~ or %20 must pass schema validation`);
+  }
+
+  const validUrlSamples = [
+    'https://storage.local/my-bucket/path~v1/%20file.json',
+    'https://storage.internal.cybrik:9000/cybrik-audit/audit-logs/~2026/evidence%20bundle.tar.gz',
+    'http://127.0.0.1:9000/my-bucket/releases/v1.0.0~rc1/%20payload.json',
+    'http://localhost:8080/my-bucket/prefix~beta/nested%20dir/item.txt',
+  ];
+
+  for (const url of validUrlSamples) {
+    assert.ok(validateUrl(url), `pathStyleUrl '${url}' containing ~ or %20 must pass schema validation`);
+  }
 });
