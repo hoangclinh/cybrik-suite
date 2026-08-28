@@ -16228,10 +16228,75 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => validateOfflineInstallSemantics(u8Spoofed), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics({ payload: u8Spoofed }), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics([{ payload: u8Spoofed }]), /Semantic error/);
-    assert.equal(dispatchS3PutObject(u8Spoofed).error_code, 'InvalidDigest');
+    assert.throws(() => validateS3MultipartSemantics(u8Spoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => validateS3MultipartSemantics({ payload: u8Spoofed }), /MALFORMED_PAYLOAD_TYPE/);
+
+    // Test all S3 PutObject and Error dispatch forms for Uint8Array spoofed view
+    const u8PutDirect = dispatchS3PutObject(u8Spoofed);
+    assert.equal(u8PutDirect.http_status, 400);
+    assert.equal(u8PutDirect.error_code, 'InvalidDigest');
+    assert.equal(u8PutDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8PutPayloadBytes = dispatchS3PutObject({ payloadBytes: u8Spoofed });
+    assert.equal(u8PutPayloadBytes.http_status, 400);
+    assert.equal(u8PutPayloadBytes.error_code, 'InvalidDigest');
+    assert.equal(u8PutPayloadBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8PutPayload = dispatchS3PutObject({ payload: u8Spoofed });
+    assert.equal(u8PutPayload.http_status, 400);
+    assert.equal(u8PutPayload.error_code, 'InvalidDigest');
+    assert.equal(u8PutPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8PutBody = dispatchS3PutObject({ body: u8Spoofed });
+    assert.equal(u8PutBody.http_status, 400);
+    assert.equal(u8PutBody.error_code, 'InvalidDigest');
+    assert.equal(u8PutBody.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8PutHeaders = dispatchS3PutObject({ headers: u8Spoofed });
+    assert.equal(u8PutHeaders.http_status, 400);
+    assert.equal(u8PutHeaders.error_code, 'InvalidDigest');
+    assert.ok(u8PutHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || u8PutHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+
+    const u8PutMd5 = dispatchS3PutObject(Buffer.from('valid payload'), u8Spoofed);
+    assert.equal(u8PutMd5.http_status, 400);
+    assert.equal(u8PutMd5.error_code, 'InvalidDigest');
+    assert.equal(u8PutMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8PutSha256 = dispatchS3PutObject(Buffer.from('valid payload'), undefined, u8Spoofed);
+    assert.equal(u8PutSha256.http_status, 400);
+    assert.equal(u8PutSha256.error_code, 'InvalidDigest');
+    assert.equal(u8PutSha256.reason, 'MALFORMED_PAYLOAD_TYPE');
+
     assert.equal(dispatchS3PutObject({ payload: u8Spoofed, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true }).error_code, 'InvalidDigest');
-    assert.equal(dispatchS3Error(u8Spoofed).error_code, 'InvalidDigest');
+
+    const u8ErrDirect = dispatchS3Error(u8Spoofed);
+    assert.equal(u8ErrDirect.http_status, 400);
+    assert.equal(u8ErrDirect.error_code, 'InvalidDigest');
+    assert.equal(u8ErrDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8ErrErrCond = dispatchS3Error({ error_condition: u8Spoofed });
+    assert.equal(u8ErrErrCond.http_status, 400);
+    assert.equal(u8ErrErrCond.error_code, 'InvalidDigest');
+    assert.equal(u8ErrErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8ErrReason = dispatchS3Error({ reason: u8Spoofed });
+    assert.equal(u8ErrReason.http_status, 400);
+    assert.equal(u8ErrReason.error_code, 'InvalidDigest');
+    assert.equal(u8ErrReason.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const u8ErrHeaders = dispatchS3Error({ headers: u8Spoofed });
+    assert.equal(u8ErrHeaders.http_status, 400);
+    assert.equal(u8ErrHeaders.error_code, 'InvalidDigest');
+    assert.ok(u8ErrHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || u8ErrHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+
+    const u8ErrHdr = dispatchS3Error('NoSuchKey', u8Spoofed);
+    assert.equal(u8ErrHdr.http_status, 400);
+    assert.equal(u8ErrHdr.error_code, 'InvalidDigest');
+    assert.equal(u8ErrHdr.reason, 'MALFORMED_PAYLOAD_TYPE');
+
     assert.equal(dispatchS3Error({ payload: u8Spoofed }).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3CompleteMultipartUpload(u8Spoofed).error_code, 'InvalidPart');
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, u8Spoofed).error_code, 'InvalidPart');
 
     // 2. Re-prototyped to Buffer.prototype
     const bufSpoofed = Object.setPrototypeOf(variant.create(), Buffer.prototype);
@@ -16250,14 +16315,79 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => validatePlatformSemantics(bufSpoofed, 'provider-capability-advertisement'), /Semantic error/);
     assert.throws(() => validatePlatformSemantics({ payload: bufSpoofed }, 'provider-capability-advertisement'), /Semantic error/);
     assert.throws(() => validatePlatformSemantics([bufSpoofed], 'provider-capability-advertisement'), /Semantic error/);
-    assert.throws(() => validatePlatformSemantics({ nested: { items: [bufSpoofed] } }, 'provider-capability-advertisement'), /Semantic error/);
+    assert.throws(() => validatePlatformSemantics({ nested: { items: [bufSpoofed] } }), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics(bufSpoofed), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics({ payload: bufSpoofed }), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics([{ payload: bufSpoofed }]), /Semantic error/);
-    assert.equal(dispatchS3PutObject(bufSpoofed).error_code, 'InvalidDigest');
+    assert.throws(() => validateS3MultipartSemantics(bufSpoofed), /MALFORMED_PAYLOAD_TYPE/);
+    assert.throws(() => validateS3MultipartSemantics({ payload: bufSpoofed }), /MALFORMED_PAYLOAD_TYPE/);
+
+    // Test all S3 PutObject and Error dispatch forms for Buffer spoofed view
+    const bufPutDirect = dispatchS3PutObject(bufSpoofed);
+    assert.equal(bufPutDirect.http_status, 400);
+    assert.equal(bufPutDirect.error_code, 'InvalidDigest');
+    assert.equal(bufPutDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufPutPayloadBytes = dispatchS3PutObject({ payloadBytes: bufSpoofed });
+    assert.equal(bufPutPayloadBytes.http_status, 400);
+    assert.equal(bufPutPayloadBytes.error_code, 'InvalidDigest');
+    assert.equal(bufPutPayloadBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufPutPayload = dispatchS3PutObject({ payload: bufSpoofed });
+    assert.equal(bufPutPayload.http_status, 400);
+    assert.equal(bufPutPayload.error_code, 'InvalidDigest');
+    assert.equal(bufPutPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufPutBody = dispatchS3PutObject({ body: bufSpoofed });
+    assert.equal(bufPutBody.http_status, 400);
+    assert.equal(bufPutBody.error_code, 'InvalidDigest');
+    assert.equal(bufPutBody.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufPutHeaders = dispatchS3PutObject({ headers: bufSpoofed });
+    assert.equal(bufPutHeaders.http_status, 400);
+    assert.equal(bufPutHeaders.error_code, 'InvalidDigest');
+    assert.ok(bufPutHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || bufPutHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+
+    const bufPutMd5 = dispatchS3PutObject(Buffer.from('valid payload'), bufSpoofed);
+    assert.equal(bufPutMd5.http_status, 400);
+    assert.equal(bufPutMd5.error_code, 'InvalidDigest');
+    assert.equal(bufPutMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufPutSha256 = dispatchS3PutObject(Buffer.from('valid payload'), undefined, bufSpoofed);
+    assert.equal(bufPutSha256.http_status, 400);
+    assert.equal(bufPutSha256.error_code, 'InvalidDigest');
+    assert.equal(bufPutSha256.reason, 'MALFORMED_PAYLOAD_TYPE');
+
     assert.equal(dispatchS3PutObject({ payload: bufSpoofed, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', allow_unsigned_payload: true }).error_code, 'InvalidDigest');
-    assert.equal(dispatchS3Error(bufSpoofed).error_code, 'InvalidDigest');
+
+    const bufErrDirect = dispatchS3Error(bufSpoofed);
+    assert.equal(bufErrDirect.http_status, 400);
+    assert.equal(bufErrDirect.error_code, 'InvalidDigest');
+    assert.equal(bufErrDirect.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufErrErrCond = dispatchS3Error({ error_condition: bufSpoofed });
+    assert.equal(bufErrErrCond.http_status, 400);
+    assert.equal(bufErrErrCond.error_code, 'InvalidDigest');
+    assert.equal(bufErrErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufErrReason = dispatchS3Error({ reason: bufSpoofed });
+    assert.equal(bufErrReason.http_status, 400);
+    assert.equal(bufErrReason.error_code, 'InvalidDigest');
+    assert.equal(bufErrReason.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+    const bufErrHeaders = dispatchS3Error({ headers: bufSpoofed });
+    assert.equal(bufErrHeaders.http_status, 400);
+    assert.equal(bufErrHeaders.error_code, 'InvalidDigest');
+    assert.ok(bufErrHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || bufErrHeaders.reason === 'MALFORMED_HEADER_SYNTAX');
+
+    const bufErrHdr = dispatchS3Error('NoSuchKey', bufSpoofed);
+    assert.equal(bufErrHdr.http_status, 400);
+    assert.equal(bufErrHdr.error_code, 'InvalidDigest');
+    assert.equal(bufErrHdr.reason, 'MALFORMED_PAYLOAD_TYPE');
+
     assert.equal(dispatchS3Error({ payload: bufSpoofed }).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3CompleteMultipartUpload(bufSpoofed).error_code, 'InvalidPart');
+    assert.equal(dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }] }, bufSpoofed).error_code, 'InvalidPart');
   }
 
   // 3. Plain objects spoofed to TypedArray prototypes
@@ -16272,8 +16402,10 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => createSafePlainSnapshot({ nested: fake }), /Semantic error/);
     assert.throws(() => validatePlatformSemantics(fake, 'provider-capability-advertisement'), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics(fake), /Semantic error/);
+    assert.throws(() => validateS3MultipartSemantics(fake), /Semantic error|MALFORMED_PAYLOAD_TYPE/);
     assert.equal(dispatchS3PutObject(fake).error_code, 'InvalidDigest');
     assert.equal(dispatchS3Error(fake).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3CompleteMultipartUpload(fake).error_code, 'InvalidPart');
   }
 
   // 4. ArrayBuffer instances spoofed to TypedArray prototypes
@@ -16288,8 +16420,10 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
     assert.throws(() => createSafePlainSnapshot({ nested: fake }), /Semantic error/);
     assert.throws(() => validatePlatformSemantics(fake, 'provider-capability-advertisement'), /Semantic error/);
     assert.throws(() => validateOfflineInstallSemantics(fake), /Semantic error/);
+    assert.throws(() => validateS3MultipartSemantics(fake), /Semantic error|MALFORMED_PAYLOAD_TYPE/);
     assert.equal(dispatchS3PutObject(fake).error_code, 'InvalidDigest');
     assert.equal(dispatchS3Error(fake).error_code, 'InvalidDigest');
+    assert.equal(dispatchS3CompleteMultipartUpload(fake).error_code, 'InvalidPart');
   }
 
   // 5. Zero-getter error isolation on adversarial TypedArray subclasses
@@ -16327,11 +16461,335 @@ test('OPEN-2/OPEN-5 comprehensive prototype-spoofing coverage and branch guard',
       assert.throws(() => validateOfflineInstallSemantics({ evil }), /Semantic error/);
       assert.equal(getterHit, false, 'validateOfflineInstallSemantics must not trigger getters');
 
+      assert.throws(() => validateS3MultipartSemantics({ payload: evil }), /MALFORMED_PAYLOAD_TYPE/);
+      assert.equal(getterHit, false, 'validateS3MultipartSemantics must not trigger getters');
+
       assert.equal(dispatchS3PutObject(evil).error_code, 'InvalidDigest');
       assert.equal(getterHit, false, 'dispatchS3PutObject must not trigger getters');
 
       assert.equal(dispatchS3Error(evil).error_code, 'InvalidDigest');
       assert.equal(getterHit, false, 'dispatchS3Error must not trigger getters');
+
+      assert.equal(dispatchS3CompleteMultipartUpload(evil).error_code, 'InvalidPart');
+      assert.equal(getterHit, false, 'dispatchS3CompleteMultipartUpload must not trigger getters');
     }
   }
+});
+
+test('OPEN-5 exhaustive 22-shape spoofed view matrix across platform and offline validation', () => {
+  const nonUint8TypedArrayConstructors = [
+    { name: 'Int8Array', create: () => new Int8Array([1, 2, 3]) },
+    { name: 'Uint8ClampedArray', create: () => new Uint8ClampedArray([1, 2, 3]) },
+    { name: 'Int16Array', create: () => new Int16Array([1, 2, 3]) },
+    { name: 'Uint16Array', create: () => new Uint16Array([1, 2, 3]) },
+    { name: 'Int32Array', create: () => new Int32Array([1, 2, 3]) },
+    { name: 'Uint32Array', create: () => new Uint32Array([1, 2, 3]) },
+    { name: 'Float32Array', create: () => new Float32Array([1.0, 2.0]) },
+    { name: 'Float64Array', create: () => new Float64Array([1.0, 2.0]) },
+    { name: 'BigInt64Array', create: () => new BigInt64Array([1n, 2n]) },
+    { name: 'BigUint64Array', create: () => new BigUint64Array([1n, 2n]) },
+  ];
+
+  const allConstructors = [
+    ...nonUint8TypedArrayConstructors,
+    { name: 'DataView', create: () => new DataView(new ArrayBuffer(8)) },
+  ];
+
+  const targetPrototypes = [
+    { protoName: 'Uint8Array.prototype', proto: Uint8Array.prototype },
+    { protoName: 'Buffer.prototype', proto: Buffer.prototype },
+  ];
+
+  const spoofedMatrix = [];
+  for (const ctor of allConstructors) {
+    for (const target of targetPrototypes) {
+      spoofedMatrix.push({
+        name: `${ctor.name} -> ${target.protoName}`,
+        ctorName: ctor.name,
+        targetProtoName: target.protoName,
+        createView: () => Object.setPrototypeOf(ctor.create(), target.proto),
+      });
+    }
+  }
+
+  assert.equal(spoofedMatrix.length, 22, 'Matrix must contain exactly 22 distinct spoofed views');
+
+  for (const entry of spoofedMatrix) {
+    const view = entry.createView();
+
+    assert.equal(
+      hasAnyAccessorsOrProxy(view),
+      true,
+      `${entry.name}: hasAnyAccessorsOrProxy(view) === true`
+    );
+
+    assert.equal(
+      isPureBufferOrUint8Array(view),
+      false,
+      `${entry.name}: isPureBufferOrUint8Array(view) === false`
+    );
+
+    assert.equal(
+      isMalformedPayloadType(view),
+      true,
+      `${entry.name}: isMalformedPayloadType(view) === true`
+    );
+
+    assert.throws(
+      () => createSafePlainSnapshot(view),
+      /Semantic error/,
+      `${entry.name}: createSafePlainSnapshot(view) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => createSafePlainSnapshot({ nested: view }),
+      /Semantic error/,
+      `${entry.name}: createSafePlainSnapshot({ nested: view }) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => createSafePlainSnapshot([view]),
+      /Semantic error/,
+      `${entry.name}: createSafePlainSnapshot([view]) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => validatePlatformSemantics(view),
+      /Semantic error/,
+      `${entry.name}: validatePlatformSemantics(view) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => validatePlatformSemantics({ client_context: { view } }),
+      /Semantic error/,
+      `${entry.name}: validatePlatformSemantics({ client_context: { view } }) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => validateOfflineInstallSemantics(view),
+      /Semantic error/,
+      `${entry.name}: validateOfflineInstallSemantics(view) throws terminal Semantic error`
+    );
+
+    assert.throws(
+      () => validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] }),
+      /Semantic error/,
+      `${entry.name}: validateOfflineInstallSemantics({ artifacts: [{ path: 'art.bin', digest_payload: view }] }) throws terminal Semantic error`
+    );
+  }
+});
+
+test('OPEN-2 exhaustive 22-shape spoofed view matrix across S3 PutObject and Error dispatch', () => {
+  const nonUint8Variants = [
+    { name: 'Int8Array', create: () => new Int8Array([1, 2, 3]) },
+    { name: 'Uint8ClampedArray', create: () => new Uint8ClampedArray([1, 2, 3]) },
+    { name: 'Int16Array', create: () => new Int16Array([1, 2, 3]) },
+    { name: 'Uint16Array', create: () => new Uint16Array([1, 2, 3]) },
+    { name: 'Int32Array', create: () => new Int32Array([1, 2, 3]) },
+    { name: 'Uint32Array', create: () => new Uint32Array([1, 2, 3]) },
+    { name: 'Float32Array', create: () => new Float32Array([1.0, 2.0]) },
+    { name: 'Float64Array', create: () => new Float64Array([1.0, 2.0]) },
+    { name: 'BigInt64Array', create: () => new BigInt64Array([1n, 2n]) },
+    { name: 'BigUint64Array', create: () => new BigUint64Array([1n, 2n]) },
+    { name: 'DataView', create: () => new DataView(new ArrayBuffer(8)) },
+  ];
+
+  const validPayload = Buffer.from('valid payload for spoof test');
+
+  for (const variant of nonUint8Variants) {
+    for (const [protoName, proto] of [
+      ['Uint8Array.prototype', Uint8Array.prototype],
+      ['Buffer.prototype', Buffer.prototype],
+    ]) {
+      const view = Object.setPrototypeOf(variant.create(), proto);
+      const label = `${variant.name} spoofed as ${protoName}`;
+
+      // 1. dispatchS3PutObject(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putDirect = dispatchS3PutObject(view);
+      assert.equal(putDirect.http_status, 400, `${label}: dispatchS3PutObject(view) http_status`);
+      assert.equal(putDirect.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(view) error_code`);
+      assert.equal(putDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(view) reason`);
+
+      // 2. dispatchS3PutObject({ payloadBytes: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putPayloadBytes = dispatchS3PutObject({ payloadBytes: view });
+      assert.equal(putPayloadBytes.http_status, 400, `${label}: dispatchS3PutObject({ payloadBytes: view }) http_status`);
+      assert.equal(putPayloadBytes.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ payloadBytes: view }) error_code`);
+      assert.equal(putPayloadBytes.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ payloadBytes: view }) reason`);
+
+      // 3. dispatchS3PutObject({ payload: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putPayload = dispatchS3PutObject({ payload: view });
+      assert.equal(putPayload.http_status, 400, `${label}: dispatchS3PutObject({ payload: view }) http_status`);
+      assert.equal(putPayload.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ payload: view }) error_code`);
+      assert.equal(putPayload.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ payload: view }) reason`);
+
+      // 4. dispatchS3PutObject({ body: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putBody = dispatchS3PutObject({ body: view });
+      assert.equal(putBody.http_status, 400, `${label}: dispatchS3PutObject({ body: view }) http_status`);
+      assert.equal(putBody.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ body: view }) error_code`);
+      assert.equal(putBody.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject({ body: view }) reason`);
+
+      // 5. dispatchS3PutObject({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE or MALFORMED_HEADER_SYNTAX)
+      const putHeaders = dispatchS3PutObject({ headers: view });
+      assert.equal(putHeaders.http_status, 400, `${label}: dispatchS3PutObject({ headers: view }) http_status`);
+      assert.equal(putHeaders.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject({ headers: view }) error_code`);
+      assert.ok(
+        putHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || putHeaders.reason === 'MALFORMED_HEADER_SYNTAX',
+        `${label}: dispatchS3PutObject({ headers: view }) reason`
+      );
+
+      // 6. dispatchS3PutObject(validPayload, view) (maybeMd5Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putMd5Hdr = dispatchS3PutObject(validPayload, view);
+      assert.equal(putMd5Hdr.http_status, 400, `${label}: dispatchS3PutObject(validPayload, view) http_status`);
+      assert.equal(putMd5Hdr.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(validPayload, view) error_code`);
+      assert.equal(putMd5Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(validPayload, view) reason`);
+
+      // 7. dispatchS3PutObject(validPayload, undefined, view) (maybeSha256Header) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const putSha256Hdr = dispatchS3PutObject(validPayload, undefined, view);
+      assert.equal(putSha256Hdr.http_status, 400, `${label}: dispatchS3PutObject(validPayload, undefined, view) http_status`);
+      assert.equal(putSha256Hdr.error_code, 'InvalidDigest', `${label}: dispatchS3PutObject(validPayload, undefined, view) error_code`);
+      assert.equal(putSha256Hdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3PutObject(validPayload, undefined, view) reason`);
+
+      // 8. dispatchS3Error(view) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const errDirect = dispatchS3Error(view);
+      assert.equal(errDirect.http_status, 400, `${label}: dispatchS3Error(view) http_status`);
+      assert.equal(errDirect.error_code, 'InvalidDigest', `${label}: dispatchS3Error(view) error_code`);
+      assert.equal(errDirect.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error(view) reason`);
+
+      // 9. dispatchS3Error({ error_condition: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const errErrCond = dispatchS3Error({ error_condition: view });
+      assert.equal(errErrCond.http_status, 400, `${label}: dispatchS3Error({ error_condition: view }) http_status`);
+      assert.equal(errErrCond.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ error_condition: view }) error_code`);
+      assert.equal(errErrCond.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error({ error_condition: view }) reason`);
+
+      // 10. dispatchS3Error({ reason: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const errReason = dispatchS3Error({ reason: view });
+      assert.equal(errReason.http_status, 400, `${label}: dispatchS3Error({ reason: view }) http_status`);
+      assert.equal(errReason.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ reason: view }) error_code`);
+      assert.equal(errReason.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error({ reason: view }) reason`);
+
+      // 11. dispatchS3Error({ headers: view }) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE or MALFORMED_HEADER_SYNTAX)
+      const errHeaders = dispatchS3Error({ headers: view });
+      assert.equal(errHeaders.http_status, 400, `${label}: dispatchS3Error({ headers: view }) http_status`);
+      assert.equal(errHeaders.error_code, 'InvalidDigest', `${label}: dispatchS3Error({ headers: view }) error_code`);
+      assert.ok(
+        errHeaders.reason === 'MALFORMED_PAYLOAD_TYPE' || errHeaders.reason === 'MALFORMED_HEADER_SYNTAX',
+        `${label}: dispatchS3Error({ headers: view }) reason`
+      );
+
+      // 12. dispatchS3Error('NoSuchKey', view) (maybeHeader) -> HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE)
+      const errHdr = dispatchS3Error('NoSuchKey', view);
+      assert.equal(errHdr.http_status, 400, `${label}: dispatchS3Error('NoSuchKey', view) http_status`);
+      assert.equal(errHdr.error_code, 'InvalidDigest', `${label}: dispatchS3Error('NoSuchKey', view) error_code`);
+      assert.equal(errHdr.reason, 'MALFORMED_PAYLOAD_TYPE', `${label}: dispatchS3Error('NoSuchKey', view) reason`);
+    }
+  }
+});
+
+test('OPEN-2 exhaustive 22-shape spoofed view matrix across CompleteMultipartUpload and multipart semantics', () => {
+  const nonUint8Variants = [
+    { name: 'Int8Array', create: () => new Int8Array([1, 2, 3]) },
+    { name: 'Uint8ClampedArray', create: () => new Uint8ClampedArray([1, 2, 3]) },
+    { name: 'Int16Array', create: () => new Int16Array([1, 2, 3]) },
+    { name: 'Uint16Array', create: () => new Uint16Array([1, 2, 3]) },
+    { name: 'Int32Array', create: () => new Int32Array([1, 2, 3]) },
+    { name: 'Uint32Array', create: () => new Uint32Array([1, 2, 3]) },
+    { name: 'Float32Array', create: () => new Float32Array([1.0, 2.0]) },
+    { name: 'Float64Array', create: () => new Float64Array([1.0, 2.0]) },
+    { name: 'BigInt64Array', create: () => new BigInt64Array([1n, 2n]) },
+    { name: 'BigUint64Array', create: () => new BigUint64Array([1n, 2n]) },
+    { name: 'DataView', create: () => new DataView(new ArrayBuffer(8)) },
+  ];
+
+  const validManifest = {
+    parts: [
+      {
+        part_number: 1,
+        etag: '"0123456789abcdef0123456789abcdef"',
+        size_bytes: 5242880,
+      },
+    ],
+  };
+
+  let testedShapes = 0;
+  for (const variant of nonUint8Variants) {
+    const u8Spoofed = Object.setPrototypeOf(variant.create(), Uint8Array.prototype);
+    const bufSpoofed = Object.setPrototypeOf(variant.create(), Buffer.prototype);
+
+    for (const view of [u8Spoofed, bufSpoofed]) {
+      testedShapes++;
+
+      // 1. dispatchS3CompleteMultipartUpload(view) -> HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE)
+      const res1 = dispatchS3CompleteMultipartUpload(view);
+      assert.equal(res1.http_status, 400);
+      assert.equal(res1.error_code, 'InvalidPart');
+      assert.ok(
+        res1.reason === 'INVALID_MULTIPART_MANIFEST_STRUCTURE' || res1.reason === 'MALFORMED_PAYLOAD_TYPE',
+        `res1.reason should be INVALID_MULTIPART_MANIFEST_STRUCTURE or MALFORMED_PAYLOAD_TYPE, got ${res1.reason}`
+      );
+
+      // 2. dispatchS3CompleteMultipartUpload({ manifest: view }) -> HTTP 400 InvalidPart
+      const res2 = dispatchS3CompleteMultipartUpload({ manifest: view });
+      assert.equal(res2.http_status, 400);
+      assert.equal(res2.error_code, 'InvalidPart');
+
+      // 3. dispatchS3CompleteMultipartUpload({ parts: [view] }) -> HTTP 400 InvalidPart
+      const res3 = dispatchS3CompleteMultipartUpload({ parts: [view] });
+      assert.equal(res3.http_status, 400);
+      assert.equal(res3.error_code, 'InvalidPart');
+
+      // 4. dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> HTTP 400 InvalidPart
+      const res4 = dispatchS3CompleteMultipartUpload({
+        parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }],
+      });
+      assert.equal(res4.http_status, 400);
+      assert.equal(res4.error_code, 'InvalidPart');
+
+      // 5. dispatchS3CompleteMultipartUpload(validManifest, view) (direct storedParts) -> HTTP 400 InvalidPart
+      const res5 = dispatchS3CompleteMultipartUpload(validManifest, view);
+      assert.equal(res5.http_status, 400);
+      assert.equal(res5.error_code, 'InvalidPart');
+
+      // 6. dispatchS3CompleteMultipartUpload(validManifest, [view]) (storedParts array element) -> HTTP 400 InvalidPart
+      const res6 = dispatchS3CompleteMultipartUpload(validManifest, [view]);
+      assert.equal(res6.http_status, 400);
+      assert.equal(res6.error_code, 'InvalidPart');
+
+      // 7. dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]])) (storedParts Map element) -> HTTP 400 InvalidPart
+      const res7 = dispatchS3CompleteMultipartUpload(validManifest, new Map([[1, view]]));
+      assert.equal(res7.http_status, 400);
+      assert.equal(res7.error_code, 'InvalidPart');
+
+      // 8. validateS3MultipartSemantics(view) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+      assert.throws(
+        () => validateS3MultipartSemantics(view),
+        /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
+        'validateS3MultipartSemantics must reject spoofed view directly'
+      );
+
+      // 9. validateS3MultipartSemantics({ parts: [view] }) -> throws InvalidPart
+      assert.throws(
+        () => validateS3MultipartSemantics({ parts: [view] }),
+        /InvalidPart/,
+        'validateS3MultipartSemantics must reject spoofed view in parts array'
+      );
+
+      // 10. validateS3MultipartSemantics({ parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }] }) -> throws InvalidPart
+      assert.throws(
+        () => validateS3MultipartSemantics({
+          parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: view }],
+        }),
+        /InvalidPart/,
+        'validateS3MultipartSemantics must reject spoofed view in part size_bytes'
+      );
+
+      // 11. validateS3MultipartSemantics({ payload: view }) -> throws InvalidPart or MALFORMED_PAYLOAD_TYPE
+      assert.throws(
+        () => validateS3MultipartSemantics({ payload: view }),
+        /InvalidPart|MALFORMED_PAYLOAD_TYPE/,
+        'validateS3MultipartSemantics must reject spoofed view in payload wrapper'
+      );
+    }
+  }
+
+  assert.equal(testedShapes, 22, 'Must have tested exactly 22 spoofed view shapes');
 });
