@@ -496,6 +496,91 @@ export function hasPrototypeChainAccessor(obj, prop) {
   return false;
 }
 
+export function getOwnDataValue(obj, key) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return undefined;
+  try {
+    if (types.isProxy(obj)) return undefined;
+    const desc = Object.getOwnPropertyDescriptor(obj, key);
+    if (desc && desc.get === undefined && desc.set === undefined) {
+      return desc.value;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function hasAnyAccessorsOrProxy(obj) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  try {
+    if (types.isProxy(obj)) return true;
+    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
+    let curr = obj;
+    while (curr) {
+      if (types.isProxy(curr)) return true;
+      const keys = Reflect.ownKeys(curr);
+      for (const key of keys) {
+        if (curr === Object.prototype && key === '__proto__') {
+          continue;
+        }
+        const desc = Object.getOwnPropertyDescriptor(curr, key);
+        if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+          return true;
+        }
+      }
+      curr = Object.getPrototypeOf(curr);
+    }
+  } catch {
+    return true;
+  }
+  return false;
+}
+
+export function createSafePlainSnapshot(obj) {
+  if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
+    return obj;
+  }
+  if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) {
+    return obj;
+  }
+  try {
+    if (types.isProxy(obj)) {
+      return Object.create(null);
+    }
+  } catch {
+    return Object.create(null);
+  }
+  if (Array.isArray(obj)) {
+    const arr = [];
+    try {
+      const descLen = Object.getOwnPropertyDescriptor(obj, 'length');
+      const len = (descLen && descLen.get === undefined && descLen.set === undefined && typeof descLen.value === 'number')
+        ? descLen.value
+        : (typeof obj.length === 'number' ? obj.length : 0);
+      for (let i = 0; i < len; i++) {
+        const desc = Object.getOwnPropertyDescriptor(obj, i);
+        if (desc && desc.get === undefined && desc.set === undefined) {
+          const val = desc.value;
+          arr.push((val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val);
+        }
+      }
+    } catch {}
+    return arr;
+  }
+  const snapshot = Object.create(null);
+  try {
+    const keys = Reflect.ownKeys(obj);
+    for (const key of keys) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc && desc.get === undefined && desc.set === undefined) {
+        const val = desc.value;
+        snapshot[key] = (val !== null && typeof val === 'object') ? createSafePlainSnapshot(val) : val;
+      }
+    }
+  } catch {}
+  return snapshot;
+}
+
 export function isPlainOrNull(o) {
   if (o === null || typeof o !== 'object') return false;
   try {
@@ -2585,13 +2670,17 @@ export function validateS3ConformanceProfileSemantics(profile) {
   if (!profile || typeof profile !== 'object') {
     throw new Error('Semantic error: storage conformance profile must be an object');
   }
+  if (hasAnyAccessorsOrProxy(profile)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in storage conformance profile');
+  }
+  const safeProfile = createSafePlainSnapshot(profile);
 
-  const isLockSupported = profile.object_lock_supported === true || profile.mandatory_operations?.object_lock === true;
-  const isLockUnsupported = profile.object_lock_supported === false || profile.mandatory_operations?.object_lock === false;
+  const isLockSupported = safeProfile.object_lock_supported === true || safeProfile.mandatory_operations?.object_lock === true;
+  const isLockUnsupported = safeProfile.object_lock_supported === false || safeProfile.mandatory_operations?.object_lock === false;
 
-  if (Array.isArray(profile.required_operations)) {
+  if (Array.isArray(safeProfile.required_operations)) {
     const seenOps = new Set();
-    for (const op of profile.required_operations) {
+    for (const op of safeProfile.required_operations) {
       if (seenOps.has(op)) {
         throw new Error(`Semantic error: storage conformance profile required_operations contains duplicate operation '${op}' (supported_features contains duplicate entries)`);
       }
@@ -2608,8 +2697,8 @@ export function validateS3ConformanceProfileSemantics(profile) {
           throw new Error(`Semantic error: storage conformance profile with object_lock_supported === false must not contain Object Lock operation '${lockOp}'`);
         }
       }
-      if (profile.required_operations.length !== 15) {
-        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === false must contain exactly 15 operations (got ${profile.required_operations.length})`);
+      if (safeProfile.required_operations.length !== 15) {
+        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === false must contain exactly 15 operations (got ${safeProfile.required_operations.length})`);
       }
     }
 
@@ -2627,14 +2716,14 @@ export function validateS3ConformanceProfileSemantics(profile) {
           throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19 closed S3 operations (missing required Object Lock S3 operation '${op}') (storage conformance profile with object_lock_supported: true missing required Object Lock S3 operation '${op}')`);
         }
       }
-      if (profile.required_operations.length !== 19) {
-        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === true must contain exactly 19 operations (got ${profile.required_operations.length})`);
+      if (safeProfile.required_operations.length !== 19) {
+        throw new Error(`Semantic error: storage conformance profile with object_lock_supported === true must contain exactly 19 operations (got ${safeProfile.required_operations.length})`);
       }
     }
   }
 
-  if (Array.isArray(profile.required_error_codes)) {
-    const errSet = new Set(profile.required_error_codes);
+  if (Array.isArray(safeProfile.required_error_codes)) {
+    const errSet = new Set(safeProfile.required_error_codes);
     for (const code of S3_CANONICAL_ERROR_CODES) {
       if (!errSet.has(code)) {
         throw new Error(`Semantic error: storage conformance profile required_error_codes is missing required canonical error code '${code}'`);
@@ -2674,16 +2763,21 @@ const CORE_MANDATORY_SLOTS = [
 ];
 
 export function validateOfflineInstallSemantics(data) {
-  if (data && data.operator_trust_root && data.detached_signature) {
-    const rootFp = data.operator_trust_root.public_key_fingerprint;
-    const sigFp = data.detached_signature.key_fingerprint;
+  if (!data || typeof data !== 'object') return;
+  if (hasAnyAccessorsOrProxy(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in offline install manifest');
+  }
+  const safeData = createSafePlainSnapshot(data);
+  if (safeData && safeData.operator_trust_root && safeData.detached_signature) {
+    const rootFp = safeData.operator_trust_root.public_key_fingerprint;
+    const sigFp = safeData.detached_signature.key_fingerprint;
     if (rootFp && sigFp && rootFp !== sigFp) {
       throw new Error(`Semantic error: offline manifest detached_signature.key_fingerprint ('${sigFp}') does not match operator_trust_root.public_key_fingerprint ('${rootFp}')`);
     }
   }
-  if (data && data.artifacts) {
+  if (safeData && safeData.artifacts) {
     const paths = new Set();
-    for (const art of data.artifacts) {
+    for (const art of safeData.artifacts) {
       if (art && typeof art.path === 'string') {
         const norm = posix.normalize(art.path);
         if (art.path === 'manifest.json' || art.path === 'manifest.sig' || norm === 'manifest.json' || norm === 'manifest.sig') {
@@ -2696,11 +2790,11 @@ export function validateOfflineInstallSemantics(data) {
       }
     }
   }
-  if (data && data.update_station_workflow) {
+  if (safeData && safeData.update_station_workflow) {
     const allSteps = [
-      ...(data.update_station_workflow.preflight_steps || []),
-      ...(data.update_station_workflow.apply_steps || []),
-      ...(data.update_station_workflow.rollback_steps || []),
+      ...(safeData.update_station_workflow.preflight_steps || []),
+      ...(safeData.update_station_workflow.apply_steps || []),
+      ...(safeData.update_station_workflow.rollback_steps || []),
     ];
     for (const step of allSteps) {
       if (step && step.action === 'RESTORE_DATABASE_SNAPSHOT') {
@@ -2743,9 +2837,14 @@ export function validateOfflineInstallSemantics(data) {
 }
 
 export function validatePlatformSemantics(data, schemaId) {
+  if (!data || (typeof data !== 'object' && typeof data !== 'function')) return;
+  if (hasAnyAccessorsOrProxy(data)) {
+    throw new Error('Semantic error: accessor properties or Proxy objects are prohibited in platform data');
+  }
+  const safeData = createSafePlainSnapshot(data);
   if (schemaId.includes('provider-capability-advertisement') || schemaId.includes('provider-capability-negotiation')) {
-    const adv = data.advertisement_response || data;
-    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!data.agreed_capability_lease;
+    const adv = safeData.advertisement_response || safeData;
+    const isNegotiation = schemaId.includes('provider-capability-negotiation') || !!safeData.agreed_capability_lease;
     const referencedSet = new Set();
 
     if (adv.advertised_capabilities || adv.conformance_evidence) {
@@ -2802,7 +2901,7 @@ export function validatePlatformSemantics(data, schemaId) {
         }
       }
 
-      const leaseCaps = data.agreed_capability_lease?.negotiated_optional_capabilities || data.agreed_capability_lease?.agreed_capabilities || [];
+      const leaseCaps = safeData.agreed_capability_lease?.negotiated_optional_capabilities || safeData.agreed_capability_lease?.agreed_capabilities || [];
       for (const cap of leaseCaps) {
         if (cap.capability_name === 'storage_object_lock') {
           for (const ref of (cap.evidence_references || [])) {
@@ -2820,9 +2919,9 @@ export function validatePlatformSemantics(data, schemaId) {
         }
       }
     }
-    const claimType = adv.claim_type || data.claim_type;
-    const targetProfileId = data.target_profile_id || adv.target_profile_id;
-    const targetProfileDigest = data.target_profile_digest;
+    const claimType = adv.claim_type || safeData.claim_type;
+    const targetProfileId = safeData.target_profile_id || adv.target_profile_id;
+    const targetProfileDigest = safeData.target_profile_digest;
     const advProfileDigest = adv.target_profile_digest;
 
     if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
@@ -2845,13 +2944,13 @@ export function validatePlatformSemantics(data, schemaId) {
     }
 
     if (isNegotiation) {
-      if (!data.target_profile_digest || typeof data.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(data.target_profile_digest)) {
+      if (!safeData.target_profile_digest || typeof safeData.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(safeData.target_profile_digest)) {
         throw new Error(`Semantic error: target_profile_digest is required and must match ^[a-f0-9]{64}$ on negotiation handshake`);
       }
-      if (data.advertisement_response && (!data.advertisement_response.target_profile_digest || typeof data.advertisement_response.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(data.advertisement_response.target_profile_digest))) {
+      if (safeData.advertisement_response && (!safeData.advertisement_response.target_profile_digest || typeof safeData.advertisement_response.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(safeData.advertisement_response.target_profile_digest))) {
         throw new Error(`Semantic error: advertisement_response.target_profile_digest must match ^[a-f0-9]{64}$`);
       }
-    } else if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || data.advertisement_response) {
+    } else if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION' || safeData.advertisement_response) {
       const effDigest = targetProfileDigest || advProfileDigest;
       if (!effDigest || typeof effDigest !== 'string' || !/^[a-f0-9]{64}$/.test(effDigest)) {
         throw new Error(`Semantic error: target_profile_digest is required and must match ^[a-f0-9]{64}$ on advertisement_response`);
@@ -2865,8 +2964,8 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    if (data.agreed_capability_lease) {
-      const lease = data.agreed_capability_lease;
+    if (safeData.agreed_capability_lease) {
+      const lease = safeData.agreed_capability_lease;
       if (lease.issued_at && lease.valid_until) {
         const issued_at_ms = Date.parse(lease.issued_at);
         const valid_until_ms = Date.parse(lease.valid_until);
@@ -2887,12 +2986,12 @@ export function validatePlatformSemantics(data, schemaId) {
 
       const caps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
 
-      let resolvedProfileForLease = data.profile || adv.profile;
+      let resolvedProfileForLease = safeData.profile || adv.profile;
       if (!resolvedProfileForLease && targetProfileId) {
         const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
         if (existsSync(profilePath)) {
           try {
-            resolvedProfileForLease = JSON.parse(readFileSync(profilePath, 'utf8'));
+            resolvedProfileForLease = createSafePlainSnapshot(JSON.parse(readFileSync(profilePath, 'utf8')));
           } catch (_) {}
         }
       }
@@ -2903,8 +3002,8 @@ export function validatePlatformSemantics(data, schemaId) {
           resolvedProfileForLease.immutable_storage_required === true;
 
         if (immutableStorageMandated) {
-          if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
-            for (const cap of data.negotiation_request.requested_optional_capabilities) {
+          if (safeData.negotiation_request && Array.isArray(safeData.negotiation_request.requested_optional_capabilities)) {
+            for (const cap of safeData.negotiation_request.requested_optional_capabilities) {
               if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
                 throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
               }
@@ -2972,7 +3071,7 @@ export function validatePlatformSemantics(data, schemaId) {
           const fallback = cap.fallback_applied || cap.effective_fallback || cap.fallback || 'NONE';
           return (capStatus === 'GRANTED_DEGRADED' || capStatus === 'REJECTED_UNSUPPORTED') && fallback !== 'NONE';
         });
-        const reqCaps = data.negotiation_request?.requested_optional_capabilities || [];
+        const reqCaps = safeData.negotiation_request?.requested_optional_capabilities || [];
         const leaseCapMap = new Map();
         for (const cap of caps) {
           const key = `${cap.capability_name}::${cap.slot_id}`;
@@ -2997,9 +3096,9 @@ export function validatePlatformSemantics(data, schemaId) {
     }
 
     // R16-02: Composite Key Uniqueness on Request and Lease Arrays
-    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
+    if (safeData.negotiation_request && Array.isArray(safeData.negotiation_request.requested_optional_capabilities)) {
       const seenReqKeys = new Set();
-      for (const cap of data.negotiation_request.requested_optional_capabilities) {
+      for (const cap of safeData.negotiation_request.requested_optional_capabilities) {
         const key = `${cap.capability_name}::${cap.slot_id}`;
         if (seenReqKeys.has(key)) {
           throw new Error(`Semantic error: requested_optional_capabilities contains duplicate composite key (${cap.capability_name}, ${cap.slot_id})`);
@@ -3008,8 +3107,8 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    if (data.agreed_capability_lease) {
-      const leaseCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities;
+    if (safeData.agreed_capability_lease) {
+      const leaseCaps = safeData.agreed_capability_lease.negotiated_optional_capabilities || safeData.agreed_capability_lease.agreed_capabilities;
       if (Array.isArray(leaseCaps)) {
         const seenLeaseKeys = new Set();
         for (const cap of leaseCaps) {
@@ -3023,10 +3122,10 @@ export function validatePlatformSemantics(data, schemaId) {
     }
 
     // F-03: Requested-to-lease composite key and cardinality closure with required_for_optimal semantics
-    if (data.negotiation_request && data.agreed_capability_lease) {
-      const reqCaps = data.negotiation_request.requested_optional_capabilities || [];
-      const leaseCaps = data.agreed_capability_lease.negotiated_optional_capabilities || data.agreed_capability_lease.agreed_capabilities || [];
-      const leaseStatus = data.agreed_capability_lease.lease_status;
+    if (safeData.negotiation_request && safeData.agreed_capability_lease) {
+      const reqCaps = safeData.negotiation_request.requested_optional_capabilities || [];
+      const leaseCaps = safeData.agreed_capability_lease.negotiated_optional_capabilities || safeData.agreed_capability_lease.agreed_capabilities || [];
+      const leaseStatus = safeData.agreed_capability_lease.lease_status;
 
       // Multiset counts keyed by composite identity (capability_name, slot_id)
       const reqCountMap = new Map();
@@ -3072,8 +3171,8 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
 
-    if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_slots)) {
-      const requestedSlots = new Set(data.negotiation_request.requested_slots);
+    if (safeData.negotiation_request && Array.isArray(safeData.negotiation_request.requested_slots)) {
+      const requestedSlots = new Set(safeData.negotiation_request.requested_slots);
       for (const slot of CORE_MANDATORY_SLOTS) {
         if (!requestedSlots.has(slot)) {
           throw new Error(`Semantic error: negotiation_request.requested_slots missing core mandatory slot '${slot}'`);
@@ -3085,12 +3184,12 @@ export function validatePlatformSemantics(data, schemaId) {
       const storageCap = adv.advertised_capabilities.find(c => c.slot_id === 'storage');
       if (storageCap) {
         let immutableStorageRequired = true;
-        let resolvedProfile = data.profile || adv.profile;
+        let resolvedProfile = safeData.profile || adv.profile;
         if (!resolvedProfile && targetProfileId) {
           const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
           if (existsSync(profilePath)) {
             try {
-              resolvedProfile = JSON.parse(readFileSync(profilePath, 'utf8'));
+              resolvedProfile = createSafePlainSnapshot(JSON.parse(readFileSync(profilePath, 'utf8')));
             } catch (_) {}
           }
         }
@@ -3199,11 +3298,11 @@ export function validatePlatformSemantics(data, schemaId) {
       if (actualDigest !== targetProfileDigest) {
         throw new Error(`Semantic error: target_profile_digest '${targetProfileDigest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
       }
-      if (data.advertisement_response?.target_profile_digest && data.advertisement_response.target_profile_digest !== actualDigest) {
-        throw new Error(`Semantic error: advertisement_response.target_profile_digest '${data.advertisement_response.target_profile_digest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
+      if (safeData.advertisement_response?.target_profile_digest && safeData.advertisement_response.target_profile_digest !== actualDigest) {
+        throw new Error(`Semantic error: advertisement_response.target_profile_digest '${safeData.advertisement_response.target_profile_digest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
       }
-      if (data.agreed_capability_lease) {
-        const lease = data.agreed_capability_lease;
+      if (safeData.agreed_capability_lease) {
+        const lease = safeData.agreed_capability_lease;
         if (lease.target_profile_digest && lease.target_profile_digest !== actualDigest) {
           throw new Error(`Semantic error: lease target_profile_digest '${lease.target_profile_digest}' does not match disk profile digest for '${targetProfileId}' and does not match actual digest '${actualDigest}'`);
         }
@@ -3216,7 +3315,7 @@ export function validatePlatformSemantics(data, schemaId) {
     if (targetProfileId) {
       const profilePath = join(CONTRACTS, 'examples/platform', `${targetProfileId}.profile.json`);
       if (existsSync(profilePath)) {
-        const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+        const profile = createSafePlainSnapshot(JSON.parse(readFileSync(profilePath, 'utf8')));
         const mandatorySlots = new Set(CORE_MANDATORY_SLOTS);
         if (profile.strength) {
           for (const [slot, str] of Object.entries(profile.strength)) {
@@ -3225,7 +3324,7 @@ export function validatePlatformSemantics(data, schemaId) {
         }
         if (profile.slots) {
           for (const [slot, spec] of Object.entries(profile.slots)) {
-            if (spec.specification?.required === true) {
+            if (spec && spec.specification?.required === true) {
               mandatorySlots.add(slot);
             }
           }
@@ -3255,8 +3354,8 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        if (isNegotiation && (data.negotiation_status === 'AGREED_LEASE_GRANTED' || data.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (data.agreed_capability_lease && data.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
-          const lease = data.agreed_capability_lease || {};
+        if (isNegotiation && (safeData.negotiation_status === 'AGREED_LEASE_GRANTED' || safeData.negotiation_status === 'DEGRADED_LEASE_GRANTED' || (safeData.agreed_capability_lease && safeData.agreed_capability_lease.lease_status !== 'REJECTED_FAIL_CLOSED'))) {
+          const lease = safeData.agreed_capability_lease || {};
           const satisfiedSlots = new Set(lease.mandatory_slots_satisfied || []);
           const advertisedMap = new Map();
           for (const cap of (adv.advertised_capabilities || [])) {
@@ -3292,8 +3391,8 @@ export function validatePlatformSemantics(data, schemaId) {
             profile.immutable_storage_required === true;
 
           if (immutableStorageMandated) {
-            if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
-              for (const cap of data.negotiation_request.requested_optional_capabilities) {
+            if (safeData.negotiation_request && Array.isArray(safeData.negotiation_request.requested_optional_capabilities)) {
+              for (const cap of safeData.negotiation_request.requested_optional_capabilities) {
                 if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
                   throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
                 }
@@ -3341,14 +3440,14 @@ export function validatePlatformSemantics(data, schemaId) {
       }
     }
   } else if (schemaId.includes('offline-install-update-manifest')) {
-    validateOfflineInstallSemantics(data);
-  } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest') || schemaId.includes('storageConformanceProfile') || (data && Array.isArray(data.required_error_codes))) {
-    if (data && Array.isArray(data.parts)) {
-      validateS3MultipartSemantics(data);
+    validateOfflineInstallSemantics(safeData);
+  } else if (schemaId.includes('storage-s3-compatibility-subset') || schemaId.includes('multipartUploadManifest') || schemaId.includes('storageConformanceProfile') || (safeData && Array.isArray(safeData.required_error_codes))) {
+    if (safeData && Array.isArray(safeData.parts)) {
+      validateS3MultipartSemantics(safeData);
     }
     // R16-01: All 13 Canonical S3 Error Codes Required in Storage Conformance Profile + Strict 15/19 Profile Validation
-    if (data && (Array.isArray(data.required_error_codes) || data.provider_identifier || data.required_operations)) {
-      validateS3ConformanceProfileSemantics(data);
+    if (safeData && (Array.isArray(safeData.required_error_codes) || safeData.provider_identifier || safeData.required_operations)) {
+      validateS3ConformanceProfileSemantics(safeData);
     }
   }
 }

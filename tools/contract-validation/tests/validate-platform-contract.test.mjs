@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot } from '../validate-schemas.mjs';
 
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -12567,4 +12567,181 @@ test('adversarial regression: transparent get-trapping Proxies around valid mult
   assert.equal(res5.http_status, 400);
   assert.equal(res5.error_code, 'InvalidPart');
   assert.equal(res5.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+});
+
+test('safe plain snapshot extraction, descriptor-level extraction, and prototype isolation helpers (OPEN-5)', () => {
+  // 1. getOwnDataValue extracts own data properties only
+  const plainObj = { a: 100, b: 'test', c: null, d: undefined };
+  assert.equal(getOwnDataValue(plainObj, 'a'), 100);
+  assert.equal(getOwnDataValue(plainObj, 'b'), 'test');
+  assert.equal(getOwnDataValue(plainObj, 'c'), null);
+  assert.equal(getOwnDataValue(plainObj, 'd'), undefined);
+  assert.equal(getOwnDataValue(plainObj, 'nonexistent'), undefined);
+
+  // Inherited properties are NOT returned by getOwnDataValue
+  const child = Object.create(plainObj);
+  child.ownProp = 42;
+  assert.equal(getOwnDataValue(child, 'ownProp'), 42);
+  assert.equal(getOwnDataValue(child, 'a'), undefined);
+
+  // Accessors (getters/setters) are NOT returned by getOwnDataValue without invocation
+  let getterInvoked = false;
+  const accessorObj = {
+    get secret() {
+      getterInvoked = true;
+      return 'hidden';
+    }
+  };
+  assert.equal(getOwnDataValue(accessorObj, 'secret'), undefined);
+  assert.equal(getterInvoked, false, 'getOwnDataValue must never invoke getter functions');
+
+  // Null, undefined, primitives, proxies return undefined
+  assert.equal(getOwnDataValue(null, 'a'), undefined);
+  assert.equal(getOwnDataValue(undefined, 'a'), undefined);
+  assert.equal(getOwnDataValue(123, 'a'), undefined);
+  assert.equal(getOwnDataValue('str', 'a'), undefined);
+  assert.equal(getOwnDataValue(new Proxy({}, {}), 'a'), undefined);
+
+  // 2. hasAnyAccessorsOrProxy detection
+  assert.equal(hasAnyAccessorsOrProxy(null), false);
+  assert.equal(hasAnyAccessorsOrProxy(undefined), false);
+  assert.equal(hasAnyAccessorsOrProxy(123), false);
+  assert.equal(hasAnyAccessorsOrProxy('hello'), false);
+  assert.equal(hasAnyAccessorsOrProxy({ a: 1, b: 2 }), false);
+  assert.equal(hasAnyAccessorsOrProxy([1, 2, 3]), false);
+  assert.equal(hasAnyAccessorsOrProxy(Object.create(null)), false);
+
+  // Own accessor
+  assert.equal(hasAnyAccessorsOrProxy({ get x() { return 1; } }), true);
+  assert.equal(hasAnyAccessorsOrProxy({ set x(v) {} }), true);
+
+  // Prototype-chain accessor
+  class BaseWithGetter {
+    get baseProp() { return 1; }
+  }
+  assert.equal(hasAnyAccessorsOrProxy(new BaseWithGetter()), true);
+
+  // Proxy detection
+  assert.equal(hasAnyAccessorsOrProxy(new Proxy({}, {})), true);
+  assert.equal(hasAnyAccessorsOrProxy(new Proxy([], {})), true);
+
+  // 3. createSafePlainSnapshot creates null-prototype object copying only own data properties
+  const complexObj = {
+    name: 'valid-declaration',
+    count: 13,
+    nested: {
+      inner: 'value',
+      num: 42
+    },
+    items: [
+      { id: 1, label: 'one' },
+      { id: 2, label: 'two' }
+    ]
+  };
+  const snapshot = createSafePlainSnapshot(complexObj);
+  assert.equal(Object.getPrototypeOf(snapshot), null, 'Root snapshot must have null prototype');
+  assert.equal(snapshot.name, 'valid-declaration');
+  assert.equal(snapshot.count, 13);
+  assert.equal(Object.getPrototypeOf(snapshot.nested), null, 'Nested snapshot must have null prototype');
+  assert.equal(snapshot.nested.inner, 'value');
+  assert.equal(snapshot.nested.num, 42);
+  assert.ok(Array.isArray(snapshot.items));
+  assert.equal(Object.getPrototypeOf(snapshot.items[0]), null, 'Array element snapshot must have null prototype');
+  assert.equal(snapshot.items[0].id, 1);
+  assert.equal(snapshot.items[0].label, 'one');
+
+  // createSafePlainSnapshot omits accessors without invoking them
+  let snapGetterInvoked = false;
+  const objWithGetter = {
+    safeField: 'safe',
+    get evilField() {
+      snapGetterInvoked = true;
+      return 'evil';
+    }
+  };
+  const snapWithGetter = createSafePlainSnapshot(objWithGetter);
+  assert.equal(snapGetterInvoked, false, 'createSafePlainSnapshot must never invoke getter functions');
+  assert.equal(snapWithGetter.safeField, 'safe');
+  assert.equal(snapWithGetter.evilField, undefined);
+
+  // createSafePlainSnapshot ignores inherited prototype properties
+  const inheritedObj = Object.create({ inheritedKey: 'should-not-copy' });
+  inheritedObj.ownKey = 'should-copy';
+  const snapInherited = createSafePlainSnapshot(inheritedObj);
+  assert.equal(snapInherited.ownKey, 'should-copy');
+  assert.equal(snapInherited.inheritedKey, undefined);
+});
+
+test('validatePlatformSemantics prototype isolation and accessor defense fail-closed (OPEN-5)', () => {
+  const samplePath = join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json');
+  const validDoc = JSON.parse(readFileSync(samplePath, 'utf8'));
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+
+  // 1. Valid doc passes platform semantics
+  assert.doesNotThrow(() => validatePlatformSemantics(validDoc, schemaId));
+
+  // 2. Doc with own accessor getter fails closed with Semantic error without calling getter
+  let ownGetterCalled = false;
+  const docWithOwnGetter = {
+    ...validDoc,
+    get trap() {
+      ownGetterCalled = true;
+      return 'triggered';
+    }
+  };
+  assert.throws(
+    () => validatePlatformSemantics(docWithOwnGetter, schemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.equal(ownGetterCalled, false, 'validatePlatformSemantics must fail closed without invoking own getters');
+
+  // 3. Doc with prototype getter fails closed with Semantic error without calling getter
+  let protoGetterCalled = false;
+  class ProtoClass {
+    get protoTrap() {
+      protoGetterCalled = true;
+      return 'triggered';
+    }
+  }
+  const docWithProtoGetter = Object.assign(new ProtoClass(), validDoc);
+  assert.throws(
+    () => validatePlatformSemantics(docWithProtoGetter, schemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+  assert.equal(protoGetterCalled, false, 'validatePlatformSemantics must fail closed without invoking prototype getters');
+
+  // 4. Proxy wrapping valid document fails closed with Semantic error
+  const proxyDoc = new Proxy(validDoc, {});
+  assert.throws(
+    () => validatePlatformSemantics(proxyDoc, schemaId),
+    /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+  );
+
+  // 5. Object.prototype getter pollution defense
+  let globalGetterCalled = false;
+  try {
+    Object.defineProperty(Object.prototype, '__open5_polluted_getter__', {
+      get() {
+        globalGetterCalled = true;
+        return 'polluted';
+      },
+      configurable: true
+    });
+
+    // When Object.prototype has accessors, validatePlatformSemantics detects accessors in prototype chain and fails closed without invoking the getter
+    assert.throws(
+      () => validatePlatformSemantics(validDoc, schemaId),
+      /Semantic error: accessor properties or Proxy objects are prohibited in platform data/
+    );
+    assert.equal(globalGetterCalled, false, 'validatePlatformSemantics must never invoke polluted Object.prototype getters');
+
+    // Null-prototype object is completely isolated from Object.prototype pollution and validates cleanly
+    const nullProtoDoc = createSafePlainSnapshot(validDoc);
+    assert.doesNotThrow(
+      () => validatePlatformSemantics(nullProtoDoc, schemaId)
+    );
+    assert.equal(globalGetterCalled, false, 'validatePlatformSemantics on null-prototype snapshot must never invoke Object.prototype getters');
+  } finally {
+    delete Object.prototype.__open5_polluted_getter__;
+  }
 });
