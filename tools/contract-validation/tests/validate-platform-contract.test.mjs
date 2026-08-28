@@ -5203,7 +5203,7 @@ test('in-memory validation: capability containing both canonical URN and legacy 
 
     assert.throws(
       () => validatePlatformSemantics(dataHs, handshakeSchemaId),
-      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       `Canonical-plus-alias set with '${alias}' in negotiation must be strictly rejected by validatePlatformSemantics`
     );
   }
@@ -5226,7 +5226,7 @@ test('in-memory validation: capability containing both canonical URN and legacy 
 
     assert.throws(
       () => validatePlatformSemantics(dataDecl, pcaSchemaId),
-      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       `Canonical-plus-alias set with '${alias}' in declaration must be strictly rejected by validatePlatformSemantics`
     );
   }
@@ -5245,7 +5245,7 @@ test('in-memory validation: capability containing both canonical URN and legacy 
     });
     assert.throws(
       () => validatePlatformSemantics(dataNonStorage, handshakeSchemaId),
-      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       'Non-storage capability with legacy Object Lock alias must be strictly rejected'
     );
   }
@@ -5353,7 +5353,7 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
 
     assert.throws(
       () => validatePlatformSemantics(dataHs, handshakeSchemaId),
-      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       `Unlisted alias '${alias}' in negotiation must be strictly rejected by validatePlatformSemantics`
     );
   }
@@ -5376,7 +5376,7 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
 
     assert.throws(
       () => validatePlatformSemantics(dataDecl, pcaSchemaId),
-      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       `Unlisted alias '${alias}' in declaration must be strictly rejected by validatePlatformSemantics`
     );
   }
@@ -5399,7 +5399,7 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
 
     assert.throws(
       () => validatePlatformSemantics(dataDeclOnlyAlias, pcaSchemaId),
-      /storage slot advertisement lacks Object Lock retention evidence|canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      /storage slot advertisement lacks Object Lock retention evidence|canonical-plus-alias set prohibited|legacy Object Lock alias|aliases strictly prohibited/,
       `Storage capability with only unlisted alias '${alias}' must be rejected by validatePlatformSemantics`
     );
   }
@@ -5424,5 +5424,414 @@ test('validatePlatformSemantics enforces signing key fingerprint equality on off
     () => validatePlatformSemantics(mismatchedManifest, manifestSchemaId),
     new RegExp(`Semantic error: offline manifest detached_signature\\.key_fingerprint \\('${mismatchedManifest.detached_signature.key_fingerprint}'\\) does not match operator_trust_root\\.public_key_fingerprint \\('${mismatchedManifest.operator_trust_root.public_key_fingerprint}'\\)`),
     'Mismatched key fingerprint must throw semantic error'
+  );
+});
+
+test('in-memory validation: permit multi-evidence storage declarations with targeted Object Lock alias rejection (Finding 1 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const handshakeSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  // 1. Full profile declaration with multi-evidence storage slot passes
+  const multiDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const storageCap = multiDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageCap.evidence_references = [
+    'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops',
+    canonicalLockUrn
+  ];
+  multiDecl.conformance_evidence.push({
+    test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops',
+    status: 'PASS',
+    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://example.com/s3-ops'
+  });
+
+  const schemaValid = ajv.validate(pcaSchemaId, multiDecl);
+  assert.ok(schemaValid, 'Multi-evidence declaration must pass Ajv schema: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(multiDecl, pcaSchemaId),
+    'Multi-evidence storage declaration with canonical Object Lock URN must pass validatePlatformSemantics'
+  );
+
+  // 2. Full profile declaration with multi-evidence storage slot where one ref is an Object Lock alias throws targeted error
+  const badAliasDecl = JSON.parse(JSON.stringify(multiDecl));
+  const badStorageCap = badAliasDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  badStorageCap.evidence_references.push('urn:cybrik:evidence:storage:s3:conformance:v1:object_lock');
+  badAliasDecl.conformance_evidence.push({
+    test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
+    status: 'PASS',
+    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://example.com/bad-alias'
+  });
+
+  assert.throws(
+    () => validatePlatformSemantics(badAliasDecl, pcaSchemaId),
+    /Semantic error: invalid storage_object_lock evidence URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock': must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)/,
+    'Object Lock alias in multi-evidence storage declaration must be rejected with canonical URN requirement'
+  );
+
+  // 3. Multi-evidence negotiation handshake passes
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(handshakeSample, handshakeSchemaId),
+    'Sample capability negotiation handshake with multi-evidence storage passes validation'
+  );
+});
+
+test('in-memory validation: standalone full profile conformance declaration with dual storage evidence (s3-17-ops + object-lock) passes validatePlatformSemantics (OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  const s3OpsUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  // 1. Dual evidence on storage capability: s3-17-ops + object-lock
+  const dualEvidenceDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const storageCap = dualEvidenceDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageCap.evidence_references = [s3OpsUrn, canonicalLockUrn];
+
+  // Add conformance evidence for s3-17-ops alongside object-lock
+  dualEvidenceDecl.conformance_evidence = [
+    ...dualEvidenceDecl.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== s3OpsUrn),
+    {
+      test_identifier: s3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock'
+    }
+  ];
+
+  const schemaValid = ajv.validate(pcaSchemaId, dualEvidenceDecl);
+  assert.ok(schemaValid, 'Dual evidence standalone declaration must pass schema validation: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(dualEvidenceDecl, pcaSchemaId),
+    'Dual evidence standalone declaration must pass validatePlatformSemantics cleanly'
+  );
+
+  // 2. Reverse order of evidence references also passes cleanly
+  const reverseEvidenceDecl = JSON.parse(JSON.stringify(dualEvidenceDecl));
+  const reverseStorageCap = reverseEvidenceDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  reverseStorageCap.evidence_references = [canonicalLockUrn, s3OpsUrn];
+
+  const reverseSchemaValid = ajv.validate(pcaSchemaId, reverseEvidenceDecl);
+  assert.ok(reverseSchemaValid, 'Reverse order dual evidence declaration must pass schema: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(reverseEvidenceDecl, pcaSchemaId),
+    'Reverse order dual evidence declaration must pass validatePlatformSemantics cleanly'
+  );
+
+  // 3. Legacy s3-17-ops:v1 URN in dual evidence also passes cleanly
+  const legacyS3OpsUrn = 'urn:cybrik:evidence:storage:s3-17-ops:v1';
+  const legacyDualDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const legacyStorageCap = legacyDualDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  legacyStorageCap.evidence_references = [legacyS3OpsUrn, canonicalLockUrn];
+  legacyDualDecl.conformance_evidence = [
+    ...legacyDualDecl.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== legacyS3OpsUrn),
+    {
+      test_identifier: legacyS3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops-legacy'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock'
+    }
+  ];
+  assert.ok(ajv.validate(pcaSchemaId, legacyDualDecl), 'Legacy dual evidence declaration must pass schema: ' + ajv.errorsText());
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(legacyDualDecl, pcaSchemaId),
+    'Legacy dual evidence declaration must pass validatePlatformSemantics cleanly'
+  );
+});
+
+test('in-memory validation: standalone declaration with unlisted Object Lock alias (...:object_lock) is strictly rejected (OPEN-5 / OPEN-2)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const s3OpsUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const unlistedAlias = 'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock';
+
+  // 1. Standalone declaration with dual evidence using unlisted alias instead of canonical lock URN
+  const declWithAlias = JSON.parse(JSON.stringify(fullDeclSample));
+  const storageCap1 = declWithAlias.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageCap1.evidence_references = [s3OpsUrn, unlistedAlias];
+  declWithAlias.conformance_evidence = [
+    ...declWithAlias.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn),
+    {
+      test_identifier: s3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops'
+    },
+    {
+      test_identifier: unlistedAlias,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock-alias'
+    }
+  ];
+
+  const schemaValid1 = ajv.validate(pcaSchemaId, declWithAlias);
+  assert.ok(schemaValid1, 'Standalone declaration with alias must pass Ajv schema: ' + ajv.errorsText());
+  assert.throws(
+    () => validatePlatformSemantics(declWithAlias, pcaSchemaId),
+    /storage slot advertisement lacks Object Lock retention evidence|canonical-plus-alias set prohibited|legacy Object Lock alias|invalid storage_object_lock evidence URN/,
+    'Standalone declaration with unlisted alias replacing canonical lock must be strictly rejected'
+  );
+
+  // 2. Standalone declaration with triple evidence: s3-17-ops + canonical lock + unlisted alias (canonical-plus-alias)
+  const declTriple = JSON.parse(JSON.stringify(fullDeclSample));
+  const storageCap2 = declTriple.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storageCap2.evidence_references = [s3OpsUrn, canonicalLockUrn, unlistedAlias];
+  declTriple.conformance_evidence = [
+    ...declTriple.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn),
+    {
+      test_identifier: s3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock'
+    },
+    {
+      test_identifier: unlistedAlias,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock-alias'
+    }
+  ];
+
+  const schemaValid2 = ajv.validate(pcaSchemaId, declTriple);
+  assert.ok(schemaValid2, 'Standalone declaration with triple evidence must pass Ajv schema: ' + ajv.errorsText());
+  assert.throws(
+    () => validatePlatformSemantics(declTriple, pcaSchemaId),
+    /canonical-plus-alias set prohibited|legacy Object Lock alias|invalid storage_object_lock evidence URN/,
+    'Standalone declaration with canonical plus unlisted alias must be strictly rejected'
+  );
+});
+
+test('in-memory validation: standalone and nested negotiation lease parity with dual storage evidence (OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  const s3OpsUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const unlistedAlias = 'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock';
+
+  // --- 1. Positive parity: Both standalone declaration and nested negotiation handshake succeed with dual evidence ---
+  // A. Standalone declaration with dual storage evidence
+  const standaloneDoc = JSON.parse(JSON.stringify(fullDeclSample));
+  const saStoreCap = standaloneDoc.advertised_capabilities.find(c => c.slot_id === 'storage');
+  saStoreCap.evidence_references = [s3OpsUrn, canonicalLockUrn];
+  standaloneDoc.conformance_evidence = [
+    ...standaloneDoc.conformance_evidence.filter(e => e.test_identifier !== canonicalLockUrn && e.test_identifier !== s3OpsUrn),
+    {
+      test_identifier: s3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/s3-ops'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/object-lock'
+    }
+  ];
+  assert.ok(ajv.validate(pcaSchemaId, standaloneDoc), 'Standalone dual evidence doc passes Ajv: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(standaloneDoc, pcaSchemaId), 'Standalone dual evidence doc passes validatePlatformSemantics');
+
+  // B. Nested negotiation handshake with dual storage evidence in advertisement_response and lease parity
+  const nestedDoc = JSON.parse(JSON.stringify(handshakeSample));
+  const nestedStoreCap = nestedDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  nestedStoreCap.evidence_references = [s3OpsUrn, canonicalLockUrn];
+  nestedDoc.advertisement_response.conformance_evidence = [
+    ...nestedDoc.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock') && e.test_identifier !== s3OpsUrn && !e.test_identifier.includes('s3-17-ops')),
+    {
+      test_identifier: s3OpsUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'a100000000000000000000000000000000000000000000000000000000000017',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/s3-17-ops.json'
+    },
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/ev-store-object-lock-01.json'
+    }
+  ];
+  // Ensure agreed_capability_lease for storage_object_lock has disposition GRANTED_FULL and fallback NONE
+  const leaseLockCap = nestedDoc.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock');
+  if (leaseLockCap) {
+    leaseLockCap.disposition = 'GRANTED_FULL';
+    leaseLockCap.fallback_applied = 'NONE';
+  }
+  assert.ok(ajv.validate(pcnSchemaId, nestedDoc), 'Nested negotiation dual evidence doc passes Ajv: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(nestedDoc, pcnSchemaId), 'Nested negotiation dual evidence doc passes validatePlatformSemantics');
+
+  // --- 2. Negative parity: Unlisted alias rejection parity ---
+  // A. Standalone declaration with unlisted alias rejected
+  const saAliasDoc = JSON.parse(JSON.stringify(standaloneDoc));
+  const saAliasStoreCap = saAliasDoc.advertised_capabilities.find(c => c.slot_id === 'storage');
+  saAliasStoreCap.evidence_references = [s3OpsUrn, unlistedAlias];
+  saAliasDoc.conformance_evidence.push({
+    test_identifier: unlistedAlias,
+    status: 'PASS',
+    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://example.com/alias'
+  });
+  assert.throws(
+    () => validatePlatformSemantics(saAliasDoc, pcaSchemaId),
+    /storage slot advertisement lacks Object Lock retention evidence|canonical-plus-alias set prohibited|legacy Object Lock alias|invalid storage_object_lock evidence URN/,
+    'Standalone declaration with unlisted alias must fail semantic validation'
+  );
+
+  // B. Nested negotiation handshake with unlisted alias rejected
+  const nestedAliasDoc = JSON.parse(JSON.stringify(nestedDoc));
+  const nestedAliasStoreCap = nestedAliasDoc.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  nestedAliasStoreCap.evidence_references = [s3OpsUrn, unlistedAlias];
+  nestedAliasDoc.advertisement_response.conformance_evidence.push({
+    test_identifier: unlistedAlias,
+    status: 'PASS',
+    evidence_pack_digest: 'a100000000000000000000000000000000000000000000000000000000000005',
+    executed_at: '2026-08-27T12:00:00Z',
+    report_uri: 'https://reports.cybrik.example/evidence/alias.json'
+  });
+  assert.throws(
+    () => validatePlatformSemantics(nestedAliasDoc, pcnSchemaId),
+    /storage slot advertisement lacks Object Lock retention evidence|canonical-plus-alias set prohibited|legacy Object Lock alias|invalid storage_object_lock evidence URN/,
+    'Nested negotiation with unlisted alias must fail semantic validation'
+  );
+
+  // --- 3. Negative parity: Missing evidence reference rejection parity ---
+  // A. Standalone declaration missing s3OpsUrn in conformance_evidence
+  const saMissingEvDoc = JSON.parse(JSON.stringify(standaloneDoc));
+  saMissingEvDoc.conformance_evidence = saMissingEvDoc.conformance_evidence.filter(e => e.test_identifier !== s3OpsUrn);
+  assert.throws(
+    () => validatePlatformSemantics(saMissingEvDoc, pcaSchemaId),
+    /evidence_reference 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' not found in conformance_evidence/,
+    'Standalone declaration missing referenced evidence must throw'
+  );
+
+  // B. Nested negotiation missing s3OpsUrn in conformance_evidence
+  const nestedMissingEvDoc = JSON.parse(JSON.stringify(nestedDoc));
+  nestedMissingEvDoc.advertisement_response.conformance_evidence = nestedMissingEvDoc.advertisement_response.conformance_evidence.filter(e => e.test_identifier !== s3OpsUrn);
+  assert.throws(
+    () => validatePlatformSemantics(nestedMissingEvDoc, pcnSchemaId),
+    /evidence_reference 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' not found in conformance_evidence/,
+    'Nested negotiation missing referenced evidence must throw'
+  );
+
+  // --- 4. Negative parity: Non-PASS evidence status rejection parity ---
+  // A. Standalone declaration with FAIL s3OpsUrn status
+  const saFailEvDoc = JSON.parse(JSON.stringify(standaloneDoc));
+  const saFailEv = saFailEvDoc.conformance_evidence.find(e => e.test_identifier === s3OpsUrn);
+  saFailEv.status = 'FAIL';
+  assert.throws(
+    () => validatePlatformSemantics(saFailEvDoc, pcaSchemaId),
+    /conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' has non-passing status 'FAIL'/,
+    'Standalone declaration with non-PASS evidence status must throw'
+  );
+
+  // B. Nested negotiation with FAIL s3OpsUrn status
+  const nestedFailEvDoc = JSON.parse(JSON.stringify(nestedDoc));
+  const nestedFailEv = nestedFailEvDoc.advertisement_response.conformance_evidence.find(e => e.test_identifier === s3OpsUrn);
+  nestedFailEv.status = 'FAIL';
+  assert.throws(
+    () => validatePlatformSemantics(nestedFailEvDoc, pcnSchemaId),
+    /conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' has non-passing status 'FAIL'/,
+    'Nested negotiation with non-PASS evidence status must throw'
+  );
+
+  // --- 5. Negative parity: Malformed SHA-256 digest rejection parity ---
+  // A. Standalone declaration with malformed digest
+  const saBadDigDoc = JSON.parse(JSON.stringify(standaloneDoc));
+  const saBadDigEv = saBadDigDoc.conformance_evidence.find(e => e.test_identifier === s3OpsUrn);
+  saBadDigEv.evidence_pack_digest = 'not-a-valid-sha256';
+  assert.throws(
+    () => validatePlatformSemantics(saBadDigDoc, pcaSchemaId),
+    /conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' lacks valid SHA-256 evidence_pack_digest/,
+    'Standalone declaration with malformed digest must throw'
+  );
+
+  // B. Nested negotiation with malformed digest
+  const nestedBadDigDoc = JSON.parse(JSON.stringify(nestedDoc));
+  const nestedBadDigEv = nestedBadDigDoc.advertisement_response.conformance_evidence.find(e => e.test_identifier === s3OpsUrn);
+  nestedBadDigEv.evidence_pack_digest = 'not-a-valid-sha256';
+  assert.throws(
+    () => validatePlatformSemantics(nestedBadDigDoc, pcnSchemaId),
+    /conformance evidence 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops' lacks valid SHA-256 evidence_pack_digest/,
+    'Nested negotiation with malformed digest must throw'
+  );
+});
+
+test('validatePlatformSemantics: standalone declaration edge branches for profile digest and capability validation', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // 1. FULL_PROFILE_CONFORMANCE_DECLARATION with 14 capabilities including all 13 slots
+  const decl14 = JSON.parse(JSON.stringify(fullDeclSample));
+  decl14.advertised_capabilities.push({
+    capability_name: 'cap-store-extra',
+    slot_id: 'storage',
+    description: 'Extra storage',
+    is_mandatory: false,
+    supported_features: ['extra'],
+    degradation_fallback: 'NONE',
+    evidence_references: ['urn:cybrik:evidence:storage:s3:conformance:v1:object-lock']
+  });
+  assert.throws(
+    () => validatePlatformSemantics(decl14, pcaSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION must declare exactly 13 advertised capabilities|advertised_capabilities contains duplicate slot_id/
+  );
+
+  // 2. FULL_PROFILE_CONFORMANCE_DECLARATION with non-canonical lock URN when named storage_object_lock
+  const declNamedLock = JSON.parse(JSON.stringify(fullDeclSample));
+  const storeCap = declNamedLock.advertised_capabilities.find(c => c.slot_id === 'storage');
+  storeCap.capability_name = 'storage_object_lock';
+  storeCap.evidence_references = ['urn:cybrik:evidence:storage:s3:conformance:v1:object-lock', 'urn:cybrik:evidence:storage:custom-lock'];
+  declNamedLock.conformance_evidence.push({
+    test_identifier: 'urn:cybrik:evidence:storage:custom-lock',
+    status: 'PASS',
+    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://example.com/custom-lock'
+  });
+  assert.throws(
+    () => validatePlatformSemantics(declNamedLock, pcaSchemaId),
+    /storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'|legacy Object Lock alias|invalid storage_object_lock evidence URN/
   );
 });

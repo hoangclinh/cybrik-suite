@@ -1616,7 +1616,7 @@ export function validatePlatformSemantics(data, schemaId) {
 
         // Validate Object Lock evidence bindings against structured URN evidence IDs declared in advertisement.evidence_bindings
         const evidenceBindings = adv.evidence_bindings || data.evidence_bindings;
-        let boundObjectLockEvidenceId = null;
+        const boundObjectLockEvidenceIds = new Set();
         if (evidenceBindings) {
           if (typeof evidenceBindings === 'object') {
             if (Array.isArray(evidenceBindings)) {
@@ -1630,7 +1630,7 @@ export function validatePlatformSemantics(data, schemaId) {
                 if (isLockBinding) {
                   const evId = binding.evidence_id || binding.test_identifier || binding.urn;
                   if (evId) {
-                    boundObjectLockEvidenceId = evId;
+                    boundObjectLockEvidenceIds.add(evId);
                     if (!storageRefs.has(evId)) {
                       throw new Error(`Semantic error: Object Lock evidence binding '${evId}' not found in storage evidence references`);
                     }
@@ -1652,7 +1652,7 @@ export function validatePlatformSemantics(data, schemaId) {
                 if (isLockKey) {
                   const evId = typeof val === 'string' ? val : (val?.evidence_id || val?.test_identifier || val?.urn);
                   if (evId) {
-                    boundObjectLockEvidenceId = evId;
+                    boundObjectLockEvidenceIds.add(evId);
                     if (!storageRefs.has(evId)) {
                       throw new Error(`Semantic error: Object Lock evidence binding '${evId}' for '${key}' not found in storage evidence references`);
                     }
@@ -1678,13 +1678,7 @@ export function validatePlatformSemantics(data, schemaId) {
         if (storageCap.capability_name === 'storage_object_lock') {
           for (const ref of (storageCap.evidence_references || [])) {
             if (ref !== canonicalLockUrn) {
-              throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (got '${ref}')`);
-            }
-          }
-        } else if (!isNegotiation && claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
-          for (const ref of (storageCap.evidence_references || [])) {
-            if (ref !== canonicalLockUrn) {
-              throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN '${canonicalLockUrn}' (legacy Object Lock aliases strictly prohibited / canonical-plus-alias set prohibited)`);
+              throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal '${canonicalLockUrn}' (got '${ref}')`);
             }
           }
         }
@@ -1708,9 +1702,39 @@ export function validatePlatformSemantics(data, schemaId) {
         ]);
 
         for (const cap of (adv.advertised_capabilities || [])) {
+          if (cap.capability_name === 'storage_object_lock') {
+            for (const ref of (cap.evidence_references || [])) {
+              if (ref !== canonicalLockUrn) {
+                throw new Error(`Semantic error: storage_object_lock evidence URN must strictly equal '${canonicalLockUrn}' (got '${ref}')`);
+              }
+            }
+          }
           for (const ref of (cap.evidence_references || [])) {
-            if (ref !== canonicalLockUrn && (legacyObjectLockAliases.has(ref) || /^urn:cybrik:evidence:storage:(?:s3:)?conformance:v[0-9]+:(?:object[-_]?lock|retention|worm|custom)/i.test(ref) || ref.startsWith('urn:cybrik:evidence:storage:s3:conformance:v1:'))) {
-              throw new Error(`Semantic error: capability '${cap.capability_name || cap.slot_id}' contains legacy Object Lock alias '${ref}' (canonical-plus-alias set prohibited)`);
+            const isBoundLock = boundObjectLockEvidenceIds.has(ref);
+            const isLockIntent =
+              !isBoundLock &&
+              typeof ref === 'string' && (
+                ref.includes('object-lock') ||
+                ref.includes('object_lock') ||
+                ref.includes('objectlock') ||
+                ref.toLowerCase().includes('object-lock') ||
+                ref.toLowerCase().includes('object_lock') ||
+                ref.toLowerCase().includes('objectlock') ||
+                legacyObjectLockAliases.has(ref) ||
+                /^urn:cybrik:evidence:storage:(?:s3:)?conformance:v[0-9]+:(?:object[-_]?lock|retention|worm|custom)/i.test(ref)
+              );
+            if (isLockIntent) {
+              if (ref !== canonicalLockUrn) {
+                throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN '${canonicalLockUrn}' (aliases strictly prohibited)`);
+              }
+            } else {
+              const matchingEv = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
+              if (!matchingEv) {
+                throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
+              }
+              if (matchingEv.status && matchingEv.status !== 'PASS') {
+                throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
+              }
             }
           }
         }
