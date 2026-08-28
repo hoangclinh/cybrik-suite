@@ -4997,3 +4997,27 @@ test('snapshot path rejection for snapshots/.hidden.db, $PRE_APPLY_SNAPSHOT/.hid
     );
   }
 });
+
+test('validatePlatformSemantics rejects snapshot restore targets with spaces, @, and .. (OPEN-1 Finding 4 & 5)', () => {
+  const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const manifestSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  const invalidCharTargets = [
+    'snapshots/bad name.db',
+    'snapshots/bad@name.db',
+    'snapshots/foo..bar.db',
+    'snapshots/backup.db/'
+  ];
+
+  for (const target of invalidCharTargets) {
+    const doc = JSON.parse(JSON.stringify(manifestSample));
+    doc.update_station_workflow.rollback_steps[0].target = target;
+
+    // Semantic rejection
+    assert.throws(
+      () => validatePlatformSemantics(doc, manifestSchemaId),
+      /invalid RESTORE_DATABASE_SNAPSHOT target path/,
+      `Expected snapshot restore target '${target}' to be rejected by validatePlatformSemantics`
+    );
+  }
+});

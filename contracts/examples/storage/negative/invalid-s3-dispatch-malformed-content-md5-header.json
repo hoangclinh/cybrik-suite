@@ -8,6 +8,11 @@
   "content_md5_header": "invalid-base64-header-!@#$%",
   "http_status": 400,
   "error_code": "InvalidDigest",
+  "expected_error": {
+    "error_code": "InvalidDigest",
+    "error_condition": "MALFORMED_DIGEST_HEADER",
+    "http_status": 400
+  },
   "forbidden_error_codes": [
     "InvalidArgument",
     "AccessDenied"

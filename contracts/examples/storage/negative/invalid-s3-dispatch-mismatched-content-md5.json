@@ -9,6 +9,11 @@
   "content_md5_computed": "Q2hlY2tzdW0gRmFpbHVyZQ==",
   "http_status": 400,
   "error_code": "BadDigest",
+  "expected_error": {
+    "error_code": "BadDigest",
+    "error_condition": "PAYLOAD_DIGEST_MISMATCH",
+    "http_status": 400
+  },
   "forbidden_error_codes": [
     "InvalidArgument",
     "AccessDenied"

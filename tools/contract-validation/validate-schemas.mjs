@@ -503,11 +503,21 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartState' };
   }
 
-  const storedMap = Array.isArray(storedParts)
-    ? new Map(storedParts.map((p, idx) => [p ? (p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1), p]))
-    : (storedParts instanceof Map
-        ? storedParts
-        : new Map(Object.entries(storedParts || {}).map(([k, v]) => [Number(k), v])));
+  let storedMap;
+  if (Array.isArray(storedParts)) {
+    storedMap = new Map();
+    for (let idx = 0; idx < storedParts.length; idx++) {
+      if (idx in storedParts) {
+        const p = storedParts[idx];
+        const pNum = p ? (p.part_number ?? p.PartNumber ?? (idx + 1)) : (idx + 1);
+        storedMap.set(pNum, p);
+      }
+    }
+  } else if (storedParts instanceof Map) {
+    storedMap = storedParts;
+  } else {
+    storedMap = new Map(Object.entries(storedParts || {}).map(([k, v]) => [Number(k), v]));
+  }
 
   let totalSizeBytes = 0;
   for (let i = 0; i < manifest.parts.length; i++) {
@@ -533,15 +543,22 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
     }
 
-    const size = storedPart.size_bytes ?? storedPart.size ?? storedPart.Size ?? part.size_bytes;
-    if (typeof size === 'number') {
-      if (size > 5368709120) {
+    const rawSize = storedPart.size_bytes !== undefined
+      ? storedPart.size_bytes
+      : (storedPart.size !== undefined
+          ? storedPart.size
+          : (storedPart.Size !== undefined ? storedPart.Size : (part.size_bytes !== undefined ? part.size_bytes : (part.size !== undefined ? part.size : part.Size))));
+    if (rawSize !== undefined) {
+      if (typeof rawSize !== 'number' || !Number.isFinite(rawSize) || !Number.isInteger(rawSize) || rawSize < 0) {
+        return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidPartSize' };
+      }
+      if (rawSize > 5368709120) {
         return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PartSizeExceeded' };
       }
-      if (i < manifest.parts.length - 1 && size < 5242880) {
+      if (i < manifest.parts.length - 1 && rawSize < 5242880) {
         return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
       }
-      totalSizeBytes += size;
+      totalSizeBytes += rawSize;
     }
   }
 
@@ -658,14 +675,16 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'ETAG_MISMATCH' ||
       norm === 'MissingStoredPartState' ||
       norm === 'MissingManifestPartETag' ||
-      norm === 'MissingStoredPartETag'
+      norm === 'MissingStoredPartETag' ||
+      norm === 'InvalidPartSize' ||
+      norm === 'INVALID_PART_SIZE'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' ? norm : 'PartNotFound'),
+        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH') ? 'ETagMismatch' : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize' ? norm : (norm === 'INVALID_PART_SIZE' ? 'InvalidPartSize' : 'PartNotFound')),
       };
     }
     if (
@@ -822,14 +841,16 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'ETAG_MISMATCH' ||
       reason === 'MissingStoredPartState' ||
       reason === 'MissingManifestPartETag' ||
-      reason === 'MissingStoredPartETag'
+      reason === 'MissingStoredPartETag' ||
+      reason === 'InvalidPartSize' ||
+      reason === 'INVALID_PART_SIZE'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: reason || 'PartNotFound',
+        reason: (reason === 'INVALID_PART_SIZE') ? 'InvalidPartSize' : (reason || 'PartNotFound'),
       };
     }
     if (
@@ -1692,6 +1713,9 @@ export function validatePlatformSemantics(data, schemaId) {
           if (target.includes('//')) {
             throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains double slash '//'`);
           }
+          if (target.endsWith('/')) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': ends with trailing slash`);
+          }
           const segments = target.split('/');
           for (let i = 0; i < segments.length; i++) {
             const seg = segments[i];
@@ -1708,11 +1732,12 @@ export function validatePlatformSemantics(data, schemaId) {
           if (target.includes('..')) {
             throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains '..' traversal sequence`);
           }
-          if (target.endsWith('/')) {
-            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': ends with trailing slash`);
-          }
           if (!/\.(?:sql|db|bak)$/.test(target)) {
             throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': must have extension .sql, .db, or .bak`);
+          }
+          const SNAPSHOT_PATH_REGEX = /^(?:snapshots|\$PRE_APPLY_SNAPSHOT)\/(?!.*\/\/)((?!\.)[a-zA-Z0-9_.-]+\/)*(?!\.)[a-zA-Z0-9_.-]+\.(?:sql|db|bak)$/;
+          if (!SNAPSHOT_PATH_REGEX.test(target)) {
+            throw new Error(`Semantic error: invalid RESTORE_DATABASE_SNAPSHOT target path '${target}': contains invalid characters or does not conform to snapshot path pattern`);
           }
         }
       }
@@ -2123,8 +2148,13 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
       let data;
       try { data = readJson(exPath); } catch (e) { fail(`storage dispatch negative example ${file}: JSON parse error: ${e.message}`); continue; }
       bump('negative_schema_total');
-      if (data.http_status !== expDispatch.http_status || data.error_code !== expDispatch.error_code) {
-        fail(`storage dispatch negative example ${file}: expected status ${expDispatch.http_status} / code ${expDispatch.error_code}, got ${data.http_status} / ${data.error_code}`);
+      const actualStatus = data.http_status ?? data.expected_error?.http_status;
+      const actualCode = data.error_code ?? data.expected_error?.error_code;
+      const actualCondition = data.error_condition ?? data.expected_error?.error_condition;
+      if (actualStatus !== expDispatch.http_status || actualCode !== expDispatch.error_code || actualCondition !== expDispatch.error_condition) {
+        fail(`storage dispatch negative example ${file}: expected status ${expDispatch.http_status} / code ${expDispatch.error_code} / condition ${expDispatch.error_condition}, got ${actualStatus} / ${actualCode} / ${actualCondition}`);
+      } else if (!data.expected_error || data.expected_error.error_code !== expDispatch.error_code || data.expected_error.error_condition !== expDispatch.error_condition) {
+        fail(`storage dispatch negative example ${file}: expected_error must declare error_code ${expDispatch.error_code} and error_condition ${expDispatch.error_condition}`);
       } else {
         bump('negative_schema_reject');
       }

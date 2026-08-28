@@ -227,6 +227,9 @@ test('validate negative storage fixtures (single-defect isolation and dispatch e
       assert.equal(data.http_status, exp.http_status, `Status mismatch for ${file}`);
       assert.equal(data.error_code, exp.error_code, `Error code mismatch for ${file}`);
       assert.equal(data.error_condition, exp.error_condition, `Condition mismatch for ${file}`);
+      assert.ok(data.expected_error, `Negative dispatch fixture ${file} must declare expected_error`);
+      assert.equal(data.expected_error.error_code, exp.error_code, `expected_error.error_code mismatch for ${file}`);
+      assert.equal(data.expected_error.error_condition, exp.error_condition, `expected_error.error_condition mismatch for ${file}`);
       continue;
     }
 
@@ -2723,4 +2726,162 @@ test('dispatchS3PutObject and verify helpers branch coverage for property aliase
     () => verifyMalformedHeaderDispatch({ status: 500 }),
     /Strict error dispatch violation/
   );
+});
+
+test('dispatchS3CompleteMultipartUpload with genuinely sparse storedParts array returns HTTP 400 InvalidPart (MissingStoredPartETag) without throwing TypeError (Finding 2 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
+    ],
+  };
+
+  // Case A: Sparse array created via index assignment (sparse = []; sparse[5] = ...)
+  const sparse = [];
+  sparse[5] = { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 };
+
+  assert.doesNotThrow(() => {
+    const res = dispatchS3CompleteMultipartUpload(manifest, sparse);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+    assert.equal(res.code, 'InvalidPart');
+    assert.equal(res.reason, 'MissingStoredPartETag');
+  });
+
+  // Case B: Sparse array created via Array constructor with empty slots (arr = new Array(3); arr[1] = ...)
+  const arr = new Array(3);
+  arr[1] = { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 };
+
+  assert.doesNotThrow(() => {
+    const res = dispatchS3CompleteMultipartUpload(manifest, arr);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+    assert.equal(res.code, 'InvalidPart');
+    assert.equal(res.reason, 'MissingStoredPartETag');
+  });
+
+  // Case C: Single part manifest requesting part 1, sparse array only has index 5 with part 2
+  const singleManifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    ],
+  };
+  const sparseOnlyPart2 = [];
+  sparseOnlyPart2[5] = { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 };
+
+  assert.doesNotThrow(() => {
+    const res = dispatchS3CompleteMultipartUpload(singleManifest, sparseOnlyPart2);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidPart');
+    assert.equal(res.code, 'InvalidPart');
+    assert.equal(res.reason, 'MissingStoredPartETag');
+  });
+});
+
+test('dispatchS3CompleteMultipartUpload with negative final-part size returns HTTP 400 InvalidPart (InvalidPartSize) (Finding 1 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: -1 },
+    ],
+  };
+  const stored = [
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: -1 },
+  ];
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, stored);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidPart');
+  assert.equal(res.code, 'InvalidPart');
+  assert.equal(res.reason, 'InvalidPartSize');
+
+  // Also verify storedPart size_bytes negative
+  const storedBytes = [
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: -100 },
+  ];
+  const resBytes = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }] },
+    storedBytes
+  );
+  assert.equal(resBytes.http_status, 400);
+  assert.equal(resBytes.error_code, 'InvalidPart');
+  assert.equal(resBytes.reason, 'InvalidPartSize');
+});
+
+test('dispatchS3CompleteMultipartUpload with string size returns HTTP 400 InvalidPart (InvalidPartSize) (Finding 1 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: "9999999999" },
+    ],
+  };
+  const stored = [
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: "9999999999" },
+  ];
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, stored);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidPart');
+  assert.equal(res.code, 'InvalidPart');
+  assert.equal(res.reason, 'InvalidPartSize');
+
+  // Also verify string size_bytes in storedPart
+  const resStoredStr = dispatchS3CompleteMultipartUpload(
+    { parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }] },
+    [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: "5242880" }]
+  );
+  assert.equal(resStoredStr.http_status, 400);
+  assert.equal(resStoredStr.error_code, 'InvalidPart');
+  assert.equal(resStoredStr.reason, 'InvalidPartSize');
+});
+
+test('dispatchS3CompleteMultipartUpload with non-final part < 5 MiB returns HTTP 400 EntityTooSmall (Finding 5 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 1024 }, // 1 KiB < 5 MiB
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
+    ],
+  };
+  const stored = [
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 1024 },
+    { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
+  ];
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, stored);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'EntityTooSmall');
+  assert.equal(res.code, 'EntityTooSmall');
+  assert.equal(res.reason, 'NON_FINAL_PART_TOO_SMALL');
+
+  // Also verify with size property
+  const resSizeProp = dispatchS3CompleteMultipartUpload(
+    {
+      parts: [
+        { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: 5242879 },
+        { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size: 5242880 },
+      ],
+    },
+    [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size: 5242879 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size: 5242880 },
+    ]
+  );
+  assert.equal(resSizeProp.http_status, 400);
+  assert.equal(resSizeProp.error_code, 'EntityTooSmall');
+  assert.equal(resSizeProp.code, 'EntityTooSmall');
+});
+
+test('dispatchS3Error coverage for InvalidPartSize, INVALID_PART_SIZE, and XAmzContentSHA256Mismatch (Finding 1 & 2 / OPEN-2)', () => {
+  assert.equal(dispatchS3Error('InvalidPartSize').error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error('InvalidPartSize').reason, 'InvalidPartSize');
+  assert.equal(dispatchS3Error('INVALID_PART_SIZE').error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error('INVALID_PART_SIZE').reason, 'InvalidPartSize');
+
+  assert.equal(dispatchS3Error({ code: 'InvalidPart', reason: 'InvalidPartSize' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'InvalidPartSize' }).reason, 'InvalidPartSize');
+  assert.equal(dispatchS3Error({ code: 'InvalidPart', reason: 'INVALID_PART_SIZE' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'INVALID_PART_SIZE' }).reason, 'InvalidPartSize');
+
+  assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error('XAmzContentSHA256Mismatch').reason, 'XAmzContentSHA256Mismatch');
+  assert.equal(dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' }).error_code, 'InvalidDigest');
+  assert.equal(dispatchS3Error({ reason: 'XAmzContentSHA256Mismatch' }).reason, 'XAmzContentSHA256Mismatch');
 });
