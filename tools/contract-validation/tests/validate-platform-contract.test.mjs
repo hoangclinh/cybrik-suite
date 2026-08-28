@@ -4223,6 +4223,21 @@ test('in-memory validation: full profile conformance declaration shape and Objec
     () => validatePlatformSemantics(dataDanglingLock, schemaId),
     /unreferenced or dangling evidence/
   );
+
+  // 9. Unconditionally enforce 13-slot completeness on FULL_PROFILE_CONFORMANCE_DECLARATION for REJECTED_FAIL_CLOSED
+  const negotiationSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const rejectedHandshake = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  rejectedHandshake.negotiation_status = 'TERMINAL_REJECTED';
+  rejectedHandshake.agreed_capability_lease.lease_status = 'REJECTED_FAIL_CLOSED';
+  // Remove one slot from advertisement_response (e.g. artifact_update_mechanism)
+  const incompleteRejected = JSON.parse(JSON.stringify(rejectedHandshake));
+  incompleteRejected.advertisement_response.advertised_capabilities = incompleteRejected.advertisement_response.advertised_capabilities.filter(
+    (c) => c.slot_id !== 'artifact_update_mechanism'
+  );
+  assert.throws(
+    () => validatePlatformSemantics(incompleteRejected, negotiationSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION missing required mandatory profile slot 'artifact_update_mechanism'|FULL_PROFILE_CONFORMANCE_DECLARATION must declare exactly 13/
+  );
 });
 
 test('validateIJson comprehensive parser edge cases and error handling', () => {
@@ -4471,7 +4486,7 @@ test('validatePlatformSemantics comprehensive error branches', () => {
   // 22. Mandatory profile slot not found in advertised capabilities
   const missingMandatoryAdv = JSON.parse(JSON.stringify(handshakeSample));
   missingMandatoryAdv.advertisement_response.advertised_capabilities = missingMandatoryAdv.advertisement_response.advertised_capabilities.filter(c => c.slot_id !== 'oci_container_runtime');
-  assert.throws(() => validatePlatformSemantics(missingMandatoryAdv, pcnSchemaId), /not found in advertised capabilities/);
+  assert.throws(() => validatePlatformSemantics(missingMandatoryAdv, pcnSchemaId), /not found in advertised capabilities|missing required mandatory profile slot 'oci_container_runtime'|FULL_PROFILE_CONFORMANCE_DECLARATION/);
 
   // 23. Mandatory profile slot lacks evidence references
   const noRefsMandatory = JSON.parse(JSON.stringify(handshakeSample));
@@ -4857,4 +4872,128 @@ test('platform semantics: universal profile digest disk equality, Object Lock UR
     () => validatePlatformSemantics(nonMandatoryFullDecl, pcaSchemaId),
     /Semantic error: mandatory profile slot 'database' capability must have is_mandatory === true \(got false\)/
   );
+});
+
+test('in-memory validation: negotiation schema unconditionally enforces 13-slot min/max on FULL_PROFILE_CONFORMANCE_DECLARATION (Finding 2 / OPEN-5)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+
+  // 1. Baseline passes validation (13 slots under FULL_PROFILE_CONFORMANCE_DECLARATION)
+  assert.equal(sample.advertisement_response.claim_type, 'FULL_PROFILE_CONFORMANCE_DECLARATION');
+  assert.equal(sample.advertisement_response.advertised_capabilities.length, 13);
+  assert.ok(ajv.validate(schemaId, sample), 'Baseline handshake must pass schema validation: ' + ajv.errorsText());
+
+  // 2. Reject fewer than 13 advertised capabilities under FULL_PROFILE_CONFORMANCE_DECLARATION (12 slots)
+  const data12 = JSON.parse(JSON.stringify(sample));
+  data12.advertisement_response.advertised_capabilities.pop();
+  assert.equal(ajv.validate(schemaId, data12), false, 'Should reject 12 capabilities for full profile declaration in negotiation');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/advertisement_response/advertised_capabilities'));
+
+  // 3. Reject more than 13 advertised capabilities under FULL_PROFILE_CONFORMANCE_DECLARATION (14 slots)
+  const data14 = JSON.parse(JSON.stringify(sample));
+  data14.advertisement_response.advertised_capabilities.push({
+    capability_name: 'cap-extra',
+    slot_id: 'storage',
+    is_mandatory: false,
+    supported_features: ['extra'],
+    degradation_fallback: {
+      fallback_supported: false,
+      fallback_mode: 'NONE_REQUIRED'
+    },
+    evidence_references: ['urn:cybrik:evidence:ev-extra-01']
+  });
+  assert.equal(ajv.validate(schemaId, data14), false, 'Should reject 14 capabilities for full profile declaration in negotiation');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'maxItems' && e.instancePath === '/advertisement_response/advertised_capabilities'));
+
+  // 4. Unconditional enforcement applies even when negotiation status is TERMINAL_REJECTED / lease is REJECTED_FAIL_CLOSED
+  const dataRejected12 = JSON.parse(JSON.stringify(sample));
+  dataRejected12.negotiation_status = 'TERMINAL_REJECTED';
+  dataRejected12.agreed_capability_lease.lease_status = 'REJECTED_FAIL_CLOSED';
+  dataRejected12.agreed_capability_lease.fail_closed_violations = ['MANDATORY_SLOT_UNSATISFIED'];
+  dataRejected12.advertisement_response.advertised_capabilities.pop(); // 12 items
+  assert.equal(ajv.validate(schemaId, dataRejected12), false, 'Should reject 12 capabilities for full profile declaration even when TERMINAL_REJECTED');
+  assert.ok(ajv.errors.some((e) => e.keyword === 'minItems' && e.instancePath === '/advertisement_response/advertised_capabilities'));
+
+  // 5. PARTIAL_CAPABILITY_ADVERTISEMENT allows fewer than 13 capabilities in negotiation
+  const dataPartial = JSON.parse(JSON.stringify(sample));
+  dataPartial.advertisement_response.claim_type = 'PARTIAL_CAPABILITY_ADVERTISEMENT';
+  dataPartial.advertisement_response.advertised_capabilities.pop(); // 12 items
+  assert.ok(ajv.validate(schemaId, dataPartial), 'Partial capability advertisement with 12 items should not trigger minItems: 13 schema error');
+});
+
+test('1-slot FULL_PROFILE_CONFORMANCE_DECLARATION with disposition REJECTED_FAIL_CLOSED is rejected by schema and semantic validation (OPEN-5 / OPEN-2)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+
+  // Create a 1-slot FULL_PROFILE_CONFORMANCE_DECLARATION document with disposition: "REJECTED_FAIL_CLOSED"
+  const singleSlotDecl = {
+    ...fullDeclSample,
+    advertised_capabilities: [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        description: 'Single rejected storage capability',
+        is_mandatory: true,
+        supported_features: [
+          'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+          'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+          'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+          'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+          'AbortMultipartUpload', 'ListParts'
+        ],
+        degradation_fallback: 'NONE',
+        disposition: 'REJECTED_FAIL_CLOSED',
+        evidence_references: ['urn:cybrik:evidence:storage:s3:conformance:v1:object-lock']
+      }
+    ],
+    conformance_evidence: [
+      {
+        test_identifier: 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock',
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      }
+    ]
+  };
+
+  // 1. Rejected by schema validation
+  const schemaValid = ajv.validate(pcaSchemaId, singleSlotDecl);
+  assert.equal(schemaValid, false, '1-slot FULL_PROFILE_CONFORMANCE_DECLARATION must fail schema validation');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'minItems' || e.keyword === 'contains' || e.keyword === 'additionalProperties'),
+    'Schema errors must capture defect in single-slot full profile declaration'
+  );
+
+  // 2. Rejected by semantic validation
+  assert.throws(
+    () => validatePlatformSemantics(singleSlotDecl, pcaSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION/,
+    'Semantic validation must reject 1-slot FULL_PROFILE_CONFORMANCE_DECLARATION with REJECTED_FAIL_CLOSED'
+  );
+});
+
+test('snapshot path rejection for snapshots/.hidden.db, $PRE_APPLY_SNAPSHOT/.hidden.db, and snapshots//backup.db (OPEN-1 Finding 4)', () => {
+  const manifestSchemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const manifestSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-offline-bundle-manifest.json'), 'utf8'));
+
+  const pathsToReject = [
+    'snapshots/.hidden.db',
+    '$PRE_APPLY_SNAPSHOT/.hidden.db',
+    'snapshots//backup.db'
+  ];
+
+  for (const badPath of pathsToReject) {
+    const doc = JSON.parse(JSON.stringify(manifestSample));
+    doc.update_station_workflow.rollback_steps[0].target = badPath;
+
+    // Schema rejection
+    const schemaValid = ajv.validate(manifestSchemaId, doc);
+    assert.equal(schemaValid, false, `Snapshot target '${badPath}' must be rejected by schema validation`);
+
+    // Semantic rejection
+    assert.throws(
+      () => validatePlatformSemantics(doc, manifestSchemaId),
+      /invalid RESTORE_DATABASE_SNAPSHOT target path/,
+      `Snapshot target '${badPath}' must be rejected by semantic validation`
+    );
+  }
 });

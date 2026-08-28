@@ -435,7 +435,7 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
     const trimmedSha = sha256Val.trim();
-    if (trimmedSha === 'UNSIGNED-PAYLOAD' || trimmedSha === 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD') {
+    if (trimmedSha === 'UNSIGNED-PAYLOAD') {
       // allow
     } else {
       if (isMalformedSha256(trimmedSha)) {
@@ -452,35 +452,35 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 }
 
 export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeStoredParts) {
-  let partsList;
+  let manifest;
   let storedParts;
 
   if (manifestOrOptions && typeof manifestOrOptions === 'object') {
-    if (Array.isArray(manifestOrOptions.parts)) {
-      partsList = manifestOrOptions.parts;
-      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
-    } else if (manifestOrOptions.manifest && Array.isArray(manifestOrOptions.manifest.parts)) {
-      partsList = manifestOrOptions.manifest.parts;
+    if (manifestOrOptions.manifest && typeof manifestOrOptions.manifest === 'object') {
+      manifest = manifestOrOptions.manifest;
       storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
     } else if (Array.isArray(manifestOrOptions)) {
-      partsList = manifestOrOptions;
+      manifest = { parts: manifestOrOptions };
       storedParts = maybeStoredParts;
+    } else if (manifestOrOptions.parts !== undefined) {
+      manifest = manifestOrOptions;
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
     } else {
-      partsList = manifestOrOptions.parts;
-      storedParts = manifestOrOptions.storedParts !== undefined ? manifestOrOptions.storedParts : maybeStoredParts;
+      manifest = manifestOrOptions;
+      storedParts = maybeStoredParts !== undefined ? maybeStoredParts : manifestOrOptions.storedParts;
     }
   } else {
-    partsList = manifestOrOptions;
+    manifest = manifestOrOptions;
     storedParts = maybeStoredParts;
   }
 
-  if (!Array.isArray(partsList) || partsList.length === 0) {
-    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'EMPTY_PARTS_LIST' };
+  if (!manifest || !manifest.parts || !Array.isArray(manifest.parts) || manifest.parts.length === 0) {
+    return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'EmptyPartsList' };
   }
 
   let prevNum = 0;
-  for (let i = 0; i < partsList.length; i++) {
-    const p = partsList[i];
+  for (let i = 0; i < manifest.parts.length; i++) {
+    const p = manifest.parts[i];
     const pNum = p ? (p.part_number ?? p.PartNumber) : undefined;
     if (typeof pNum !== 'number' || pNum < 1 || !Number.isInteger(pNum)) {
       return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_PART_NUMBER' };
@@ -507,33 +507,31 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         ? storedParts
         : new Map(Object.entries(storedParts).map(([k, v]) => [Number(k), v])));
 
-  for (let i = 0; i < partsList.length; i++) {
-    const part = partsList[i];
+  for (let i = 0; i < manifest.parts.length; i++) {
+    const part = manifest.parts[i];
     const pNum = part ? (part.part_number ?? part.PartNumber) : undefined;
 
-    const manifestEtag = part ? (part.etag ?? part.ETag ?? part.sha256) : undefined;
-    if (!part || manifestEtag === undefined || manifestEtag === null || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
+    const manifestEtag = part ? (part.etag !== undefined ? part.etag : part.ETag) : undefined;
+    if (!part || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
     }
 
-    const stored = storedMap.get(pNum);
-    const storedEtag = stored ? (stored.etag ?? stored.ETag ?? stored.sha256) : undefined;
-    if (!stored || storedEtag === undefined || storedEtag === null || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
+    const storedPart = storedMap.get(pNum);
+    const storedEtag = storedPart ? (storedPart.etag !== undefined ? storedPart.etag : storedPart.ETag) : undefined;
+    if (!storedPart || typeof storedPart !== 'object' || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
     }
 
-    const normReq = String(manifestEtag).trim().replace(/^"|"$/g, '');
-    const normStored = String(storedEtag).trim().replace(/^"|"$/g, '');
-    if (normReq === '' || normStored === '' || normReq !== normStored) {
+    if (storedEtag !== manifestEtag) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'ETagMismatch' };
     }
 
-    const size = stored.size_bytes ?? stored.Size ?? part.size_bytes;
+    const size = storedPart.size_bytes ?? storedPart.Size ?? part.size_bytes;
     if (typeof size === 'number') {
       if (size > 5368709120) {
         return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PART_TOO_LARGE' };
       }
-      if (i < partsList.length - 1 && size < 5242880) {
+      if (i < manifest.parts.length - 1 && size < 5242880) {
         return { http_status: 400, error_code: 'EntityTooSmall', status: 400, code: 'EntityTooSmall', reason: 'NON_FINAL_PART_TOO_SMALL' };
       }
     }
@@ -700,15 +698,14 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'MISSING_PART' ||
       norm === 'PART_ETAG_MISMATCH' ||
       norm === 'ETAG_MISMATCH' ||
-      norm === 'PART_NOT_FOUND' ||
-      norm === 'EMPTY_PARTS_LIST'
+      norm === 'PART_NOT_FOUND'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: norm === 'MISSING_PART' ? 'MISSING_PART' : (norm === 'PART_ETAG_MISMATCH' ? 'PART_ETAG_MISMATCH' : (norm === 'EMPTY_PARTS_LIST' ? 'EMPTY_PARTS_LIST' : 'INVALID_PART')),
+        reason: norm === 'MISSING_PART' ? 'MISSING_PART' : (norm === 'PART_ETAG_MISMATCH' ? 'PART_ETAG_MISMATCH' : 'INVALID_PART'),
       };
     }
     if (norm === 'NoSuchBucket') {
@@ -729,8 +726,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (norm === 'AccessDenied') {
       return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: 'ACCESS_DENIED' };
     }
-    if (norm === 'InvalidArgument') {
-      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'INVALID_ARGUMENT' };
+    if (norm === 'InvalidArgument' || norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST') {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: norm === 'EmptyPartsList' || norm === 'EMPTY_PARTS_LIST' ? 'EmptyPartsList' : 'INVALID_ARGUMENT' };
     }
     if (isMalformedBase64Md5(norm)) {
       return {
@@ -839,8 +836,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'MISSING_PART' ||
       reason === 'PART_ETAG_MISMATCH' ||
       reason === 'ETAG_MISMATCH' ||
-      reason === 'PART_NOT_FOUND' ||
-      reason === 'EMPTY_PARTS_LIST'
+      reason === 'PART_NOT_FOUND'
     ) {
       return {
         http_status: 400,
@@ -868,8 +864,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (code === 'AccessDenied') {
       return { http_status: 403, error_code: 'AccessDenied', status: 403, code: 'AccessDenied', reason: reason || 'ACCESS_DENIED' };
     }
-    if (code === 'InvalidArgument') {
-      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: reason || 'INVALID_ARGUMENT' };
+    if (code === 'InvalidArgument' || reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST' || reason === 'INVALID_ARGUMENT' || reason === 'INVALID_PART_NUMBER') {
+      return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: (reason === 'EmptyPartsList' || reason === 'EMPTY_PARTS_LIST' || conditionOrOptions.error_condition === 'EmptyPartsList' || conditionOrOptions.error_condition === 'EMPTY_PARTS_LIST') ? 'EmptyPartsList' : (reason || 'INVALID_ARGUMENT') };
     }
   }
 
@@ -1103,6 +1099,22 @@ export const S3_CANONICAL_ERROR_CODES = [
   'InvalidPartOrder'
 ];
 
+export const ALL_13_CONFORMANCE_SLOTS = [
+  'oci_container_runtime',
+  'isolation_substrate',
+  'orchestration_capability',
+  'network_segmentation',
+  'storage',
+  'database',
+  'cache',
+  'secrets',
+  'crypto',
+  'identity_workload_identity',
+  'observability',
+  'ai_model_runtime',
+  'artifact_update_mechanism'
+];
+
 const CORE_MANDATORY_SLOTS = [
   'oci_container_runtime',
   'isolation_substrate',
@@ -1169,6 +1181,25 @@ export function validatePlatformSemantics(data, schemaId) {
     const targetProfileId = data.target_profile_id || adv.target_profile_id;
     const targetProfileDigest = data.target_profile_digest;
     const advProfileDigest = adv.target_profile_digest;
+
+    if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
+      const advCaps = adv.advertised_capabilities || [];
+      const seenSlots = new Set();
+      for (const cap of advCaps) {
+        if (!cap || typeof cap.slot_id !== 'string' || !cap.slot_id) {
+          throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION capability descriptor missing slot_id`);
+        }
+        seenSlots.add(cap.slot_id);
+      }
+      for (const slot of ALL_13_CONFORMANCE_SLOTS) {
+        if (!seenSlots.has(slot)) {
+          throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION missing required mandatory profile slot '${slot}' from 13-slot baseline`);
+        }
+      }
+      if (!Array.isArray(advCaps) || advCaps.length !== 13) {
+        throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION must declare exactly 13 advertised capabilities (got ${Array.isArray(advCaps) ? advCaps.length : 0})`);
+      }
+    }
 
     if (isNegotiation) {
       if (!data.target_profile_digest || typeof data.target_profile_digest !== 'string' || !/^[a-f0-9]{64}$/.test(data.target_profile_digest)) {
@@ -1481,6 +1512,20 @@ export function validatePlatformSemantics(data, schemaId) {
               if (cap.is_mandatory !== true) {
                 throw new Error(`Semantic error: mandatory profile slot '${cap.slot_id}' capability must have is_mandatory === true (got ${cap.is_mandatory}); profile mandatory slot '${cap.slot_id}' cannot be marked is_mandatory: false`);
               }
+            }
+          }
+        }
+
+        if (claimType === 'FULL_PROFILE_CONFORMANCE_DECLARATION') {
+          const advSlots = new Set((adv.advertised_capabilities || []).map(c => c.slot_id));
+          for (const slot of mandatorySlots) {
+            if (!advSlots.has(slot)) {
+              throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION mandatory profile slot '${slot}' not found in advertised capabilities`);
+            }
+          }
+          for (const cap of (adv.advertised_capabilities || [])) {
+            if (cap.disposition === 'REJECTED_FAIL_CLOSED' || cap.status === 'REJECTED_FAIL_CLOSED') {
+              throw new Error(`Semantic error: FULL_PROFILE_CONFORMANCE_DECLARATION cannot contain capability '${cap.capability_name || cap.slot_id}' with disposition 'REJECTED_FAIL_CLOSED'`);
             }
           }
         }
@@ -2934,14 +2979,16 @@ const mismatchShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-
 const malformedShaRes = dispatchS3PutObject({ payloadBytes: realPayloadBytes, 'x-amz-content-sha256': malformedSha256 });
 const s3ShaValid = matchedShaRes.http_status === 200 &&
                    unsignedShaRes.http_status === 200 &&
-                   streamingShaRes.http_status === 200 &&
+                   streamingShaRes.http_status === 400 &&
+                   streamingShaRes.error_code === 'InvalidDigest' &&
+                   streamingShaRes.reason === 'MALFORMED_HEADER_SYNTAX' &&
                    mismatchShaRes.http_status === 400 &&
                    mismatchShaRes.error_code === 'BadDigest' &&
                    mismatchShaRes.reason === 'PAYLOAD_SHA256_MISMATCH' &&
                    malformedShaRes.http_status === 400 &&
                    malformedShaRes.error_code === 'InvalidDigest' &&
                    malformedShaRes.reason === 'MALFORMED_HEADER_SYNTAX';
-H('37b', s3ShaValid, 'dispatchS3PutObject must validate x-amz-content-sha256 header, allowing UNSIGNED-PAYLOAD and STREAMING-AWS4-HMAC-SHA256-PAYLOAD, returning BadDigest on payload mismatch and InvalidDigest on malformed header');
+H('37b', s3ShaValid, 'dispatchS3PutObject must validate x-amz-content-sha256 header, allowing UNSIGNED-PAYLOAD and rejecting STREAMING-AWS4-HMAC-SHA256-PAYLOAD as InvalidDigest, returning BadDigest on payload mismatch and InvalidDigest on malformed header');
 
 // 37c. S3 CompleteMultipartUpload dispatch validation (OPEN-2 Finding 3)
 const completeManifest = {

@@ -897,6 +897,31 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "advertisement_response": {
+            "properties": {
+              "claim_type": {
+                "const": "FULL_PROFILE_CONFORMANCE_DECLARATION"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "advertisement_response": {
+            "properties": {
+              "advertised_capabilities": {
+                "minItems": 13,
+                "maxItems": 13
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

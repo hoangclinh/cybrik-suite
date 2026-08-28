@@ -1412,10 +1412,12 @@ test('dispatchS3PutObject x-amz-content-sha256 validation (OPEN-2 Finding 1)', (
   assert.equal(unsignedRes.http_status, 200);
   assert.equal(unsignedRes.error_code, null);
 
-  // 3. STREAMING-AWS4-HMAC-SHA256-PAYLOAD returns 200
+  // 3. STREAMING-AWS4-HMAC-SHA256-PAYLOAD is rejected with HTTP 400 InvalidDigest
   const streamingRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD' });
-  assert.equal(streamingRes.http_status, 200);
-  assert.equal(streamingRes.error_code, null);
+  assert.equal(streamingRes.http_status, 400);
+  assert.equal(streamingRes.error_code, 'InvalidDigest');
+  assert.equal(streamingRes.code, 'InvalidDigest');
+  assert.equal(streamingRes.reason, 'MALFORMED_HEADER_SYNTAX');
 
   // 4. Mismatched SHA256 returns 400 BadDigest / PAYLOAD_SHA256_MISMATCH
   const mismatchRes = dispatchS3PutObject({ payloadBytes: payload, 'x-amz-content-sha256': mismatchedSha256 });
@@ -1651,14 +1653,14 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
   assert.equal(mismatchedEtagRes.error_code, 'InvalidPart');
   assert.ok(mismatchedEtagRes.reason === 'ETagMismatch' || mismatchedEtagRes.reason === 'PART_ETAG_MISMATCH');
 
-  // 4. Negative: empty parts list returns HTTP 400 InvalidPart
+  // 4. Negative: empty parts list returns HTTP 400 InvalidArgument (EmptyPartsList)
   const emptyPartsRes = dispatchS3CompleteMultipartUpload({
     parts: [],
     storedParts,
   });
   assert.equal(emptyPartsRes.http_status, 400);
-  assert.equal(emptyPartsRes.error_code, 'InvalidPart');
-  assert.equal(emptyPartsRes.reason, 'EMPTY_PARTS_LIST');
+  assert.equal(emptyPartsRes.error_code, 'InvalidArgument');
+  assert.equal(emptyPartsRes.reason, 'EmptyPartsList');
 
   // 5. Negative: duplicate part in completion returns HTTP 400 InvalidPartOrder
   const dupPartRes = dispatchS3CompleteMultipartUpload({
@@ -1708,16 +1710,31 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
   assert.equal(largePartRes.error_code, 'EntityTooLarge');
 
   // 9. Dispatch S3 error mapping for InvalidPart string and object triggers
-  for (const trigger of ['InvalidPart', 'INVALID_PART', 'MISSING_PART', 'PART_ETAG_MISMATCH', 'ETAG_MISMATCH', 'PART_NOT_FOUND', 'EMPTY_PARTS_LIST']) {
+  for (const trigger of ['InvalidPart', 'INVALID_PART', 'MISSING_PART', 'PART_ETAG_MISMATCH', 'ETAG_MISMATCH', 'PART_NOT_FOUND']) {
     const res = dispatchS3Error(trigger);
     assert.equal(res.http_status, 400, `Trigger '${trigger}' must return http_status 400`);
     assert.equal(res.error_code, 'InvalidPart', `Trigger '${trigger}' must return error_code 'InvalidPart'`);
+  }
+
+  for (const trigger of ['EmptyPartsList', 'EMPTY_PARTS_LIST', 'InvalidArgument']) {
+    const res = dispatchS3Error(trigger);
+    assert.equal(res.http_status, 400, `Trigger '${trigger}' must return http_status 400`);
+    assert.equal(res.error_code, 'InvalidArgument', `Trigger '${trigger}' must return error_code 'InvalidArgument'`);
+    if (trigger === 'EmptyPartsList' || trigger === 'EMPTY_PARTS_LIST') {
+      assert.equal(res.reason, 'EmptyPartsList');
+    }
   }
 
   for (const obj of [{ error_code: 'InvalidPart' }, { code: 'InvalidPart' }, { error_condition: 'MISSING_PART' }, { reason: 'PART_ETAG_MISMATCH' }]) {
     const res = dispatchS3Error(obj);
     assert.equal(res.http_status, 400);
     assert.equal(res.error_code, 'InvalidPart');
+  }
+
+  for (const obj of [{ error_code: 'InvalidArgument' }, { code: 'InvalidArgument' }, { error_condition: 'EmptyPartsList' }, { reason: 'EMPTY_PARTS_LIST' }]) {
+    const res = dispatchS3Error(obj);
+    assert.equal(res.http_status, 400);
+    assert.equal(res.error_code, 'InvalidArgument');
   }
 });
 
@@ -1940,7 +1957,8 @@ test('dispatchS3PutObject and dispatchS3Error exhaustive reason taxonomy and hel
   assert.equal(dispatchS3Error({ reason: 'PART_ETAG_MISMATCH' }).error_code, 'InvalidPart');
   assert.equal(dispatchS3Error({ reason: 'ETAG_MISMATCH' }).error_code, 'InvalidPart');
   assert.equal(dispatchS3Error({ reason: 'PART_NOT_FOUND' }).error_code, 'InvalidPart');
-  assert.equal(dispatchS3Error({ reason: 'EMPTY_PARTS_LIST' }).error_code, 'InvalidPart');
+  assert.equal(dispatchS3Error({ reason: 'EMPTY_PARTS_LIST' }).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3Error({ reason: 'EmptyPartsList' }).error_code, 'InvalidArgument');
 
   // 4. isMalformedBase64Md5 branches
   assert.equal(isMalformedBase64Md5(''), true);
@@ -2154,4 +2172,164 @@ test('dispatchS3CompleteMultipartUpload fails closed with InvalidPart when store
   const blankStoredEtagRes = dispatchS3CompleteMultipartUpload(validManifest, blankStoredEtag);
   assert.equal(blankStoredEtagRes.http_status, 400);
   assert.equal(blankStoredEtagRes.error_code, 'InvalidPart');
+
+  // 7. Exact string ETag comparison: no quote stripping / normalization
+  const unquotedStoredEtag = new Map([
+    [1, { part_number: 1, etag: 'd41d8cd98f00b204e9800998ecf8427e', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+  const unquotedRes = dispatchS3CompleteMultipartUpload(validManifest, unquotedStoredEtag);
+  assert.equal(unquotedRes.http_status, 400);
+  assert.equal(unquotedRes.error_code, 'InvalidPart');
+  assert.equal(unquotedRes.reason, 'ETagMismatch');
+
+  // 8. No fallback to sha256 when etag is missing on stored part
+  const shaOnlyStored = new Map([
+    [1, { part_number: 1, sha256: 'd41d8cd98f00b204e9800998ecf8427e00000000000000000000000000000000', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }]
+  ]);
+  const shaOnlyStoredRes = dispatchS3CompleteMultipartUpload(validManifest, shaOnlyStored);
+  assert.equal(shaOnlyStoredRes.http_status, 400);
+  assert.equal(shaOnlyStoredRes.error_code, 'InvalidPart');
+  assert.equal(shaOnlyStoredRes.reason, 'MissingStoredPartETag');
+
+  // 9. No fallback to sha256 when etag is missing on manifest part
+  const shaOnlyManifest = {
+    parts: [
+      { part_number: 1, sha256: 'd41d8cd98f00b204e9800998ecf8427e00000000000000000000000000000000', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }
+    ]
+  };
+  const shaOnlyManifestRes = dispatchS3CompleteMultipartUpload(shaOnlyManifest, validStored);
+  assert.equal(shaOnlyManifestRes.http_status, 400);
+  assert.equal(shaOnlyManifestRes.error_code, 'InvalidPart');
+  assert.equal(shaOnlyManifestRes.reason, 'MissingManifestPartETag');
+
+  // 10. Empty parts list returns InvalidArgument with EmptyPartsList
+  const emptyRes = dispatchS3CompleteMultipartUpload({ parts: [] }, validStored);
+  assert.equal(emptyRes.http_status, 400);
+  assert.equal(emptyRes.error_code, 'InvalidArgument');
+  assert.equal(emptyRes.reason, 'EmptyPartsList');
+});
+
+test('dispatchS3PutObject rejects streaming payload sentinel STREAMING-AWS4-HMAC-SHA256-PAYLOAD with HTTP 400 InvalidDigest (Finding 1 / OPEN-2)', () => {
+  const payload = Buffer.from('CYBRIK_STREAMING_SENTINEL_REJECTION_PAYLOAD');
+  const res = dispatchS3PutObject({
+    payloadBytes: payload,
+    'x-amz-content-sha256': 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD',
+  });
+  assert.equal(res.http_status, 400, 'Streaming payload sentinel must return HTTP 400');
+  assert.equal(res.error_code, 'InvalidDigest', 'Streaming payload sentinel must return InvalidDigest');
+  assert.equal(res.code, 'InvalidDigest');
+  assert.equal(res.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3CompleteMultipartUpload zero parts returns HTTP 400 InvalidArgument with EmptyPartsList (Finding 2 / OPEN-2)', () => {
+  const storedParts = new Map([
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+  ]);
+
+  // 1. Empty array manifest.parts returns HTTP 400 InvalidArgument (EmptyPartsList)
+  const emptyPartsRes = dispatchS3CompleteMultipartUpload({ parts: [] }, storedParts);
+  assert.equal(emptyPartsRes.http_status, 400);
+  assert.equal(emptyPartsRes.error_code, 'InvalidArgument');
+  assert.equal(emptyPartsRes.reason, 'EmptyPartsList');
+
+  // 2. Direct empty array as argument returns HTTP 400 InvalidArgument (EmptyPartsList)
+  const directEmptyRes = dispatchS3CompleteMultipartUpload([], storedParts);
+  assert.equal(directEmptyRes.http_status, 400);
+  assert.equal(directEmptyRes.error_code, 'InvalidArgument');
+  assert.equal(directEmptyRes.reason, 'EmptyPartsList');
+});
+
+test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when stored part has only sha256 but no etag (Finding 3 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    ],
+  };
+  const storedWithoutEtag = new Map([
+    [1, { part_number: 1, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', size_bytes: 5242880 }],
+  ]);
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, storedWithoutEtag);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidPart');
+  assert.equal(res.reason, 'MissingStoredPartETag');
+});
+
+test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when stored-part entry is null (Finding 4 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    ],
+  };
+  const storedWithNullEntry = new Map([
+    [1, null],
+  ]);
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, storedWithNullEntry);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidPart');
+  assert.equal(res.reason, 'MissingStoredPartETag');
+});
+
+test('dispatchS3CompleteMultipartUpload fails with ETagMismatch on quoted vs unquoted ETags (Finding 5 / OPEN-2)', () => {
+  const manifest = {
+    parts: [
+      { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+    ],
+  };
+  const storedUnquoted = new Map([
+    [1, { part_number: 1, etag: 'abc', size_bytes: 5242880 }],
+  ]);
+
+  const res = dispatchS3CompleteMultipartUpload(manifest, storedUnquoted);
+  assert.equal(res.http_status, 400);
+  assert.equal(res.error_code, 'InvalidPart');
+  assert.equal(res.reason, 'ETagMismatch');
+
+  // Also test manifest unquoted vs stored quoted
+  const manifestUnquoted = {
+    parts: [
+      { part_number: 1, etag: 'abc', size_bytes: 5242880 },
+    ],
+  };
+  const storedQuoted = new Map([
+    [1, { part_number: 1, etag: '"abc"', size_bytes: 5242880 }],
+  ]);
+  const res2 = dispatchS3CompleteMultipartUpload(manifestUnquoted, storedQuoted);
+  assert.equal(res2.http_status, 400);
+  assert.equal(res2.error_code, 'InvalidPart');
+  assert.equal(res2.reason, 'ETagMismatch');
+});
+
+test('dispatchS3PutObject and dispatchS3CompleteMultipartUpload positional calling and additional option variants', () => {
+  const payload = Buffer.from('TEST_PAYLOAD');
+  const validMd5 = computePayloadMd5(payload);
+  const validSha = computePayloadSha256(payload);
+
+  // Positional dispatchS3PutObject
+  assert.equal(dispatchS3PutObject(payload, validMd5, validSha).http_status, 200);
+  assert.equal(dispatchS3PutObject(payload, 'bad-md5').http_status, 400);
+
+  // dispatchS3CompleteMultipartUpload with manifest wrapper object
+  const manifestWrap = {
+    manifest: {
+      parts: [
+        { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+      ],
+    },
+    storedParts: new Map([[1, { etag: '"etag-1"', size_bytes: 5242880 }]]),
+  };
+  assert.equal(dispatchS3CompleteMultipartUpload(manifestWrap).http_status, 200);
+
+  // dispatchS3CompleteMultipartUpload with non-object/null first argument
+  assert.equal(dispatchS3CompleteMultipartUpload(null).http_status, 400);
+  assert.equal(dispatchS3CompleteMultipartUpload(undefined).http_status, 400);
+  assert.equal(dispatchS3CompleteMultipartUpload(12345).http_status, 400);
+
+  // dispatchS3Error object branches without error_code
+  assert.equal(dispatchS3Error({ reason: 'EmptyPartsList' }).error_code, 'InvalidArgument');
+  assert.equal(dispatchS3Error({ reason: 'INVALID_ARGUMENT' }).error_code, 'InvalidArgument');
 });
