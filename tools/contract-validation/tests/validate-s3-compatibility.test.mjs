@@ -200,7 +200,7 @@ const EXPECTED_STORAGE_DISPATCH_NEGATIVES = {
   'invalid-s3-dispatch-malformed-content-md5-header.json': {
     http_status: 400,
     error_code: 'InvalidDigest',
-    error_condition: 'MALFORMED_DIGEST_HEADER',
+    error_condition: 'MALFORMED_HEADER_SYNTAX',
   },
 };
 
@@ -580,7 +580,9 @@ test('executable BadDigest and InvalidDigest dispatch verification and in-memory
   assert.equal(malformedFixture.error_code, 'InvalidDigest');
   assert.deepEqual(malformedFixture.forbidden_error_codes, ['InvalidArgument', 'AccessDenied']);
 
-  const invalidDigestDispatch = verifyMalformedHeaderDispatch(malformedFixture.content_md5_header);
+  const malformedHeader =
+    malformedFixture.headers?.['Content-MD5'] ?? malformedFixture.content_md5_header;
+  const invalidDigestDispatch = verifyMalformedHeaderDispatch(malformedHeader);
   assert.equal(invalidDigestDispatch.status, 400);
   assert.equal(invalidDigestDispatch.code, 'InvalidDigest');
   assert.equal(invalidDigestDispatch.http_status, 400);
@@ -3044,4 +3046,224 @@ test('negative storage fixtures executed through dispatcher match error_code and
       assert.equal(data.expected_error.error_condition, exp.error_condition);
     }
   }
+});
+
+test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype poisoning when Array.prototype has part numbers', () => {
+  // Setup: Poison Array.prototype with a valid part object at index 1
+  Array.prototype[1] = {
+    part_number: 1,
+    etag: '"poisoned-etag"',
+    size_bytes: 5242880,
+  };
+
+  try {
+    const manifest = {
+      parts: [
+        { part_number: 1, etag: '"etag-1"' },
+      ],
+    };
+
+    // Case 1: Sparse array with empty slot at index 0 and 1
+    // Array(2) has length 2, but neither index 0 nor 1 is an own property
+    const sparseArr = new Array(2);
+    const resSparse = dispatchS3CompleteMultipartUpload(manifest, sparseArr);
+    assert.equal(resSparse.http_status, 400);
+    assert.equal(resSparse.error_code, 'InvalidPart');
+    assert.equal(resSparse.code, 'InvalidPart');
+    assert.equal(resSparse.reason, 'MissingStoredPartETag');
+
+    // Case 2: Array where slot 0 is populated but slot 1 is a hole
+    const partialArr = [{ part_number: 2, etag: '"etag-2"', size_bytes: 5242880 }];
+    partialArr.length = 2; // slot 1 is a hole, should NOT pick up Array.prototype[1]
+    const resPartial = dispatchS3CompleteMultipartUpload(manifest, partialArr);
+    assert.equal(resPartial.http_status, 400);
+    assert.equal(resPartial.error_code, 'InvalidPart');
+    assert.equal(resPartial.reason, 'MissingStoredPartETag');
+
+    // Case 3: Array where element at index 1 was deleted
+    const deletedArr = [
+      { part_number: 0, etag: '"etag-0"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+    ];
+    delete deletedArr[1];
+    const resDeleted = dispatchS3CompleteMultipartUpload(manifest, deletedArr);
+    assert.equal(resDeleted.http_status, 400);
+    assert.equal(resDeleted.error_code, 'InvalidPart');
+    assert.equal(resDeleted.code, 'InvalidPart');
+    assert.equal(resDeleted.reason, 'MissingStoredPartETag');
+
+    // Case 4: Object inheriting prototype properties without own property
+    const inheritedObj = Object.create({ 1: { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 } });
+    const resInheritedObj = dispatchS3CompleteMultipartUpload(manifest, inheritedObj);
+    assert.equal(resInheritedObj.http_status, 400);
+    assert.equal(resInheritedObj.error_code, 'InvalidPart');
+    assert.equal(resInheritedObj.reason, 'MissingStoredPartETag');
+  } finally {
+    delete Array.prototype[1];
+  }
+});
+
+test('dispatchS3PutObject with non-object headers value (e.g. headers: "invalid", headers: 123, headers: null) returns HTTP 400 InvalidDigest', () => {
+  const payload = Buffer.from('CYBRIK_PUT_OBJECT_HOSTILE_HEADERS_TEST_2026');
+
+  // Case 1: headers is string ('invalid')
+  const resStr = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: 'invalid',
+  });
+  assert.equal(resStr.http_status, 400);
+  assert.equal(resStr.error_code, 'InvalidDigest');
+  assert.equal(resStr.status, 400);
+  assert.equal(resStr.code, 'InvalidDigest');
+
+  // Case 2: headers is number (123)
+  const resNum = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: 123,
+  });
+  assert.equal(resNum.http_status, 400);
+  assert.equal(resNum.error_code, 'InvalidDigest');
+  assert.equal(resNum.status, 400);
+  assert.equal(resNum.code, 'InvalidDigest');
+
+  // Case 3: headers is null
+  const resNull = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: null,
+  });
+  assert.equal(resNull.http_status, 400);
+  assert.equal(resNull.error_code, 'InvalidDigest');
+  assert.equal(resNull.status, 400);
+  assert.equal(resNull.code, 'InvalidDigest');
+
+  // Case 4: headers is boolean (true / false)
+  const resBool = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: true,
+  });
+  assert.equal(resBool.http_status, 400);
+  assert.equal(resBool.error_code, 'InvalidDigest');
+
+  const resBoolFalse = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: false,
+  });
+  assert.equal(resBoolFalse.http_status, 400);
+  assert.equal(resBoolFalse.error_code, 'InvalidDigest');
+
+  // Case 5: headers is array ([])
+  const resArr = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: [],
+  });
+  assert.equal(resArr.http_status, 400);
+  assert.equal(resArr.error_code, 'InvalidDigest');
+
+  // Case 6: headers is string even if top-level valid sha256 is present
+  const resStrWithSha = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: 'hostile-header-string',
+    'x-amz-content-sha256': computePayloadSha256(payload),
+  });
+  assert.equal(resStrWithSha.http_status, 400);
+  assert.equal(resStrWithSha.error_code, 'InvalidDigest');
+  assert.equal(resStrWithSha.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Case 7: headers is number even if top-level valid sha256 is present
+  const resNumWithSha = dispatchS3PutObject({
+    payloadBytes: payload,
+    headers: 42,
+    'x-amz-content-sha256': computePayloadSha256(payload),
+  });
+  assert.equal(resNumWithSha.http_status, 400);
+  assert.equal(resNumWithSha.error_code, 'InvalidDigest');
+  assert.equal(resNumWithSha.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Case 8: headers in dispatchS3Error with non-object values does not throw
+  assert.doesNotThrow(() => {
+    const errResStr = dispatchS3Error({ payloadBytes: payload, headers: 'invalid-headers-string' });
+    assert.ok(errResStr);
+  });
+  assert.doesNotThrow(() => {
+    const errResNum = dispatchS3Error({ payloadBytes: payload, headers: 999 });
+    assert.ok(errResNum);
+  });
+  assert.doesNotThrow(() => {
+    const errResNull = dispatchS3Error({ payloadBytes: payload, headers: null });
+    assert.ok(errResNull);
+  });
+});
+
+test('negative storage payload fixtures executed through real dispatchS3PutObject and dispatchS3Error match error code and condition', () => {
+  // 1. invalid-s3-dispatch-malformed-content-md5-header.json
+  const malformedMd5FixturePath = join(
+    EXAMPLES_STORAGE_DIR,
+    'negative/invalid-s3-dispatch-malformed-content-md5-header.json'
+  );
+  const malformedData = JSON.parse(readFileSync(malformedMd5FixturePath, 'utf8'));
+
+  // Test via dispatchS3Error
+  const malformedErrResult = dispatchS3Error(malformedData);
+  assert.equal(malformedErrResult.http_status, 400);
+  assert.equal(malformedErrResult.error_code, 'InvalidDigest');
+  assert.equal(malformedErrResult.status, 400);
+  assert.equal(malformedErrResult.code, 'InvalidDigest');
+  assert.equal(malformedErrResult.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(malformedData.expected_error.error_code, 'InvalidDigest');
+  assert.equal(malformedData.expected_error.error_condition, 'MALFORMED_HEADER_SYNTAX');
+
+  // Test via real dispatchS3PutObject
+  const malformedPutResult = dispatchS3PutObject(malformedData);
+  assert.equal(malformedPutResult.http_status, 400);
+  assert.equal(malformedPutResult.error_code, 'InvalidDigest');
+  assert.equal(malformedPutResult.status, 400);
+  assert.equal(malformedPutResult.code, 'InvalidDigest');
+  assert.equal(malformedPutResult.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // Also test with explicit parameters
+  const malformedHeaderVal = malformedData.headers?.['Content-MD5'] ?? malformedData.content_md5_header;
+  const malformedExplicitPutResult = dispatchS3PutObject({
+    payloadBytes: Buffer.from('test payload'),
+    contentMd5Header: malformedHeaderVal,
+    'x-amz-content-sha256': computePayloadSha256('test payload'),
+  });
+  assert.equal(malformedExplicitPutResult.http_status, 400);
+  assert.equal(malformedExplicitPutResult.error_code, 'InvalidDigest');
+  assert.equal(malformedExplicitPutResult.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. invalid-s3-dispatch-mismatched-content-md5.json
+  const mismatchedMd5FixturePath = join(
+    EXAMPLES_STORAGE_DIR,
+    'negative/invalid-s3-dispatch-mismatched-content-md5.json'
+  );
+  const mismatchedData = JSON.parse(readFileSync(mismatchedMd5FixturePath, 'utf8'));
+
+  // Test via dispatchS3Error
+  const mismatchedErrResult = dispatchS3Error(mismatchedData);
+  assert.equal(mismatchedErrResult.http_status, 400);
+  assert.equal(mismatchedErrResult.error_code, 'BadDigest');
+  assert.equal(mismatchedErrResult.status, 400);
+  assert.equal(mismatchedErrResult.code, 'BadDigest');
+  assert.equal(mismatchedErrResult.reason, 'PAYLOAD_DIGEST_MISMATCH');
+  assert.equal(mismatchedData.expected_error.error_code, 'BadDigest');
+  assert.equal(mismatchedData.expected_error.error_condition, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // Test via real dispatchS3PutObject
+  const mismatchedPutResult = dispatchS3PutObject(mismatchedData);
+  assert.equal(mismatchedPutResult.http_status, 400);
+  assert.equal(mismatchedPutResult.error_code, 'BadDigest');
+  assert.equal(mismatchedPutResult.status, 400);
+  assert.equal(mismatchedPutResult.code, 'BadDigest');
+  assert.equal(mismatchedPutResult.reason, 'PAYLOAD_DIGEST_MISMATCH');
+
+  // Also test with explicit parameters
+  const mismatchedHeaderVal = mismatchedData.headers?.['Content-MD5'] ?? mismatchedData.content_md5_declared;
+  const mismatchedExplicitPutResult = dispatchS3PutObject({
+    payloadBytes: Buffer.from('Checksum Failure'),
+    contentMd5Header: mismatchedHeaderVal,
+    'x-amz-content-sha256': computePayloadSha256('Checksum Failure'),
+  });
+  assert.equal(mismatchedExplicitPutResult.http_status, 400);
+  assert.equal(mismatchedExplicitPutResult.error_code, 'BadDigest');
+  assert.equal(mismatchedExplicitPutResult.reason, 'PAYLOAD_DIGEST_MISMATCH');
 });

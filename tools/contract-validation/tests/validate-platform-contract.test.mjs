@@ -4179,15 +4179,18 @@ test('in-memory validation: full profile conformance declaration shape and Objec
   // 5. Object Lock evidence validation on full profile conformance declaration with storage Object Lock evidence
   const dataWithLock = JSON.parse(JSON.stringify(original));
   const storageCap = dataWithLock.advertised_capabilities.find((c) => c.slot_id === 'storage');
-  const lockUrn = 'urn:cybrik:evidence:storage:object-lock:v1';
-  storageCap.evidence_references.push(lockUrn);
-  dataWithLock.conformance_evidence.push({
-    test_identifier: lockUrn,
-    status: 'PASS',
-    evidence_pack_digest: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
-    executed_at: '2026-08-27T12:00:00Z',
-    report_uri: 'https://example.com/reports/lock-evidence.json'
-  });
+  const lockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  storageCap.evidence_references = [lockUrn];
+  dataWithLock.conformance_evidence = [
+    ...dataWithLock.conformance_evidence.filter((e) => e.test_identifier !== lockUrn),
+    {
+      test_identifier: lockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://example.com/reports/lock-evidence.json'
+    }
+  ];
   assert.ok(ajv.validate(schemaId, dataWithLock), 'Full profile declaration with Object Lock evidence must pass schema: ' + ajv.errorsText());
   assert.doesNotThrow(() => validatePlatformSemantics(dataWithLock, schemaId));
 
@@ -4213,8 +4216,9 @@ test('in-memory validation: full profile conformance declaration shape and Objec
 
   // 8. Unreferenced dangling Object Lock evidence is rejected by semantic validation
   const dataDanglingLock = JSON.parse(JSON.stringify(original));
+  const danglingLockUrn = 'urn:cybrik:evidence:dangling-storage-lock';
   dataDanglingLock.conformance_evidence.push({
-    test_identifier: lockUrn,
+    test_identifier: danglingLockUrn,
     status: 'PASS',
     evidence_pack_digest: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
     executed_at: '2026-08-27T12:00:00Z',
@@ -5149,4 +5153,116 @@ test('validatePlatformSemantics additional branch coverage for declaration and l
       /conformance evidence .* has non-passing status 'FAIL'/
     );
   }
+});
+
+test('in-memory validation: capability containing both canonical URN and legacy alias (canonical-plus-alias set) in evidence_references is strictly rejected by validatePlatformSemantics (OPEN-5 / OPEN-2)', () => {
+  const handshakeSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+
+  const legacyAliases = [
+    'urn:cybrik:evidence:storage:object-lock:v1',
+    'urn:cybrik:evidence:storage:object-lock',
+    'urn:cybrik:evidence:storage-object-lock',
+    'urn:cybrik:evidence:object-lock',
+    'urn:cybrik:evidence:storage:object-lock:01',
+    'urn:cybrik:evidence:storage-object-lock:01',
+    'urn:cybrik:evidence:object-lock:retention-v1',
+    'urn:cybrik:evidence:storage:object-lock:compliance:2026',
+    'urn:cybrik:evidence:storage:s3:object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:retention',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:worm-lock',
+    'urn:cybrik:evidence:s3-object-lock',
+  ];
+
+  // 1. Negotiation handshake: storage capability containing canonical URN + legacy alias
+  for (const alias of legacyAliases) {
+    const dataHs = JSON.parse(JSON.stringify(handshakeSample));
+    const storageCap = dataHs.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+    // Set canonical-plus-alias set in evidence_references
+    storageCap.evidence_references = [
+      'urn:cybrik:evidence:storage:s3-17-ops:v1',
+      canonicalLockUrn,
+      alias,
+    ];
+    // Add valid conformance evidence record for the alias
+    dataHs.advertisement_response.conformance_evidence.push({
+      test_identifier: alias,
+      status: 'PASS',
+      evidence_pack_digest: 'a100000000000000000000000000000000000000000000000000000000000005',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/alias.json',
+    });
+
+    const schemaValid = ajv.validate(handshakeSchemaId, dataHs);
+    assert.ok(schemaValid, `Canonical-plus-alias '${alias}' must pass Ajv schema validation: ` + ajv.errorsText());
+
+    assert.throws(
+      () => validatePlatformSemantics(dataHs, handshakeSchemaId),
+      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      `Canonical-plus-alias set with '${alias}' in negotiation must be strictly rejected by validatePlatformSemantics`
+    );
+  }
+
+  // 2. Standalone declaration: storage capability containing canonical URN + legacy alias
+  for (const alias of legacyAliases) {
+    const dataDecl = JSON.parse(JSON.stringify(fullDeclSample));
+    const storageCap = dataDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+    storageCap.evidence_references = [canonicalLockUrn, alias];
+    dataDecl.conformance_evidence.push({
+      test_identifier: alias,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/alias-lock',
+    });
+
+    const schemaValid = ajv.validate(pcaSchemaId, dataDecl);
+    assert.ok(schemaValid, `Canonical-plus-alias '${alias}' in declaration must pass Ajv schema: ` + ajv.errorsText());
+
+    assert.throws(
+      () => validatePlatformSemantics(dataDecl, pcaSchemaId),
+      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      `Canonical-plus-alias set with '${alias}' in declaration must be strictly rejected by validatePlatformSemantics`
+    );
+  }
+
+  // 3. Non-storage capability containing a legacy Object Lock alias
+  const dataNonStorage = JSON.parse(JSON.stringify(handshakeSample));
+  const cacheCap = dataNonStorage.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'cache');
+  if (cacheCap) {
+    cacheCap.evidence_references = [...(cacheCap.evidence_references || []), 'urn:cybrik:evidence:storage:object-lock:v1'];
+    dataNonStorage.advertisement_response.conformance_evidence.push({
+      test_identifier: 'urn:cybrik:evidence:storage:object-lock:v1',
+      status: 'PASS',
+      evidence_pack_digest: 'a100000000000000000000000000000000000000000000000000000000000005',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/alias.json',
+    });
+    assert.throws(
+      () => validatePlatformSemantics(dataNonStorage, handshakeSchemaId),
+      /canonical-plus-alias set prohibited|legacy Object Lock alias/,
+      'Non-storage capability with legacy Object Lock alias must be strictly rejected'
+    );
+  }
+
+  // 4. FULL_PROFILE_CONFORMANCE_DECLARATION descriptor missing slot_id
+  const dataNoSlotId = JSON.parse(JSON.stringify(fullDeclSample));
+  delete dataNoSlotId.advertised_capabilities[0].slot_id;
+  assert.throws(
+    () => validatePlatformSemantics(dataNoSlotId, pcaSchemaId),
+    /FULL_PROFILE_CONFORMANCE_DECLARATION capability descriptor missing slot_id/
+  );
+
+  // 5. FULL_PROFILE_CONFORMANCE_DECLARATION with malformed target_profile_digest
+  const dataBadDigestDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  dataBadDigestDecl.target_profile_digest = 'not-a-valid-sha256';
+  assert.throws(
+    () => validatePlatformSemantics(dataBadDigestDecl, pcaSchemaId),
+    /target_profile_digest is required and must match/
+  );
 });
