@@ -176,12 +176,12 @@
     },
     "s3Uri": {
       "type": "string",
-      "pattern": "^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "pattern": "^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
       "description": "Canonical S3 URI format s3://bucket/key without dot-segments, adjacent slashes, or trailing slash."
     },
     "pathStyleUrl": {
       "type": "string",
-      "pattern": "^https?://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
+      "pattern": "^https?://[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/(?!\\/)(?!\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-zA-Z0-9._/-]+$",
       "description": "Forced path-style access URL http(s)://endpoint/bucket/key without dot-segments, adjacent slashes, or trailing slash."
     },
     "sha256Hex": {

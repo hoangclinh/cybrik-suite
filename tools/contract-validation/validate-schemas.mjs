@@ -399,8 +399,11 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
     const req = optionsOrPayload;
-    if (req.headers !== undefined && (typeof req.headers !== 'object' || req.headers === null || Array.isArray(req.headers))) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    if (Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers')) {
+      const hdrs = optionsOrPayload.headers;
+      if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
     }
     const headersObj = (req.headers && typeof req.headers === 'object' && !Array.isArray(req.headers)) ? req.headers : null;
     payloadBytes = req.payloadBytes ?? req.payload ?? req.body;
@@ -492,8 +495,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     return { http_status: 400, error_code: 'InvalidArgument', status: 400, code: 'InvalidArgument', reason: 'TooManyParts' };
   }
 
-  if (manifest.total_parts !== undefined && manifest.total_parts !== null && typeof manifest.total_parts === 'number' && manifest.total_parts !== manifest.parts.length) {
-    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TOTAL_PARTS_MISMATCH' };
+  if (Object.prototype.hasOwnProperty.call(manifest, 'total_parts')) {
+    if (typeof manifest.total_parts !== 'number' || !Number.isInteger(manifest.total_parts) || manifest.total_parts !== manifest.parts.length) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TotalPartsMismatch' };
+    }
   }
 
   let prevNum = 0;
@@ -576,8 +581,10 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     totalSizeBytes += rawSize;
   }
 
-  if (manifest.total_size_bytes !== undefined && manifest.total_size_bytes !== null && typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes !== totalSizeBytes) {
-    return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TOTAL_SIZE_BYTES_MISMATCH' };
+  if (Object.prototype.hasOwnProperty.call(manifest, 'total_size_bytes')) {
+    if (typeof manifest.total_size_bytes !== 'number' || !Number.isInteger(manifest.total_size_bytes) || manifest.total_size_bytes !== totalSizeBytes) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'TotalSizeMismatch' };
+    }
   }
 
   if (totalSizeBytes > 5497558138880 || (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes > 5497558138880)) {
@@ -617,16 +624,18 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       conditionOrOptions &&
       typeof conditionOrOptions === 'object' &&
-      conditionOrOptions.headers !== undefined &&
-      (typeof conditionOrOptions.headers !== 'object' || conditionOrOptions.headers === null || Array.isArray(conditionOrOptions.headers))
+      Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers')
     ) {
-      return {
-        http_status: 400,
-        error_code: 'InvalidDigest',
-        status: 400,
-        code: 'InvalidDigest',
-        reason: 'MALFORMED_HEADER_SYNTAX',
-      };
+      const hdrs = conditionOrOptions.headers;
+      if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_HEADER_SYNTAX',
+        };
+      }
     }
 
     const headersObj = (conditionOrOptions?.headers && typeof conditionOrOptions.headers === 'object' && !Array.isArray(conditionOrOptions.headers)) ? conditionOrOptions.headers : null;
@@ -674,7 +683,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (shaHeader !== undefined) {
       if (shaHeader === 'UNSIGNED-PAYLOAD') {
         // allow
-      } else if (typeof shaHeader !== 'string' || (!shaHeader.startsWith('STREAMING-') && isMalformedSha256(shaHeader))) {
+      } else if (typeof shaHeader === 'string' && shaHeader.startsWith('STREAMING-')) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256',
+        };
+      } else if (typeof shaHeader !== 'string' || isMalformedSha256(shaHeader)) {
         return {
           http_status: 400,
           error_code: 'InvalidDigest',
@@ -716,6 +733,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'MALFORMED_HEADER_SYNTAX' ||
       norm === 'MissingXAmzContentSHA256' ||
       norm === 'STREAMING_PAYLOAD_UNSUPPORTED' ||
+      norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' ||
       norm === 'MALFORMED_SHA256_HEADER'
     ) {
       return {
@@ -723,7 +741,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidDigest',
         status: 400,
         code: 'InvalidDigest',
-        reason: norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'MALFORMED_SHA256_HEADER' ? norm : 'MALFORMED_HEADER_SYNTAX',
+        reason: (norm === 'MissingXAmzContentSHA256' || norm === 'STREAMING_PAYLOAD_UNSUPPORTED' || norm === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' || norm === 'MALFORMED_SHA256_HEADER') ? norm : 'MALFORMED_HEADER_SYNTAX',
       };
     }
     if (
@@ -741,7 +759,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       norm === 'TOTAL_PARTS_MISMATCH' ||
       norm === 'TotalPartsMismatch' ||
       norm === 'TOTAL_SIZE_BYTES_MISMATCH' ||
-      norm === 'TotalSizeBytesMismatch'
+      norm === 'TotalSizeBytesMismatch' ||
+      norm === 'TotalSizeMismatch'
     ) {
       return {
         http_status: 400,
@@ -755,9 +774,9 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
               : (norm === 'INVALID_PART_SIZE'
                   ? 'InvalidPartSize'
                   : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
-                      ? 'TOTAL_PARTS_MISMATCH'
-                      : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch'
-                          ? 'TOTAL_SIZE_BYTES_MISMATCH'
+                      ? 'TotalPartsMismatch'
+                      : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch' || norm === 'TotalSizeMismatch'
+                          ? 'TotalSizeMismatch'
                           : 'PartNotFound')))),
       };
     }
@@ -886,6 +905,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'MALFORMED_HEADER_SYNTAX' ||
       reason === 'MissingXAmzContentSHA256' ||
       reason === 'STREAMING_PAYLOAD_UNSUPPORTED' ||
+      reason === 'UNSUPPORTED_STREAMING_PAYLOAD_SHA256' ||
       reason === 'MALFORMED_SHA256_HEADER'
     ) {
       return {
@@ -912,14 +932,21 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       reason === 'TOTAL_PARTS_MISMATCH' ||
       reason === 'TotalPartsMismatch' ||
       reason === 'TOTAL_SIZE_BYTES_MISMATCH' ||
-      reason === 'TotalSizeBytesMismatch'
+      reason === 'TotalSizeBytesMismatch' ||
+      reason === 'TotalSizeMismatch'
     ) {
       return {
         http_status: 400,
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (reason === 'INVALID_PART_SIZE') ? 'InvalidPartSize' : (reason || 'PartNotFound'),
+        reason: (reason === 'INVALID_PART_SIZE')
+          ? 'InvalidPartSize'
+          : (reason === 'TOTAL_PARTS_MISMATCH' || reason === 'TotalPartsMismatch'
+              ? 'TotalPartsMismatch'
+              : (reason === 'TOTAL_SIZE_BYTES_MISMATCH' || reason === 'TotalSizeBytesMismatch' || reason === 'TotalSizeMismatch'
+                  ? 'TotalSizeMismatch'
+                  : (reason || 'PartNotFound'))),
       };
     }
     if (
@@ -1166,7 +1193,7 @@ export function validateS3MultipartSemantics(manifest) {
     );
   }
 
-  if (typeof manifest.total_parts === 'number' && manifest.total_parts !== parts.length) {
+  if (manifest.total_parts !== undefined && manifest.total_parts !== null && (typeof manifest.total_parts !== 'number' || !Number.isInteger(manifest.total_parts) || manifest.total_parts !== parts.length)) {
     throw new Error(
       `Semantic error: multipart upload manifest total_parts (${manifest.total_parts}) does not match parts array length (${parts.length})`
     );
@@ -1217,7 +1244,7 @@ export function validateS3MultipartSemantics(manifest) {
     }
   }
 
-  if (typeof manifest.total_size_bytes === 'number' && manifest.total_size_bytes !== totalSize) {
+  if (manifest.total_size_bytes !== undefined && manifest.total_size_bytes !== null && (typeof manifest.total_size_bytes !== 'number' || !Number.isInteger(manifest.total_size_bytes) || manifest.total_size_bytes !== totalSize)) {
     throw new Error(
       `Semantic error: multipart upload manifest total_size_bytes (${manifest.total_size_bytes}) does not match sum of part sizes (${totalSize})`
     );
@@ -2278,10 +2305,7 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
       } else if (!data.expected_error || data.expected_error.error_code !== expDispatch.error_code || data.expected_error.error_condition !== expDispatch.error_condition) {
         fail(`storage dispatch negative example ${file}: expected_error must declare error_code ${expDispatch.error_code} and error_condition ${expDispatch.error_condition}`);
       } else {
-        const payloadToDispatch = typeof data.payload === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(data.payload) && data.payload.length % 4 === 0
-          ? Buffer.from(data.payload, 'base64')
-          : data.payload;
-        const res = dispatchS3PutObject({ ...data, payload: payloadToDispatch });
+        const res = dispatchS3PutObject(data);
         if (res.error_code !== data.expected_error.error_code || res.reason !== data.expected_error.error_condition) {
           fail(`storage dispatch negative example ${file}: dispatcher returned error_code ${res.error_code} and reason ${res.reason}, expected ${data.expected_error.error_code} and ${data.expected_error.error_condition}`);
         } else {
