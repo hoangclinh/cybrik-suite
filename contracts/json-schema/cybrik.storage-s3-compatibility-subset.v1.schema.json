@@ -201,7 +201,7 @@
     },
     "etag": {
       "type": "string",
-      "pattern": "^\"?[a-f0-9]{32}(?:-[0-9]+)?\"?$",
+      "pattern": "^\"[a-fA-F0-9]{32}(?:-[0-9]{1,5})?\"$",
       "description": "S3 ETag format."
     },
     "pathFormatting": {

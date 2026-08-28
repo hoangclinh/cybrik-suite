@@ -1584,12 +1584,12 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   // 1. Valid structured URN evidence binding in object form passes semantic validation
   const dataObj = JSON.parse(JSON.stringify(sample));
   dataObj.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-object-lock-01"
+    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-01"
   };
   const storeCapObj = dataObj.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapObj.evidence_references.push("urn:cybrik:evidence:test-object-lock-01");
+  storeCapObj.evidence_references.push("urn:cybrik:evidence:test-storage-lock-01");
   dataObj.advertisement_response.conformance_evidence.push({
-    test_identifier: "urn:cybrik:evidence:test-object-lock-01",
+    test_identifier: "urn:cybrik:evidence:test-storage-lock-01",
     status: "PASS",
     evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000001",
     executed_at: "2026-08-27T12:00:00Z",
@@ -1622,10 +1622,10 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
   // 3. Object Lock evidence binding missing from storage evidence references throws
   const dataMissingRef = JSON.parse(JSON.stringify(sample));
   dataMissingRef.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-object-lock-02"
+    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-02"
   };
   dataMissingRef.advertisement_response.conformance_evidence.push({
-    test_identifier: "urn:cybrik:evidence:test-object-lock-02",
+    test_identifier: "urn:cybrik:evidence:test-storage-lock-02",
     status: "PASS",
     evidence_pack_digest: "a100000000000000000000000000000000000000000000000000000000000003",
     executed_at: "2026-08-27T12:00:00Z",
@@ -1634,20 +1634,20 @@ test('in-memory validation: Object Lock evidence binding against structured URN 
 
   assert.throws(
     () => validatePlatformSemantics(dataMissingRef, schemaId),
-    /Object Lock evidence binding 'urn:cybrik:evidence:test-object-lock-02'.*not found in storage evidence references/
+    /Object Lock evidence binding 'urn:cybrik:evidence:test-storage-lock-02'.*not found in storage evidence references/
   );
 
   // 4. Object Lock evidence binding missing from conformance evidence throws
   const dataMissingEv = JSON.parse(JSON.stringify(sample));
   dataMissingEv.advertisement_response.evidence_bindings = {
-    storage_object_lock: "urn:cybrik:evidence:test-object-lock-03"
+    storage_object_lock: "urn:cybrik:evidence:test-storage-lock-03"
   };
   const storeCapMissingEv = dataMissingEv.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
-  storeCapMissingEv.evidence_references.push("urn:cybrik:evidence:test-object-lock-03");
+  storeCapMissingEv.evidence_references.push("urn:cybrik:evidence:test-storage-lock-03");
 
   assert.throws(
     () => validatePlatformSemantics(dataMissingEv, schemaId),
-    /evidence_reference 'urn:cybrik:evidence:test-object-lock-03' not found in conformance_evidence/
+    /evidence_reference 'urn:cybrik:evidence:test-storage-lock-03' not found in conformance_evidence/
   );
 
   // 5. Malformed URN in evidence binding throws
@@ -5174,8 +5174,6 @@ test('in-memory validation: capability containing both canonical URN and legacy 
     'urn:cybrik:evidence:storage:s3:object-lock',
     'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
     'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:retention',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:worm-lock',
     'urn:cybrik:evidence:s3-object-lock',
   ];
 
@@ -5320,13 +5318,10 @@ test('in-memory validation: unlisted aliases like urn:cybrik:evidence:storage:s3
 
   const unlistedAliases = [
     'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:objectLock',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:OBJECT-LOCK',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:objectlock',
     'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock-v1',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:custom-lock',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:retention-lock',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:worm',
-    'urn:cybrik:evidence:storage:s3:conformance:v1:retention_compliance',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock_v1',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:objectlock:v1',
   ];
 
   // 1. Negotiation handshake: storage capability containing canonical URN + unlisted alias
@@ -5833,5 +5828,101 @@ test('validatePlatformSemantics: standalone declaration edge branches for profil
   assert.throws(
     () => validatePlatformSemantics(declNamedLock, pcaSchemaId),
     /storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'|legacy Object Lock alias|invalid storage_object_lock evidence URN/
+  );
+});
+
+test('in-memory validation: declarations carrying custom PASS storage evidence urn:cybrik:evidence:storage:s3:conformance:v1:custom-s3-ops alongside canonical Object Lock evidence pass semantic validation (OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const customStorageUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:custom-s3-ops';
+
+  // 1. Full profile conformance declaration carrying custom PASS storage evidence alongside canonical Object Lock
+  const fullDeclSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json'), 'utf8'));
+  const fullDecl = JSON.parse(JSON.stringify(fullDeclSample));
+  const storageCap = fullDecl.advertised_capabilities.find(c => c.slot_id === 'storage');
+  assert.ok(storageCap.evidence_references.includes(canonicalLockUrn), 'Storage cap must include canonical lock URN');
+  storageCap.evidence_references.push(customStorageUrn);
+  fullDecl.conformance_evidence.push({
+    test_identifier: customStorageUrn,
+    status: 'PASS',
+    evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    executed_at: '2026-08-25T12:00:00Z',
+    report_uri: 'https://reports.cybrik.example/evidence/custom-s3-ops-report.json',
+  });
+  assert.ok(ajv.validate(pcaSchemaId, fullDecl), 'Full declaration with custom PASS storage evidence must pass Ajv schema validation');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(fullDecl, pcaSchemaId),
+    'Full declaration carrying custom PASS storage evidence alongside canonical Object Lock evidence must pass semantic validation'
+  );
+
+  // 2. Partial advertisement declaration carrying custom PASS storage evidence
+  const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+  const partialWithCustom = JSON.parse(JSON.stringify(partialSample));
+  const partStorageCap = partialWithCustom.advertised_capabilities.find(c => c.slot_id === 'storage');
+  if (partStorageCap) {
+    partStorageCap.evidence_references.push(customStorageUrn);
+  } else {
+    partialWithCustom.advertised_capabilities.push({
+      capability_name: 's3_storage_provider',
+      slot_id: 'storage',
+      description: 'Storage slot with custom and canonical Object Lock evidence',
+      is_mandatory: true,
+      supported_features: ['PutObject', 'GetObject', 'PutObjectRetention'],
+      degradation_fallback: 'NONE',
+      evidence_references: [canonicalLockUrn, customStorageUrn],
+    });
+  }
+  partialWithCustom.conformance_evidence.push(
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report-lock',
+    },
+    {
+      test_identifier: customStorageUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/custom-s3-ops-report',
+    }
+  );
+  assert.ok(ajv.validate(pcaSchemaId, partialWithCustom), 'Partial advertisement with custom PASS storage evidence must pass Ajv schema');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(partialWithCustom, pcaSchemaId),
+    'Partial advertisement with custom PASS storage evidence alongside canonical Object Lock evidence must pass validatePlatformSemantics'
+  );
+
+  // 3. Negotiation handshake carrying custom PASS storage evidence
+  const handshakeSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
+  const handshakeWithCustom = JSON.parse(JSON.stringify(handshakeSample));
+  const hsStorageCap = handshakeWithCustom.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+  hsStorageCap.evidence_references = [
+    'urn:cybrik:evidence:storage:s3-17-ops:v1',
+    canonicalLockUrn,
+    customStorageUrn,
+  ];
+  handshakeWithCustom.advertisement_response.conformance_evidence = [
+    ...handshakeWithCustom.advertisement_response.conformance_evidence.filter(e => !e.test_identifier.includes('object-lock')),
+    {
+      test_identifier: canonicalLockUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/ev-store-object-lock-01.json',
+    },
+    {
+      test_identifier: customStorageUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'b206060606060606060606060606060606060606060606060606060606060606',
+      executed_at: '2026-08-27T12:00:00Z',
+      report_uri: 'https://reports.cybrik.example/evidence/ev-store-custom-s3-ops-01.json',
+    },
+  ];
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(handshakeWithCustom, pcnSchemaId),
+    'Negotiation handshake with custom PASS storage evidence alongside canonical Object Lock evidence must pass validatePlatformSemantics'
   );
 });

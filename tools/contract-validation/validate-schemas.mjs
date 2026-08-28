@@ -400,12 +400,20 @@ export function dispatchS3PutObject(optionsOrPayload = {}, maybeMd5Header, maybe
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) {
     const req = optionsOrPayload;
     if ('headers' in optionsOrPayload) {
+      if (!Object.prototype.hasOwnProperty.call(optionsOrPayload, 'headers')) {
+        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      }
       const hdrs = optionsOrPayload.headers;
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
         return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
       }
+      for (const k in hdrs) {
+        if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
+          return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+        }
+      }
     }
-    const headersObj = (req.headers && typeof req.headers === 'object' && !Array.isArray(req.headers)) ? req.headers : null;
+    const headersObj = (Object.prototype.hasOwnProperty.call(req, 'headers') && req.headers && typeof req.headers === 'object' && !Array.isArray(req.headers)) ? req.headers : null;
     payloadBytes = req.payloadBytes ?? req.payload ?? req.body;
     md5Val = req.contentMd5Header ?? req.content_md5_header ?? req.contentMd5 ?? req['Content-MD5'] ?? req.content_md5 ?? req.content_md5_declared ?? (headersObj ? (headersObj['Content-MD5'] ?? headersObj['content-md5']) : undefined);
     hasMd5 = ('contentMd5Header' in req || 'content_md5_header' in req || 'contentMd5' in req || 'Content-MD5' in req || 'content_md5' in req || 'content_md5_declared' in req || (headersObj !== null && ('Content-MD5' in headersObj || 'content-md5' in headersObj)));
@@ -551,6 +559,13 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     if (!part || typeof manifestEtag !== 'string' || manifestEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingManifestPartETag' };
     }
+    if (!manifestEtag.startsWith('"') || !manifestEtag.endsWith('"') || manifestEtag.length < 2) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
+    }
+
+    if (!manifestEtag.startsWith('"') || !manifestEtag.endsWith('"') || manifestEtag.length < 2) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
+    }
 
     if (!storedMap.has(pNum)) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
@@ -560,6 +575,13 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     const storedEtag = storedPart ? (storedPart.etag !== undefined ? storedPart.etag : storedPart.ETag) : undefined;
     if (!storedPart || typeof storedPart !== 'object' || typeof storedEtag !== 'string' || storedEtag.trim() === '') {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'MissingStoredPartETag' };
+    }
+    if (!storedEtag.startsWith('"') || !storedEtag.endsWith('"') || storedEtag.length < 2) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
+    }
+
+    if (!storedEtag.startsWith('"') || !storedEtag.endsWith('"') || storedEtag.length < 2) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'InvalidETagFormat' };
     }
 
     if (storedEtag !== manifestEtag) {
@@ -628,6 +650,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       typeof conditionOrOptions === 'object' &&
       'headers' in conditionOrOptions
     ) {
+      if (!Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers')) {
+        return {
+          http_status: 400,
+          error_code: 'InvalidDigest',
+          status: 400,
+          code: 'InvalidDigest',
+          reason: 'MALFORMED_HEADER_SYNTAX',
+        };
+      }
       const hdrs = conditionOrOptions.headers;
       if (hdrs === undefined || hdrs === null || typeof hdrs !== 'object' || Array.isArray(hdrs)) {
         return {
@@ -638,9 +669,20 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           reason: 'MALFORMED_HEADER_SYNTAX',
         };
       }
+      for (const k in hdrs) {
+        if (!Object.prototype.hasOwnProperty.call(hdrs, k)) {
+          return {
+            http_status: 400,
+            error_code: 'InvalidDigest',
+            status: 400,
+            code: 'InvalidDigest',
+            reason: 'MALFORMED_HEADER_SYNTAX',
+          };
+        }
+      }
     }
 
-    const headersObj = (conditionOrOptions?.headers && typeof conditionOrOptions.headers === 'object' && !Array.isArray(conditionOrOptions.headers)) ? conditionOrOptions.headers : null;
+    const headersObj = (Object.prototype.hasOwnProperty.call(conditionOrOptions, 'headers') && conditionOrOptions?.headers && typeof conditionOrOptions.headers === 'object' && !Array.isArray(conditionOrOptions.headers)) ? conditionOrOptions.headers : null;
     const payloadBytes = arguments.length >= 2 ? conditionOrOptions : (conditionOrOptions?.payloadBytes ?? conditionOrOptions?.payload ?? conditionOrOptions?.body);
     const contentMd5Header = arguments.length >= 2 ? maybeHeader : (conditionOrOptions?.contentMd5Header ?? conditionOrOptions?.content_md5_header ?? conditionOrOptions?.contentMd5 ?? conditionOrOptions?.['Content-MD5'] ?? conditionOrOptions?.content_md5 ?? conditionOrOptions?.content_md5_declared ?? (headersObj ? (headersObj['Content-MD5'] ?? headersObj['content-md5']) : undefined));
     const shaHeader = conditionOrOptions?.['x-amz-content-sha256'] ?? conditionOrOptions?.['X-Amz-Content-Sha256'] ?? conditionOrOptions?.contentSha256Header ?? conditionOrOptions?.content_sha256_header ?? conditionOrOptions?.contentSha256 ?? conditionOrOptions?.xAmzContentSha256 ?? conditionOrOptions?.x_amz_content_sha256 ?? conditionOrOptions?.sha256Header ?? (headersObj ? (headersObj['x-amz-content-sha256'] ?? headersObj['X-Amz-Content-Sha256']) : undefined);
@@ -754,10 +796,14 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       norm === 'InvalidPart' ||
       norm === 'INVALID_PART' ||
+      norm === 'InvalidETagFormat' ||
+      norm === 'INVALID_ETAG_FORMAT' ||
       norm === 'PartNotFound' ||
       norm === 'ETagMismatch' ||
       norm === 'PART_NOT_FOUND' ||
       norm === 'ETAG_MISMATCH' ||
+      norm === 'InvalidETagFormat' ||
+      norm === 'INVALID_ETAG_FORMAT' ||
       norm === 'MissingStoredPartState' ||
       norm === 'MissingManifestPartETag' ||
       norm === 'MissingStoredPartETag' ||
@@ -774,17 +820,19 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH')
-          ? 'ETagMismatch'
-          : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize'
-              ? norm
-              : (norm === 'INVALID_PART_SIZE'
-                  ? 'InvalidPartSize'
-                  : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
-                      ? 'TotalPartsMismatch'
-                      : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch' || norm === 'TotalSizeMismatch'
-                          ? 'TotalSizeMismatch'
-                          : 'PartNotFound')))),
+        reason: (norm === 'InvalidETagFormat' || norm === 'INVALID_ETAG_FORMAT')
+          ? 'InvalidETagFormat'
+          : (norm === 'ETagMismatch' || norm === 'ETAG_MISMATCH')
+            ? 'ETagMismatch'
+            : (norm === 'MissingStoredPartState' || norm === 'MissingManifestPartETag' || norm === 'MissingStoredPartETag' || norm === 'InvalidPartSize'
+                ? norm
+                : (norm === 'INVALID_PART_SIZE'
+                    ? 'InvalidPartSize'
+                    : (norm === 'TOTAL_PARTS_MISMATCH' || norm === 'TotalPartsMismatch'
+                        ? 'TotalPartsMismatch'
+                        : (norm === 'TOTAL_SIZE_BYTES_MISMATCH' || norm === 'TotalSizeBytesMismatch' || norm === 'TotalSizeMismatch'
+                            ? 'TotalSizeMismatch'
+                            : 'PartNotFound')))),
       };
     }
     if (
@@ -836,6 +884,8 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     if (
       norm === 'InvalidPart' ||
       norm === 'INVALID_PART' ||
+      norm === 'InvalidETagFormat' ||
+      norm === 'INVALID_ETAG_FORMAT' ||
       norm === 'MISSING_PART' ||
       norm === 'PART_ETAG_MISMATCH' ||
       norm === 'ETAG_MISMATCH' ||
@@ -846,7 +896,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: norm === 'MISSING_PART' ? 'MISSING_PART' : (norm === 'PART_ETAG_MISMATCH' ? 'PART_ETAG_MISMATCH' : 'INVALID_PART'),
+        reason: (norm === 'InvalidETagFormat' || norm === 'INVALID_ETAG_FORMAT') ? 'InvalidETagFormat' : (norm === 'MISSING_PART' ? 'MISSING_PART' : (norm === 'PART_ETAG_MISMATCH' ? 'PART_ETAG_MISMATCH' : 'INVALID_PART')),
       };
     }
     if (norm === 'NoSuchBucket') {
@@ -927,10 +977,14 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       code === 'InvalidPart' ||
       reason === 'InvalidPart' ||
       reason === 'INVALID_PART' ||
+      reason === 'InvalidETagFormat' ||
+      reason === 'INVALID_ETAG_FORMAT' ||
       reason === 'PartNotFound' ||
       reason === 'ETagMismatch' ||
       reason === 'PART_NOT_FOUND' ||
       reason === 'ETAG_MISMATCH' ||
+      reason === 'InvalidETagFormat' ||
+      reason === 'INVALID_ETAG_FORMAT' ||
       reason === 'MissingStoredPartState' ||
       reason === 'MissingManifestPartETag' ||
       reason === 'MissingStoredPartETag' ||
@@ -947,13 +1001,15 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
         error_code: 'InvalidPart',
         status: 400,
         code: 'InvalidPart',
-        reason: (reason === 'INVALID_PART_SIZE')
-          ? 'InvalidPartSize'
-          : (reason === 'TOTAL_PARTS_MISMATCH' || reason === 'TotalPartsMismatch'
-              ? 'TotalPartsMismatch'
-              : (reason === 'TOTAL_SIZE_BYTES_MISMATCH' || reason === 'TotalSizeBytesMismatch' || reason === 'TotalSizeMismatch'
-                  ? 'TotalSizeMismatch'
-                  : (reason || 'PartNotFound'))),
+        reason: (reason === 'InvalidETagFormat' || reason === 'INVALID_ETAG_FORMAT')
+          ? 'InvalidETagFormat'
+          : (reason === 'INVALID_PART_SIZE')
+            ? 'InvalidPartSize'
+            : (reason === 'TOTAL_PARTS_MISMATCH' || reason === 'TotalPartsMismatch'
+                ? 'TotalPartsMismatch'
+                : (reason === 'TOTAL_SIZE_BYTES_MISMATCH' || reason === 'TotalSizeBytesMismatch' || reason === 'TotalSizeMismatch'
+                    ? 'TotalSizeMismatch'
+                    : (reason || 'PartNotFound'))),
       };
     }
     if (
@@ -1683,24 +1739,6 @@ export function validatePlatformSemantics(data, schemaId) {
           }
         }
 
-        const legacyObjectLockAliases = new Set([
-          'urn:cybrik:evidence:storage:object-lock:v1',
-          'urn:cybrik:evidence:storage:object-lock',
-          'urn:cybrik:evidence:storage-object-lock',
-          'urn:cybrik:evidence:object-lock',
-          'urn:cybrik:evidence:storage:object-lock:01',
-          'urn:cybrik:evidence:storage-object-lock:01',
-          'urn:cybrik:evidence:object-lock:retention-v1',
-          'urn:cybrik:evidence:storage:object-lock:compliance:2026',
-          'urn:cybrik:evidence:storage:s3:object-lock',
-          'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
-          'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
-          'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
-          'urn:cybrik:evidence:storage:s3:conformance:v1:retention',
-          'urn:cybrik:evidence:storage:s3:conformance:v1:worm-lock',
-          'urn:cybrik:evidence:s3-object-lock',
-        ]);
-
         for (const cap of (adv.advertised_capabilities || [])) {
           if (cap.capability_name === 'storage_object_lock') {
             for (const ref of (cap.evidence_references || [])) {
@@ -1710,29 +1748,17 @@ export function validatePlatformSemantics(data, schemaId) {
             }
           }
           for (const ref of (cap.evidence_references || [])) {
-            const isBoundLock = boundObjectLockEvidenceIds.has(ref);
-            const isLockIntent =
-              !isBoundLock &&
-              typeof ref === 'string' && (
-                ref.includes('object-lock') ||
-                ref.includes('object_lock') ||
-                ref.includes('objectlock') ||
-                ref.toLowerCase().includes('object-lock') ||
-                ref.toLowerCase().includes('object_lock') ||
-                ref.toLowerCase().includes('objectlock') ||
-                legacyObjectLockAliases.has(ref) ||
-                /^urn:cybrik:evidence:storage:(?:s3:)?conformance:v[0-9]+:(?:object[-_]?lock|retention|worm|custom)/i.test(ref)
-              );
+            const isLockIntent = ref.includes('object-lock') || ref.includes('object_lock') || ref.includes('objectlock');
             if (isLockIntent) {
-              if (ref !== canonicalLockUrn) {
-                throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN '${canonicalLockUrn}' (aliases strictly prohibited)`);
+              if (ref !== 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock') {
+                throw new Error(`Semantic error: invalid storage_object_lock evidence URN '${ref}': must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' (aliases strictly prohibited)`);
               }
             } else {
               const matchingEv = (adv.conformance_evidence || []).find(e => e.test_identifier === ref);
               if (!matchingEv) {
                 throw new Error(`Semantic error: evidence_reference '${ref}' not found in conformance_evidence`);
               }
-              if (matchingEv.status && matchingEv.status !== 'PASS') {
+              if (matchingEv.status !== 'PASS') {
                 throw new Error(`Semantic error: conformance evidence '${ref}' has non-passing status '${matchingEv.status}'`);
               }
             }

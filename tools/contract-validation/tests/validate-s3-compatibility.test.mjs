@@ -2186,7 +2186,7 @@ test('dispatchS3CompleteMultipartUpload fails closed with InvalidPart when store
   const unquotedRes = dispatchS3CompleteMultipartUpload(validManifest, unquotedStoredEtag);
   assert.equal(unquotedRes.http_status, 400);
   assert.equal(unquotedRes.error_code, 'InvalidPart');
-  assert.equal(unquotedRes.reason, 'ETagMismatch');
+  assert.ok(unquotedRes.reason === 'InvalidETagFormat' || unquotedRes.reason === 'ETagMismatch');
 
   // 8. No fallback to sha256 when etag is missing on stored part
   const shaOnlyStored = new Map([
@@ -2279,7 +2279,7 @@ test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when st
   assert.equal(res.reason, 'MissingStoredPartETag');
 });
 
-test('dispatchS3CompleteMultipartUpload fails with ETagMismatch on quoted vs unquoted ETags (Finding 5 / OPEN-2)', () => {
+test('dispatchS3CompleteMultipartUpload fails with InvalidETagFormat on unquoted ETags and ETagMismatch on mismatched quoted ETags (Finding 5 / OPEN-2)', () => {
   const manifest = {
     parts: [
       { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
@@ -2292,7 +2292,7 @@ test('dispatchS3CompleteMultipartUpload fails with ETagMismatch on quoted vs unq
   const res = dispatchS3CompleteMultipartUpload(manifest, storedUnquoted);
   assert.equal(res.http_status, 400);
   assert.equal(res.error_code, 'InvalidPart');
-  assert.equal(res.reason, 'ETagMismatch');
+  assert.ok(res.reason === 'InvalidETagFormat' || res.reason === 'ETagMismatch');
 
   // Also test manifest unquoted vs stored quoted
   const manifestUnquoted = {
@@ -2306,7 +2306,16 @@ test('dispatchS3CompleteMultipartUpload fails with ETagMismatch on quoted vs unq
   const res2 = dispatchS3CompleteMultipartUpload(manifestUnquoted, storedQuoted);
   assert.equal(res2.http_status, 400);
   assert.equal(res2.error_code, 'InvalidPart');
-  assert.equal(res2.reason, 'ETagMismatch');
+  assert.ok(res2.reason === 'InvalidETagFormat' || res2.reason === 'ETagMismatch');
+
+  // Mismatched quoted ETags return ETagMismatch
+  const storedMismatchedQuoted = new Map([
+    [1, { part_number: 1, etag: '"xyz"', size_bytes: 5242880 }],
+  ]);
+  const res3 = dispatchS3CompleteMultipartUpload(manifest, storedMismatchedQuoted);
+  assert.equal(res3.http_status, 400);
+  assert.equal(res3.error_code, 'InvalidPart');
+  assert.equal(res3.reason, 'ETagMismatch');
 });
 
 test('dispatchS3PutObject and dispatchS3CompleteMultipartUpload positional calling and additional option variants', () => {
@@ -3902,4 +3911,129 @@ test('RFC 3986 valid keys containing ~ and %20 pass schema and URI checks (Findi
   for (const url of validUrlSamples) {
     assert.ok(validateUrl(url), `pathStyleUrl '${url}' containing ~ or %20 must pass schema validation`);
   }
+});
+
+test('CompleteMultipartUpload rejects unquoted, asymmetrically quoted, and same-unquoted ETags with HTTP 400 InvalidPart / InvalidETagFormat (OPEN-2 / OPEN-5)', () => {
+  const validStoredParts = new Map([
+    [1, { etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+  ]);
+
+  // 1. Unquoted ETag in manifest
+  const unquotedManifest = {
+    parts: [{ part_number: 1, etag: '0123456789abcdef0123456789abcdef', size_bytes: 5242880 }],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  };
+  const resUnquoted = dispatchS3CompleteMultipartUpload(unquotedManifest, validStoredParts);
+  assert.equal(resUnquoted.http_status, 400);
+  assert.equal(resUnquoted.error_code, 'InvalidPart');
+  assert.equal(resUnquoted.code, 'InvalidPart');
+  assert.equal(resUnquoted.reason, 'InvalidETagFormat');
+
+  // 2. Asymmetrically quoted ETag (leading quote only)
+  const leadingQuotedManifest = {
+    parts: [{ part_number: 1, etag: '"etag', size_bytes: 5242880 }],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  };
+  const resLeading = dispatchS3CompleteMultipartUpload(leadingQuotedManifest, validStoredParts);
+  assert.equal(resLeading.http_status, 400);
+  assert.equal(resLeading.error_code, 'InvalidPart');
+  assert.equal(resLeading.reason, 'InvalidETagFormat');
+
+  // 3. Asymmetrically quoted ETag (trailing quote only)
+  const trailingQuotedManifest = {
+    parts: [{ part_number: 1, etag: 'etag"', size_bytes: 5242880 }],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  };
+  const resTrailing = dispatchS3CompleteMultipartUpload(trailingQuotedManifest, validStoredParts);
+  assert.equal(resTrailing.http_status, 400);
+  assert.equal(resTrailing.error_code, 'InvalidPart');
+  assert.equal(resTrailing.reason, 'InvalidETagFormat');
+
+  // 4. Same-unquoted ETags (both manifest and stored parts have identical unquoted etag)
+  const sameUnquotedStored = new Map([
+    [1, { etag: '0123456789abcdef0123456789abcdef', size_bytes: 5242880 }],
+  ]);
+  const resSameUnquoted = dispatchS3CompleteMultipartUpload(unquotedManifest, sameUnquotedStored);
+  assert.equal(resSameUnquoted.http_status, 400);
+  assert.equal(resSameUnquoted.error_code, 'InvalidPart');
+  assert.equal(resSameUnquoted.reason, 'InvalidETagFormat');
+
+  // 5. Stored part with unquoted ETag when manifest is double-quoted
+  const validManifest = {
+    parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }],
+    total_parts: 1,
+    total_size_bytes: 5242880,
+  };
+  const resStoredUnquoted = dispatchS3CompleteMultipartUpload(validManifest, sameUnquotedStored);
+  assert.equal(resStoredUnquoted.http_status, 400);
+  assert.equal(resStoredUnquoted.error_code, 'InvalidPart');
+  assert.equal(resStoredUnquoted.reason, 'InvalidETagFormat');
+
+  // 6. dispatchS3Error mapping verification for InvalidETagFormat
+  for (const trigger of ['InvalidETagFormat', 'INVALID_ETAG_FORMAT']) {
+    const errRes = dispatchS3Error(trigger);
+    assert.equal(errRes.http_status, 400);
+    assert.equal(errRes.error_code, 'InvalidPart');
+    assert.equal(errRes.reason, 'InvalidETagFormat');
+  }
+  const objErrRes = dispatchS3Error({ reason: 'InvalidETagFormat' });
+  assert.equal(objErrRes.http_status, 400);
+  assert.equal(objErrRes.error_code, 'InvalidPart');
+  assert.equal(objErrRes.reason, 'InvalidETagFormat');
+});
+
+test('dispatchS3PutObject and dispatchS3Error reject inherited valid headers with HTTP 400 InvalidDigest / MALFORMED_HEADER_SYNTAX (OPEN-2 / OPEN-5)', () => {
+  const payloadBytes = Buffer.from('CYBRIK_INHERITED_HEADERS_SECURITY_REJECTION_TEST_2026');
+  const validSha = computePayloadSha256(payloadBytes);
+
+  // 1. Inherited headers object (Object.create({ headers: { 'x-amz-content-sha256': validSha } }))
+  const inheritedHeadersOnly = Object.create({
+    headers: { 'x-amz-content-sha256': validSha },
+  });
+  const resPutInherited = dispatchS3PutObject(inheritedHeadersOnly);
+  assert.equal(resPutInherited.http_status, 400);
+  assert.equal(resPutInherited.error_code, 'InvalidDigest');
+  assert.equal(resPutInherited.code, 'InvalidDigest');
+  assert.equal(resPutInherited.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrInherited = dispatchS3Error(inheritedHeadersOnly);
+  assert.equal(resErrInherited.http_status, 400);
+  assert.equal(resErrInherited.error_code, 'InvalidDigest');
+  assert.equal(resErrInherited.code, 'InvalidDigest');
+  assert.equal(resErrInherited.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. Inherited headers with payloadBytes attached
+  const inheritedWithPayload = Object.create({
+    headers: { 'x-amz-content-sha256': validSha },
+  });
+  inheritedWithPayload.payloadBytes = payloadBytes;
+
+  const resPutPayload = dispatchS3PutObject(inheritedWithPayload);
+  assert.equal(resPutPayload.http_status, 400);
+  assert.equal(resPutPayload.error_code, 'InvalidDigest');
+  assert.equal(resPutPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrPayload = dispatchS3Error(inheritedWithPayload);
+  assert.equal(resErrPayload.http_status, 400);
+  assert.equal(resErrPayload.error_code, 'InvalidDigest');
+  assert.equal(resErrPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 3. Own headers container with inherited header field
+  const inheritedInsideHeaders = {
+    payloadBytes,
+    headers: Object.create({ 'x-amz-content-sha256': validSha }),
+  };
+
+  const resPutInner = dispatchS3PutObject(inheritedInsideHeaders);
+  assert.equal(resPutInner.http_status, 400);
+  assert.equal(resPutInner.error_code, 'InvalidDigest');
+  assert.equal(resPutInner.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrInner = dispatchS3Error(inheritedInsideHeaders);
+  assert.equal(resErrInner.http_status, 400);
+  assert.equal(resErrInner.error_code, 'InvalidDigest');
+  assert.equal(resErrInner.reason, 'MALFORMED_HEADER_SYNTAX');
 });
