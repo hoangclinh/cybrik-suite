@@ -279,7 +279,9 @@ test('validate negative storage fixtures (single-defect isolation and dispatch e
     const valid = ajv.validate(expected.schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} unexpectedly passed validation`);
 
-    const filteredErrors = ajv.errors.filter((e) => e.keyword !== 'if');
+    const filteredErrors = ajv.errors.filter(
+      (e) => e.keyword !== 'if' && !e.schemaPath.includes('/contains')
+    );
     assert.equal(
       filteredErrors.length,
       1,
@@ -3880,12 +3882,12 @@ test('dispatchS3PutObject and dispatchS3Error guard inherited invalid headers (F
     const putRes = dispatchS3PutObject(protoObj);
     assert.equal(putRes.http_status, 400, `dispatchS3PutObject must fail closed on inherited headers: ${invalidHeaders}`);
     assert.equal(putRes.error_code, 'InvalidDigest');
-    assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+    assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
     const errRes = dispatchS3Error(protoObj);
     assert.equal(errRes.http_status, 400, `dispatchS3Error must fail closed on inherited headers: ${invalidHeaders}`);
     assert.equal(errRes.error_code, 'InvalidDigest');
-    assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+    assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
   }
 });
 
@@ -4094,13 +4096,13 @@ test('dispatchS3PutObject and dispatchS3Error reject inherited valid headers wit
   assert.equal(resPutInherited.http_status, 400);
   assert.equal(resPutInherited.error_code, 'InvalidDigest');
   assert.equal(resPutInherited.code, 'InvalidDigest');
-  assert.equal(resPutInherited.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPutInherited.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const resErrInherited = dispatchS3Error(inheritedHeadersOnly);
   assert.equal(resErrInherited.http_status, 400);
   assert.equal(resErrInherited.error_code, 'InvalidDigest');
   assert.equal(resErrInherited.code, 'InvalidDigest');
-  assert.equal(resErrInherited.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErrInherited.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. Inherited headers with payloadBytes attached
   const inheritedWithPayload = Object.create({
@@ -4111,12 +4113,12 @@ test('dispatchS3PutObject and dispatchS3Error reject inherited valid headers wit
   const resPutPayload = dispatchS3PutObject(inheritedWithPayload);
   assert.equal(resPutPayload.http_status, 400);
   assert.equal(resPutPayload.error_code, 'InvalidDigest');
-  assert.equal(resPutPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPutPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const resErrPayload = dispatchS3Error(inheritedWithPayload);
   assert.equal(resErrPayload.http_status, 400);
   assert.equal(resErrPayload.error_code, 'InvalidDigest');
-  assert.equal(resErrPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErrPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 3. Own headers container with inherited header field
   const inheritedInsideHeaders = {
@@ -4251,12 +4253,12 @@ test('prototype input hardening: inherited payload, payloadBytes, headers, or pa
   const resPutProtoHeaders = dispatchS3PutObject(protoHeaders);
   assert.equal(resPutProtoHeaders.http_status, 400, 'Inherited headers in dispatchS3PutObject must fail closed with 400');
   assert.equal(resPutProtoHeaders.error_code, 'InvalidDigest');
-  assert.equal(resPutProtoHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPutProtoHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const resErrProtoHeaders = dispatchS3Error(protoHeaders);
   assert.equal(resErrProtoHeaders.http_status, 400, 'Inherited headers in dispatchS3Error must fail closed with 400');
   assert.equal(resErrProtoHeaders.error_code, 'InvalidDigest');
-  assert.equal(resErrProtoHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErrProtoHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 5. dispatchS3CompleteMultipartUpload with prototype-inherited parts
   const validPartsList = [
@@ -4343,13 +4345,13 @@ test('non-enumerable inherited prototype properties fail closed with HTTP 400 In
   assert.equal(resPutDirectSha.http_status, 400);
   assert.equal(resPutDirectSha.error_code, 'InvalidDigest');
   assert.equal(resPutDirectSha.code, 'InvalidDigest');
-  assert.equal(resPutDirectSha.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPutDirectSha.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const resErrDirectSha = dispatchS3Error(optDirectSha);
   assert.equal(resErrDirectSha.http_status, 400);
   assert.equal(resErrDirectSha.error_code, 'InvalidDigest');
   assert.equal(resErrDirectSha.code, 'InvalidDigest');
-  assert.equal(resErrDirectSha.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErrDirectSha.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. Direct non-enumerable inherited contentMd5Header / Content-MD5
   const protoMd5 = Object.defineProperty({}, 'contentMd5Header', {
@@ -4365,12 +4367,12 @@ test('non-enumerable inherited prototype properties fail closed with HTTP 400 In
   const resPutDirectMd5 = dispatchS3PutObject(optDirectMd5);
   assert.equal(resPutDirectMd5.http_status, 400);
   assert.equal(resPutDirectMd5.error_code, 'InvalidDigest');
-  assert.equal(resPutDirectMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPutDirectMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const resErrDirectMd5 = dispatchS3Error(optDirectMd5);
   assert.equal(resErrDirectMd5.http_status, 400);
   assert.equal(resErrDirectMd5.error_code, 'InvalidDigest');
-  assert.equal(resErrDirectMd5.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErrDirectMd5.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 3. Non-enumerable inherited property inside headers object
   const protoHdr = Object.defineProperty({}, 'x-amz-content-sha256', {
@@ -5074,12 +5076,12 @@ test('regression: structured object payloads fail closed with HTTP 400 InvalidDi
   assert.equal(resErrCond.code, 'InvalidDigest');
   assert.equal(resErrCond.reason, 'MALFORMED_PAYLOAD_TYPE');
 
-  // 10. dispatchS3Error with non-plain prototype options returns MALFORMED_HEADER_SYNTAX
+  // 10. dispatchS3Error with non-plain prototype options returns MALFORMED_PAYLOAD_TYPE
   const nonPlainCondition = Object.create({ reason: 'MALFORMED_PAYLOAD_TYPE' });
   const resNonPlain = dispatchS3Error(nonPlainCondition);
   assert.equal(resNonPlain.http_status, 400);
   assert.equal(resNonPlain.error_code, 'InvalidDigest');
-  assert.equal(resNonPlain.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resNonPlain.reason, 'MALFORMED_PAYLOAD_TYPE');
 });
 
 test('isMalformedPayloadType gating and getOwn accessor defense (OPEN-2 / OPEN-5)', () => {
@@ -5436,60 +5438,60 @@ test('regression: accessor properties in dispatchS3PutObject and dispatchS3Error
   assert.equal(resErrReturnCode.reason, 'MALFORMED_PAYLOAD_TYPE');
 });
 
-test('regression: prototype-inherited option keys return HTTP 400 InvalidDigest (MALFORMED_HEADER_SYNTAX) in dispatchS3PutObject and dispatchS3Error', () => {
+test('regression: prototype-inherited option keys return HTTP 400 InvalidDigest in dispatchS3PutObject and dispatchS3Error', () => {
   const inheritedPayload = Object.create({ payload: 'hello' });
   const resInhPayload = dispatchS3PutObject(inheritedPayload);
   assert.equal(resInhPayload.http_status, 400);
   assert.equal(resInhPayload.error_code, 'InvalidDigest');
-  assert.equal(resInhPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedBytes = Object.create({ payloadBytes: 'hello' });
   const resInhBytes = dispatchS3PutObject(inheritedBytes);
   assert.equal(resInhBytes.http_status, 400);
   assert.equal(resInhBytes.error_code, 'InvalidDigest');
-  assert.equal(resInhBytes.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedBody = Object.create({ body: 'hello' });
   const resInhBody = dispatchS3PutObject(inheritedBody);
   assert.equal(resInhBody.http_status, 400);
   assert.equal(resInhBody.error_code, 'InvalidDigest');
-  assert.equal(resInhBody.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhBody.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedHeaders = Object.create({ headers: {} });
   const resInhHeaders = dispatchS3PutObject(inheritedHeaders);
   assert.equal(resInhHeaders.http_status, 400);
   assert.equal(resInhHeaders.error_code, 'InvalidDigest');
-  assert.equal(resInhHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedSha = Object.create({ 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' });
   const resInhSha = dispatchS3PutObject(inheritedSha);
   assert.equal(resInhSha.http_status, 400);
   assert.equal(resInhSha.error_code, 'InvalidDigest');
-  assert.equal(resInhSha.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhSha.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedErrPayload = Object.create({ payload: 'hello' });
   const resInhErrPayload = dispatchS3Error(inheritedErrPayload);
   assert.equal(resInhErrPayload.http_status, 400);
   assert.equal(resInhErrPayload.error_code, 'InvalidDigest');
-  assert.equal(resInhErrPayload.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhErrPayload.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedErrBytes = Object.create({ payloadBytes: 'hello' });
   const resInhErrBytes = dispatchS3Error(inheritedErrBytes);
   assert.equal(resInhErrBytes.http_status, 400);
   assert.equal(resInhErrBytes.error_code, 'InvalidDigest');
-  assert.equal(resInhErrBytes.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhErrBytes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedErrBody = Object.create({ body: 'hello' });
   const resInhErrBody = dispatchS3Error(inheritedErrBody);
   assert.equal(resInhErrBody.http_status, 400);
   assert.equal(resInhErrBody.error_code, 'InvalidDigest');
-  assert.equal(resInhErrBody.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhErrBody.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const inheritedErrHeaders = Object.create({ headers: {} });
   const resInhErrHeaders = dispatchS3Error(inheritedErrHeaders);
   assert.equal(resInhErrHeaders.http_status, 400);
   assert.equal(resInhErrHeaders.error_code, 'InvalidDigest');
-  assert.equal(resInhErrHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resInhErrHeaders.reason, 'MALFORMED_PAYLOAD_TYPE');
 });
 
 test('inherited headers getter invocation defense across dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
@@ -5508,7 +5510,7 @@ test('inherited headers getter invocation defense across dispatchS3PutObject and
   assert.equal(putGetterInvoked, false, 'Prototype headers getter must NOT be invoked by dispatchS3PutObject');
   assert.equal(resPut.http_status, 400);
   assert.equal(resPut.error_code, 'InvalidDigest');
-  assert.equal(resPut.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resPut.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. dispatchS3Error with prototype explosive headers getter
   let errGetterInvoked = false;
@@ -5525,7 +5527,7 @@ test('inherited headers getter invocation defense across dispatchS3PutObject and
   assert.equal(errGetterInvoked, false, 'Prototype headers getter must NOT be invoked by dispatchS3Error');
   assert.equal(resErr.http_status, 400);
   assert.equal(resErr.error_code, 'InvalidDigest');
-  assert.equal(resErr.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(resErr.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 3. Safe descriptor lookup: own headers getter must NOT execute arbitrary code
   let ownPutGetterInvoked = false;
@@ -6180,4 +6182,370 @@ test('unit regression: own headers accessor returns HTTP 400 InvalidDigest MALFO
   assert.equal(errThrowingRes.http_status, 400);
   assert.equal(errThrowingRes.error_code, 'InvalidDigest');
   assert.equal(errThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('adversarial Proxy descriptor safety and prototype accessor taxonomy (OPEN-2 / OPEN-5)', () => {
+  const validPayload = Buffer.from('CYBRIK_PROXY_DEFENSE_TEST_2026');
+  const validSha = createHash('sha256').update(validPayload).digest('hex');
+  const validMd5 = createHash('md5').update(validPayload).digest('base64');
+
+  // 1. Adversarial Proxy throwing on getOwnPropertyDescriptor
+  const descThrowingProxy = new Proxy({}, {
+    getOwnPropertyDescriptor() {
+      throw new Error('adversarial descriptor trap throw');
+    },
+    ownKeys() {
+      return ['headers', 'payload'];
+    }
+  });
+  assert.equal(hasOwnAccessors(descThrowingProxy), true, 'hasOwnAccessors must fail closed on throwing getOwnPropertyDescriptor');
+  assert.equal(hasOwnHeadersAccessors(descThrowingProxy), true, 'hasOwnHeadersAccessors must fail closed on throwing getOwnPropertyDescriptor');
+
+  const putDescProxyRes = dispatchS3PutObject(descThrowingProxy);
+  assert.equal(putDescProxyRes.http_status, 400);
+  assert.equal(putDescProxyRes.error_code, 'InvalidDigest');
+  assert.equal(putDescProxyRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const errDescProxyRes = dispatchS3Error(descThrowingProxy);
+  assert.equal(errDescProxyRes.http_status, 400);
+  assert.equal(errDescProxyRes.error_code, 'InvalidDigest');
+  assert.equal(errDescProxyRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. Adversarial Proxy throwing on ownKeys
+  const ownKeysThrowingProxy = new Proxy({}, {
+    ownKeys() {
+      throw new Error('adversarial ownKeys trap throw');
+    }
+  });
+  assert.equal(hasOwnAccessors(ownKeysThrowingProxy), true, 'hasOwnAccessors must fail closed on throwing ownKeys');
+  assert.equal(hasOwnHeadersAccessors(ownKeysThrowingProxy), false, 'hasOwnHeadersAccessors returns false if headers descriptor does not throw');
+
+  const putOwnKeysProxyRes = dispatchS3PutObject(ownKeysThrowingProxy);
+  assert.equal(putOwnKeysProxyRes.http_status, 400);
+  assert.equal(putOwnKeysProxyRes.error_code, 'InvalidDigest');
+  assert.equal(putOwnKeysProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errOwnKeysProxyRes = dispatchS3Error(ownKeysThrowingProxy);
+  assert.equal(errOwnKeysProxyRes.http_status, 400);
+  assert.equal(errOwnKeysProxyRes.error_code, 'InvalidDigest');
+  assert.equal(errOwnKeysProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Plain options with adversarial Proxy headers
+  const proxyHeadersObj = {
+    payload: validPayload,
+    headers: new Proxy({}, {
+      getOwnPropertyDescriptor() {
+        throw new Error('adversarial headers descriptor trap throw');
+      },
+      ownKeys() {
+        throw new Error('adversarial headers ownKeys trap throw');
+      }
+    })
+  };
+  assert.equal(hasOwnHeadersAccessors(proxyHeadersObj), true, 'hasOwnHeadersAccessors must detect throwing proxy headers');
+
+  const putProxyHdrRes = dispatchS3PutObject(proxyHeadersObj);
+  assert.equal(putProxyHdrRes.http_status, 400);
+  assert.equal(putProxyHdrRes.error_code, 'InvalidDigest');
+  assert.equal(putProxyHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const errProxyHdrRes = dispatchS3Error(proxyHeadersObj);
+  assert.equal(errProxyHdrRes.http_status, 400);
+  assert.equal(errProxyHdrRes.error_code, 'InvalidDigest');
+  assert.equal(errProxyHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. Non-plain prototype options without headers accessor returns MALFORMED_PAYLOAD_TYPE
+  class CustomRequestOptions {
+    constructor() {
+      this.payload = validPayload;
+      this['x-amz-content-sha256'] = validSha;
+    }
+  }
+  const customOpt = new CustomRequestOptions();
+  assert.equal(hasOwnHeadersAccessors(customOpt), false);
+  const putCustomRes = dispatchS3PutObject(customOpt);
+  assert.equal(putCustomRes.http_status, 400);
+  assert.equal(putCustomRes.error_code, 'InvalidDigest');
+  assert.equal(putCustomRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errCustomRes = dispatchS3Error(customOpt);
+  assert.equal(errCustomRes.http_status, 400);
+  assert.equal(errCustomRes.error_code, 'InvalidDigest');
+  assert.equal(errCustomRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('schema-only regression: non-lock 15-operation profile omitting PutObject and substituting PutObjectRetention fails Ajv schema validation on storage S3 schema (OPEN-2)', () => {
+  const sampleProfilePath = join(EXAMPLES_STORAGE_DIR, 'positive/s3-storage-conformance-profile.json');
+  const sample = JSON.parse(readFileSync(sampleProfilePath, 'utf8'));
+
+  const substitute15OpsProfile = {
+    ...sample,
+    object_lock_supported: false,
+    required_operations: [
+      'GetObject', // PutObject omitted
+      'HeadObject',
+      'DeleteObject',
+      'DeleteObjects',
+      'ListObjectsV2',
+      'HeadBucket',
+      'CreateBucket',
+      'CreateMultipartUpload',
+      'UploadPart',
+      'CompleteMultipartUpload',
+      'AbortMultipartUpload',
+      'ListParts',
+      'PutBucketVersioning',
+      'GetBucketVersioning',
+      'PutObjectRetention', // substituted 15th op
+    ],
+  };
+
+  assert.equal(substitute15OpsProfile.required_operations.length, 15);
+  assert.ok(!substitute15OpsProfile.required_operations.includes('PutObject'));
+  assert.ok(substitute15OpsProfile.required_operations.includes('PutObjectRetention'));
+
+  // Negative: Root schema validation must fail on enum defect for PutObjectRetention
+  const validRoot = ajv.validate(S3_SCHEMA_ID, substitute15OpsProfile);
+  assert.equal(validRoot, false, '15-op profile substituting PutObjectRetention for PutObject must fail Ajv validation on root schema');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' && (e.schemaPath.includes('s3BaselineOperationName') || e.instancePath.startsWith('/required_operations'))),
+    `Expected enum error on required_operations, got: ${JSON.stringify(ajv.errors)}`
+  );
+
+  // Negative: Profile def schema validation must fail on enum defect for PutObjectRetention
+  const validProfile = ajv.validate(PROFILE_DEF_ID, substitute15OpsProfile);
+  assert.equal(validProfile, false, '15-op profile substituting PutObjectRetention for PutObject must fail Ajv validation on profile def');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' && (e.schemaPath.includes('s3BaselineOperationName') || e.instancePath.startsWith('/required_operations'))),
+    `Expected enum error on required_operations, got: ${JSON.stringify(ajv.errors)}`
+  );
+});
+
+test('unit regression: throwing Proxy passed to dispatchS3Error and dispatchS3PutObject fails closed with HTTP 400 InvalidDigest (never returns HTTP 200) (OPEN-2)', () => {
+  // 1. Fully throwing Proxy (throws on every trap)
+  const throwingProxyAllTraps = new Proxy({}, {
+    get() { throw new Error('attack get'); },
+    has() { throw new Error('attack has'); },
+    ownKeys() { throw new Error('attack ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+
+  const putRes1 = dispatchS3PutObject(throwingProxyAllTraps);
+  assert.equal(putRes1.http_status, 400);
+  assert.equal(putRes1.error_code, 'InvalidDigest');
+  assert.notEqual(putRes1.http_status, 200);
+
+  const errRes1 = dispatchS3Error(throwingProxyAllTraps);
+  assert.equal(errRes1.http_status, 400);
+  assert.equal(errRes1.error_code, 'InvalidDigest');
+  assert.notEqual(errRes1.http_status, 200);
+
+  // 2. Proxy with valid payload that throws on get
+  const payloadBytes = Buffer.from('CYBRIK_IMMUTABLE_EVIDENCE_2026');
+  const validSha = computePayloadSha256(payloadBytes);
+  const throwingGetProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack get ${String(prop)}`);
+    },
+  });
+
+  const putRes2 = dispatchS3PutObject(throwingGetProxy);
+  assert.equal(putRes2.http_status, 400);
+  assert.equal(putRes2.error_code, 'InvalidDigest');
+  assert.notEqual(putRes2.http_status, 200);
+
+  const errRes2 = dispatchS3Error(throwingGetProxy);
+  assert.equal(errRes2.http_status, 400);
+  assert.equal(errRes2.error_code, 'InvalidDigest');
+  assert.notEqual(errRes2.http_status, 200);
+
+  // 3. Proxy that throws on getOwnPropertyDescriptor
+  const throwingDescProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    getOwnPropertyDescriptor(target, prop) {
+      throw new Error(`attack getOwnPropertyDescriptor ${String(prop)}`);
+    },
+  });
+
+  const putRes3 = dispatchS3PutObject(throwingDescProxy);
+  assert.equal(putRes3.http_status, 400);
+  assert.equal(putRes3.error_code, 'InvalidDigest');
+  assert.notEqual(putRes3.http_status, 200);
+
+  const errRes3 = dispatchS3Error(throwingDescProxy);
+  assert.equal(errRes3.http_status, 400);
+  assert.equal(errRes3.error_code, 'InvalidDigest');
+  assert.notEqual(errRes3.http_status, 200);
+
+  // 4. Proxy that throws on ownKeys
+  const throwingKeysProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    ownKeys() {
+      throw new Error('attack ownKeys');
+    },
+  });
+
+  const putRes4 = dispatchS3PutObject(throwingKeysProxy);
+  assert.equal(putRes4.http_status, 400);
+  assert.equal(putRes4.error_code, 'InvalidDigest');
+  assert.notEqual(putRes4.http_status, 200);
+
+  const errRes4 = dispatchS3Error(throwingKeysProxy);
+  assert.equal(errRes4.http_status, 400);
+  assert.equal(errRes4.error_code, 'InvalidDigest');
+  assert.notEqual(errRes4.http_status, 200);
+
+  // 5. Proxy that throws on getPrototypeOf
+  const throwingProtoProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    getPrototypeOf() {
+      throw new Error('attack getPrototypeOf');
+    },
+  });
+
+  const putRes5 = dispatchS3PutObject(throwingProtoProxy);
+  assert.equal(putRes5.http_status, 400);
+  assert.equal(putRes5.error_code, 'InvalidDigest');
+  assert.notEqual(putRes5.http_status, 200);
+
+  const errRes5 = dispatchS3Error(throwingProtoProxy);
+  assert.equal(errRes5.http_status, 400);
+  assert.equal(errRes5.error_code, 'InvalidDigest');
+  assert.notEqual(errRes5.http_status, 200);
+});
+
+test('unit regression: prototype-chain payload and code accessors return HTTP 400 InvalidDigest MALFORMED_PAYLOAD_TYPE (OPEN-2)', () => {
+  const validPayload = Buffer.from('CYBRIK_PROTO_ACCESSOR_TEST');
+  const validSha = computePayloadSha256(validPayload);
+
+  // 1. Prototype-chain getter for payload
+  const protoWithPayloadGetter = Object.create({
+    get payload() {
+      return validPayload;
+    },
+  });
+  protoWithPayloadGetter['x-amz-content-sha256'] = validSha;
+
+  const putRes1 = dispatchS3PutObject(protoWithPayloadGetter);
+  assert.equal(putRes1.http_status, 400);
+  assert.equal(putRes1.error_code, 'InvalidDigest');
+  assert.equal(putRes1.status, 400);
+  assert.equal(putRes1.code, 'InvalidDigest');
+  assert.equal(putRes1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes1 = dispatchS3Error(protoWithPayloadGetter);
+  assert.equal(errRes1.http_status, 400);
+  assert.equal(errRes1.error_code, 'InvalidDigest');
+  assert.equal(errRes1.status, 400);
+  assert.equal(errRes1.code, 'InvalidDigest');
+  assert.equal(errRes1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Prototype-chain throwing getter for payload
+  const protoWithThrowingPayloadGetter = Object.create({
+    get payload() {
+      throw new Error('attack prototype payload');
+    },
+  });
+  const putRes2 = dispatchS3PutObject(protoWithThrowingPayloadGetter);
+  assert.equal(putRes2.http_status, 400);
+  assert.equal(putRes2.error_code, 'InvalidDigest');
+  assert.equal(putRes2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes2 = dispatchS3Error(protoWithThrowingPayloadGetter);
+  assert.equal(errRes2.http_status, 400);
+  assert.equal(errRes2.error_code, 'InvalidDigest');
+  assert.equal(errRes2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Prototype-chain getter for payloadBytes
+  const protoWithPayloadBytesGetter = Object.create({
+    get payloadBytes() {
+      return validPayload;
+    },
+  });
+  const putRes3 = dispatchS3PutObject(protoWithPayloadBytesGetter);
+  assert.equal(putRes3.http_status, 400);
+  assert.equal(putRes3.error_code, 'InvalidDigest');
+  assert.equal(putRes3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes3 = dispatchS3Error(protoWithPayloadBytesGetter);
+  assert.equal(errRes3.http_status, 400);
+  assert.equal(errRes3.error_code, 'InvalidDigest');
+  assert.equal(errRes3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 4. Prototype-chain getter for body
+  const protoWithBodyGetter = Object.create({
+    get body() {
+      return validPayload;
+    },
+  });
+  const putRes4 = dispatchS3PutObject(protoWithBodyGetter);
+  assert.equal(putRes4.http_status, 400);
+  assert.equal(putRes4.error_code, 'InvalidDigest');
+  assert.equal(putRes4.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes4 = dispatchS3Error(protoWithBodyGetter);
+  assert.equal(errRes4.http_status, 400);
+  assert.equal(errRes4.error_code, 'InvalidDigest');
+  assert.equal(errRes4.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 5. Prototype-chain getter for code
+  const protoWithCodeGetter = Object.create({
+    get code() {
+      return 'BadDigest';
+    },
+  });
+  const putRes5 = dispatchS3PutObject(protoWithCodeGetter);
+  assert.equal(putRes5.http_status, 400);
+  assert.equal(putRes5.error_code, 'InvalidDigest');
+  assert.equal(putRes5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes5 = dispatchS3Error(protoWithCodeGetter);
+  assert.equal(errRes5.http_status, 400);
+  assert.equal(errRes5.error_code, 'InvalidDigest');
+  assert.equal(errRes5.status, 400);
+  assert.equal(errRes5.code, 'InvalidDigest');
+  assert.equal(errRes5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 6. Prototype-chain throwing getter for code
+  const protoWithThrowingCodeGetter = Object.create({
+    get code() {
+      throw new Error('attack prototype code');
+    },
+  });
+  const putRes6 = dispatchS3PutObject(protoWithThrowingCodeGetter);
+  assert.equal(putRes6.http_status, 400);
+  assert.equal(putRes6.error_code, 'InvalidDigest');
+  assert.equal(putRes6.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes6 = dispatchS3Error(protoWithThrowingCodeGetter);
+  assert.equal(errRes6.http_status, 400);
+  assert.equal(errRes6.error_code, 'InvalidDigest');
+  assert.equal(errRes6.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 7. Class instance with prototype getters
+  class PrototypePayloadHolder {
+    get payload() {
+      return validPayload;
+    }
+  }
+  const classInstance = new PrototypePayloadHolder();
+  const putClassRes = dispatchS3PutObject(classInstance);
+  assert.equal(putClassRes.http_status, 400);
+  assert.equal(putClassRes.error_code, 'InvalidDigest');
+  assert.equal(putClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errClassRes = dispatchS3Error(classInstance);
+  assert.equal(errClassRes.http_status, 400);
+  assert.equal(errClassRes.error_code, 'InvalidDigest');
+  assert.equal(errClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 });

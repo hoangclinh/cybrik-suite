@@ -92,6 +92,9 @@ jobs:
       - name: Run contract validation test suites
         run: npm --prefix tools/contract-validation test
 
+      - name: Enforce branch coverage floor across validation test suites
+        run: npm --prefix tools/contract-validation run test:coverage
+
       - name: Test accepted W1 static contract lines (exactly 98 tests)
         working-directory: tools/contract-validation
         run: npm run test:w1-contracts

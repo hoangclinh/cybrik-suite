@@ -85,9 +85,6 @@
     },
     "required_operations": {
       "type": "array",
-      "items": {
-        "$ref": "#/$defs/s3OperationName"
-      },
       "uniqueItems": true
     },
     "addressing_style": {
@@ -135,7 +132,108 @@
     "properties": {
       "required_operations": {
         "minItems": 19,
-        "maxItems": 19
+        "maxItems": 19,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/s3OperationName"
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "PutObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "HeadObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "DeleteObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "DeleteObjects"
+            }
+          },
+          {
+            "contains": {
+              "const": "ListObjectsV2"
+            }
+          },
+          {
+            "contains": {
+              "const": "HeadBucket"
+            }
+          },
+          {
+            "contains": {
+              "const": "CreateBucket"
+            }
+          },
+          {
+            "contains": {
+              "const": "CreateMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "UploadPart"
+            }
+          },
+          {
+            "contains": {
+              "const": "CompleteMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "AbortMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "ListParts"
+            }
+          },
+          {
+            "contains": {
+              "const": "PutBucketVersioning"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetBucketVersioning"
+            }
+          },
+          {
+            "contains": {
+              "const": "PutObjectRetention"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetObjectRetention"
+            }
+          },
+          {
+            "contains": {
+              "const": "PutObjectLegalHold"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetObjectLegalHold"
+            }
+          }
+        ]
       }
     }
   },
@@ -143,12 +241,113 @@
     "properties": {
       "required_operations": {
         "minItems": 15,
-        "maxItems": 15
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/s3BaselineOperationName"
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "PutObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "HeadObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "DeleteObject"
+            }
+          },
+          {
+            "contains": {
+              "const": "DeleteObjects"
+            }
+          },
+          {
+            "contains": {
+              "const": "ListObjectsV2"
+            }
+          },
+          {
+            "contains": {
+              "const": "HeadBucket"
+            }
+          },
+          {
+            "contains": {
+              "const": "CreateBucket"
+            }
+          },
+          {
+            "contains": {
+              "const": "CreateMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "UploadPart"
+            }
+          },
+          {
+            "contains": {
+              "const": "CompleteMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "AbortMultipartUpload"
+            }
+          },
+          {
+            "contains": {
+              "const": "ListParts"
+            }
+          },
+          {
+            "contains": {
+              "const": "PutBucketVersioning"
+            }
+          },
+          {
+            "contains": {
+              "const": "GetBucketVersioning"
+            }
+          }
+        ]
       }
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "s3BaselineOperationName": {
+      "type": "string",
+      "enum": [
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning"
+      ]
+    },
     "s3OperationName": {
       "type": "string",
       "enum": [
@@ -337,9 +536,6 @@
         },
         "required_operations": {
           "type": "array",
-          "items": {
-            "$ref": "#/$defs/s3OperationName"
-          },
           "uniqueItems": true
         },
         "addressing_style": {
@@ -384,7 +580,108 @@
         "properties": {
           "required_operations": {
             "minItems": 19,
-            "maxItems": 19
+            "maxItems": 19,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/s3OperationName"
+            },
+            "allOf": [
+              {
+                "contains": {
+                  "const": "PutObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "HeadObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "DeleteObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "DeleteObjects"
+                }
+              },
+              {
+                "contains": {
+                  "const": "ListObjectsV2"
+                }
+              },
+              {
+                "contains": {
+                  "const": "HeadBucket"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CreateBucket"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CreateMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "UploadPart"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CompleteMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "AbortMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "ListParts"
+                }
+              },
+              {
+                "contains": {
+                  "const": "PutBucketVersioning"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetBucketVersioning"
+                }
+              },
+              {
+                "contains": {
+                  "const": "PutObjectRetention"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetObjectRetention"
+                }
+              },
+              {
+                "contains": {
+                  "const": "PutObjectLegalHold"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetObjectLegalHold"
+                }
+              }
+            ]
           }
         }
       },
@@ -392,7 +689,88 @@
         "properties": {
           "required_operations": {
             "minItems": 15,
-            "maxItems": 15
+            "maxItems": 15,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/s3BaselineOperationName"
+            },
+            "allOf": [
+              {
+                "contains": {
+                  "const": "PutObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "HeadObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "DeleteObject"
+                }
+              },
+              {
+                "contains": {
+                  "const": "DeleteObjects"
+                }
+              },
+              {
+                "contains": {
+                  "const": "ListObjectsV2"
+                }
+              },
+              {
+                "contains": {
+                  "const": "HeadBucket"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CreateBucket"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CreateMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "UploadPart"
+                }
+              },
+              {
+                "contains": {
+                  "const": "CompleteMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "AbortMultipartUpload"
+                }
+              },
+              {
+                "contains": {
+                  "const": "ListParts"
+                }
+              },
+              {
+                "contains": {
+                  "const": "PutBucketVersioning"
+                }
+              },
+              {
+                "contains": {
+                  "const": "GetBucketVersioning"
+                }
+              }
+            ]
           }
         }
       },

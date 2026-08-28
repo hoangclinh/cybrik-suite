@@ -405,6 +405,7 @@ export function getOwn(obj, prop) {
     const desc = Object.getOwnPropertyDescriptor(obj, prop);
     if (!desc) return undefined;
     if (desc.get !== undefined || desc.set !== undefined) return undefined;
+    void obj[prop];
     return desc.value;
   } catch {
     return undefined;
@@ -414,9 +415,9 @@ export function getOwn(obj, prop) {
 export function hasOwnAccessors(obj) {
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
   try {
-    const descriptors = Object.getOwnPropertyDescriptors(obj);
-    for (const key of Reflect.ownKeys(descriptors)) {
-      const desc = descriptors[key];
+    const keys = Reflect.ownKeys(obj);
+    for (const key of keys) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
       if (desc && (desc.get !== undefined || desc.set !== undefined)) {
         return true;
       }
@@ -441,7 +442,24 @@ export function hasOwnHeadersAccessors(obj) {
       }
     }
   } catch {
-    return false;
+    return true;
+  }
+  return false;
+}
+
+export function hasPrototypeChainAccessor(obj, prop) {
+  if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
+  try {
+    let curr = Object.getPrototypeOf(obj);
+    while (curr) {
+      const desc = Object.getOwnPropertyDescriptor(curr, prop);
+      if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+        return true;
+      }
+      curr = Object.getPrototypeOf(curr);
+    }
+  } catch {
+    return true;
   }
   return false;
 }
@@ -449,30 +467,35 @@ export function hasOwnHeadersAccessors(obj) {
 const isPlainOrNull = (o) => o !== null && typeof o === 'object' && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
 
 export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha256Header) {
-  if (hasOwnHeadersAccessors(optionsOrPayload)) {
-    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-  }
+  try {
+    if (hasOwnHeadersAccessors(optionsOrPayload)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
 
-  if (
-    optionsOrPayload === undefined ||
-    optionsOrPayload === null ||
-    typeof optionsOrPayload === 'function' ||
-    typeof optionsOrPayload === 'number' ||
-    typeof optionsOrPayload === 'boolean' ||
-    typeof optionsOrPayload === 'symbol' ||
-    typeof optionsOrPayload === 'bigint' ||
-    Array.isArray(optionsOrPayload) ||
-    optionsOrPayload instanceof Date ||
-    optionsOrPayload instanceof RegExp ||
-    optionsOrPayload instanceof Error ||
-    optionsOrPayload instanceof Map ||
-    optionsOrPayload instanceof Set ||
-    optionsOrPayload instanceof ArrayBuffer ||
-    (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
-    hasOwnAccessors(optionsOrPayload)
-  ) {
-    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
-  }
+    if (
+      optionsOrPayload === undefined ||
+      optionsOrPayload === null ||
+      typeof optionsOrPayload === 'function' ||
+      typeof optionsOrPayload === 'number' ||
+      typeof optionsOrPayload === 'boolean' ||
+      typeof optionsOrPayload === 'symbol' ||
+      typeof optionsOrPayload === 'bigint' ||
+      Array.isArray(optionsOrPayload) ||
+      optionsOrPayload instanceof Date ||
+      optionsOrPayload instanceof RegExp ||
+      optionsOrPayload instanceof Error ||
+      optionsOrPayload instanceof Map ||
+      optionsOrPayload instanceof Set ||
+      optionsOrPayload instanceof ArrayBuffer ||
+      (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
+      hasOwnAccessors(optionsOrPayload) ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'payload') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'payloadBytes') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'body') ||
+      hasPrototypeChainAccessor(optionsOrPayload, 'code')
+    ) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
 
   let payloadBytes;
   let md5Val;
@@ -481,20 +504,17 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
 
   if (optionsOrPayload && typeof optionsOrPayload === 'object' && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array) && !Array.isArray(optionsOrPayload)) {
     if (!isPlainOrNull(optionsOrPayload)) {
-      if (optionsOrPayload instanceof Date || (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array))) {
-        return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
-      }
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     const req = optionsOrPayload;
     if ('payload' in req && !Object.prototype.hasOwnProperty.call(req, 'payload')) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     if ('payloadBytes' in req && !Object.prototype.hasOwnProperty.call(req, 'payloadBytes')) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     if ('body' in req && !Object.prototype.hasOwnProperty.call(req, 'body')) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     let headersObj = null;
     if ('headers' in req) {
@@ -644,7 +664,10 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
     }
   }
 
-  return { http_status: 200, error_code: null, status: 200, code: null };
+    return { http_status: 200, error_code: null, status: 200, code: null };
+  } catch {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+  }
 }
 
 export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeStoredParts) {
@@ -842,30 +865,35 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 }
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
-  if (hasOwnHeadersAccessors(conditionOrOptions)) {
-    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
-  }
+  try {
+    if (hasOwnHeadersAccessors(conditionOrOptions)) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+    }
 
-  if (
-    conditionOrOptions === undefined ||
-    conditionOrOptions === null ||
-    typeof conditionOrOptions === 'function' ||
-    typeof conditionOrOptions === 'number' ||
-    typeof conditionOrOptions === 'boolean' ||
-    typeof conditionOrOptions === 'symbol' ||
-    typeof conditionOrOptions === 'bigint' ||
-    Array.isArray(conditionOrOptions) ||
-    conditionOrOptions instanceof Date ||
-    conditionOrOptions instanceof RegExp ||
-    conditionOrOptions instanceof Error ||
-    conditionOrOptions instanceof Map ||
-    conditionOrOptions instanceof Set ||
-    conditionOrOptions instanceof ArrayBuffer ||
-    (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
-    hasOwnAccessors(conditionOrOptions)
-  ) {
-    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
-  }
+    if (
+      conditionOrOptions === undefined ||
+      conditionOrOptions === null ||
+      typeof conditionOrOptions === 'function' ||
+      typeof conditionOrOptions === 'number' ||
+      typeof conditionOrOptions === 'boolean' ||
+      typeof conditionOrOptions === 'symbol' ||
+      typeof conditionOrOptions === 'bigint' ||
+      Array.isArray(conditionOrOptions) ||
+      conditionOrOptions instanceof Date ||
+      conditionOrOptions instanceof RegExp ||
+      conditionOrOptions instanceof Error ||
+      conditionOrOptions instanceof Map ||
+      conditionOrOptions instanceof Set ||
+      conditionOrOptions instanceof ArrayBuffer ||
+      (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
+      hasOwnAccessors(conditionOrOptions) ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'payload') ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'payloadBytes') ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'body') ||
+      hasPrototypeChainAccessor(conditionOrOptions, 'code')
+    ) {
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
 
   const isRequestShape =
     arguments.length >= 2 ||
@@ -908,7 +936,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           error_code: 'InvalidDigest',
           status: 400,
           code: 'InvalidDigest',
-          reason: 'MALFORMED_HEADER_SYNTAX',
+          reason: 'MALFORMED_PAYLOAD_TYPE',
         };
       }
       if ('payload' in conditionOrOptions && !Object.prototype.hasOwnProperty.call(conditionOrOptions, 'payload')) {
@@ -917,7 +945,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           error_code: 'InvalidDigest',
           status: 400,
           code: 'InvalidDigest',
-          reason: 'MALFORMED_HEADER_SYNTAX',
+          reason: 'MALFORMED_PAYLOAD_TYPE',
         };
       }
       if ('payloadBytes' in conditionOrOptions && !Object.prototype.hasOwnProperty.call(conditionOrOptions, 'payloadBytes')) {
@@ -926,7 +954,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           error_code: 'InvalidDigest',
           status: 400,
           code: 'InvalidDigest',
-          reason: 'MALFORMED_HEADER_SYNTAX',
+          reason: 'MALFORMED_PAYLOAD_TYPE',
         };
       }
       if ('body' in conditionOrOptions && !Object.prototype.hasOwnProperty.call(conditionOrOptions, 'body')) {
@@ -935,7 +963,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
           error_code: 'InvalidDigest',
           status: 400,
           code: 'InvalidDigest',
-          reason: 'MALFORMED_HEADER_SYNTAX',
+          reason: 'MALFORMED_PAYLOAD_TYPE',
         };
       }
       if ('headers' in conditionOrOptions) {
@@ -1314,7 +1342,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   if (conditionOrOptions && typeof conditionOrOptions === 'object') {
     const proto = Object.getPrototypeOf(conditionOrOptions);
     if (proto !== Object.prototype && proto !== null) {
-      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
+      return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
     }
     const code = getOwn(conditionOrOptions, 'error_code') ?? getOwn(conditionOrOptions, 'code');
     const reason = getOwn(conditionOrOptions, 'error_condition') ?? getOwn(conditionOrOptions, 'reason');
@@ -1488,13 +1516,16 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
     }
   }
 
-  return {
-    http_status: 400,
-    error_code: 'BadDigest',
-    status: 400,
-    code: 'BadDigest',
-    reason: 'PAYLOAD_DIGEST_MISMATCH',
-  };
+    return {
+      http_status: 400,
+      error_code: 'BadDigest',
+      status: 400,
+      code: 'BadDigest',
+      reason: 'PAYLOAD_DIGEST_MISMATCH',
+    };
+  } catch {
+    return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+  }
 }
 
 export function verifyDigestErrorDispatch(payloadOrCondition, maybeHeader, maybeSha) {
@@ -1816,7 +1847,7 @@ export function validateS3ConformanceProfileSemantics(profile) {
       }
       seenOps.add(op);
       if (!S3_19_OPERATIONS.has(op)) {
-        throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${op}' outside closed 17-operation baseline`);
+        throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${op}' outside 19 closed S3 operations`);
       }
     }
 
@@ -1835,7 +1866,7 @@ export function validateS3ConformanceProfileSemantics(profile) {
     // 2. Verify that ALL 15 baseline operations (S3_15_OPERATIONS) are present
     for (const op of S3_15_BASELINE_OPS) {
       if (!seenOps.has(op)) {
-        throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 15-operation baseline (storage conformance profile missing required baseline S3 operation '${op}') (missing mandatory baseline S3 operation '${op}')`);
+        throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 15 baseline S3 operations (storage conformance profile missing required baseline S3 operation '${op}') (missing mandatory baseline S3 operation '${op}')`);
       }
     }
 
@@ -1843,7 +1874,7 @@ export function validateS3ConformanceProfileSemantics(profile) {
     if (isLockSupported) {
       for (const op of S3_19_CLOSED_OPS) {
         if (!seenOps.has(op)) {
-          throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline) (missing required Object Lock S3 operation '${op}') (storage conformance profile with object_lock_supported: true missing required Object Lock S3 operation '${op}')`);
+          throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19 closed S3 operations (missing required Object Lock S3 operation '${op}') (storage conformance profile with object_lock_supported: true missing required Object Lock S3 operation '${op}')`);
         }
       }
       if (profile.required_operations.length !== 19) {
@@ -2000,7 +2031,7 @@ export function validatePlatformSemantics(data, schemaId) {
             seenFeats.add(f);
             if (cap.slot_id === 'storage') {
               if (!S3_19_OPERATIONS.has(f)) {
-                throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+                throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside 19 closed S3 operations`);
               }
             }
           }
@@ -2285,15 +2316,15 @@ export function validatePlatformSemantics(data, schemaId) {
         // 1. Enforce that ALL 15 baseline operations (S3_15_OPERATIONS) are present
         for (const op of S3_15_BASELINE_OPS) {
           if (!featureSet.has(op)) {
-            throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline)`);
+            throw new Error(`Semantic error: storage slot advertisement missing required S3 operation '${op}' from 15 baseline S3 operations`);
           }
         }
 
-        // 2. If immutable_storage_required is true or lock intent is declared: enforce that ALL 19 operations (S3_19_OPERATIONS) are present (rejecting partial 17-op sets that omit versioning)
+        // 2. If immutable_storage_required is true or lock intent is declared: enforce that ALL 19 operations (S3_19_OPERATIONS) are present (rejecting partial sets that omit versioning or object lock)
         if (immutableStorageRequired || isLockDeclared) {
           for (const op of S3_19_CLOSED_OPS) {
             if (!featureSet.has(op)) {
-              throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19-operation closed set (storage slot advertisement missing required S3 operation '${op}' from 17-operation baseline)`);
+              throw new Error(`Semantic error: immutable storage capability advertisement missing required S3 operation '${op}' from 19 closed S3 operations`);
             }
           }
         }
@@ -2302,7 +2333,7 @@ export function validatePlatformSemantics(data, schemaId) {
         if (Array.isArray(storageCap.supported_features)) {
           for (const f of storageCap.supported_features) {
             if (!S3_19_OPERATIONS.has(f)) {
-              throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside closed 17-operation baseline`);
+              throw new Error(`Semantic error: storage slot advertisement contains unauthorized operation '${f}' outside 19 closed S3 operations`);
             }
           }
         }
@@ -2799,7 +2830,7 @@ if (existsSync(join(PLATFORM_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      const filteredErrors = validate.errors.filter(e => e.keyword !== 'if');
+      const filteredErrors = validate.errors.filter(e => e.keyword !== 'if' && !e.schemaPath.includes('/contains'));
       if (filteredErrors.length !== 1) {
         fail(`platform negative example ${file}: expected exactly 1 error, got ${filteredErrors.length}`);
       }
@@ -2967,7 +2998,7 @@ if (existsSync(join(STORAGE_EXAMPLES_DIR, 'negative'))) {
     bump('negative_schema_total');
     if (!ok) {
       bump('negative_schema_reject');
-      const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if');
+      const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if' && !e.schemaPath.includes('/contains'));
       if (filteredErrors.length !== 1) {
         fail(`storage negative example ${file}: expected exactly 1 error, got ${filteredErrors.length}: ${JSON.stringify(filteredErrors)}`);
       } else {
@@ -3575,26 +3606,26 @@ try {
   H('28c', e.message.includes('ACTIVE_OPTIMAL lease cannot contain degraded capability'), 'degradation coupling check must reject degraded capabilities in ACTIVE_OPTIMAL lease');
 }
 
-// 29a. in-memory validation: reject storage capability missing 17-op baseline operations
+// 29a. in-memory validation: reject storage capability missing 15 baseline S3 operations
 const pcnStorageMissingOp = JSON.parse(JSON.stringify(pcnSample));
 const storeCap = pcnStorageMissingOp.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
 storeCap.supported_features = storeCap.supported_features.filter(f => f !== 'PutObjectRetention');
 try {
   validatePlatformSemantics(pcnStorageMissingOp, pcnSchemaId);
-  fail('storage 17-op baseline: expected validatePlatformSemantics to throw when S3 operation is missing');
+  fail('storage 15 baseline S3 operations: expected validatePlatformSemantics to throw when S3 operation is missing');
 } catch (e) {
-  H('29a', e.message.includes('missing required S3 operation'), 'storage 17-op baseline check must catch missing operations');
+  H('29a', e.message.includes('missing required S3 operation'), 'storage 15 baseline S3 operations check must catch missing operations');
 }
 
-// 29a-2. in-memory validation: reject storage capability containing surplus operations outside closed 17-op baseline
+// 29a-2. in-memory validation: reject storage capability containing surplus operations outside 19 closed S3 operations
 const pcnStorageSurplusOp = JSON.parse(JSON.stringify(pcnSample));
 const storeCapSurplus = pcnStorageSurplusOp.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
 storeCapSurplus.supported_features.push('SurplusUnauthorizedOperation');
 try {
   validatePlatformSemantics(pcnStorageSurplusOp, pcnSchemaId);
-  fail('storage 17-op closed baseline: expected validatePlatformSemantics to throw on surplus unauthorized operation');
+  fail('storage 19 closed S3 operations: expected validatePlatformSemantics to throw on surplus unauthorized operation');
 } catch (e) {
-  H('29a-2', e.message.includes('outside closed 17-operation baseline'), 'storage slot advertisement contains unauthorized operation outside closed 17-operation baseline check must throw');
+  H('29a-2', e.message.includes('outside 19 closed S3 operations'), 'storage slot advertisement contains unauthorized operation outside 19 closed S3 operations check must throw');
 }
 
 // 29b. in-memory validation: reject storage capability missing Object Lock retention evidence
@@ -3803,18 +3834,18 @@ H('30i', pcnDupLeaseKeyCaught, 'duplicate composite key in agreed_capability_lea
 // ---------------------------------------------------------------------------
 // S3 compatibility subset in-memory assertions (OPEN-2).
 // ---------------------------------------------------------------------------
-// 26. S3 closed 17-operation catalog assertions
-const CLOSED_17_S3_OPERATIONS = [
+// 26. S3 closed 19-operation catalog assertions
+const CLOSED_19_S3_OPERATIONS = [
   'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
   'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
   'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
   'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
-  'AbortMultipartUpload', 'ListParts'
+  'AbortMultipartUpload', 'ListParts', 'PutBucketVersioning', 'GetBucketVersioning'
 ];
 const s3OpValidator = ajv.getSchema(S3_OP_DEF_ID);
-const s3OpsAllValid = !!s3OpValidator && CLOSED_17_S3_OPERATIONS.every(op => s3OpValidator(op));
+const s3OpsAllValid = !!s3OpValidator && CLOSED_19_S3_OPERATIONS.every(op => s3OpValidator(op));
 const s3BadOpsRejected = !s3OpValidator('PutObjectAclUnsupported') && !s3OpValidator('RestoreObjectTier') && !s3OpValidator('ListBuckets');
-H('26', s3OpsAllValid && s3BadOpsRejected, 'S3 closed 17-operation catalog must accept all 17 operations and reject non-S3 operations');
+H('26', s3OpsAllValid && s3BadOpsRejected, 'S3 closed 19-operation catalog must accept all 19 operations and reject non-S3 operations');
 
 // 27. S3 closed 13-error codes assertions
 const CLOSED_13_S3_ERROR_CODES = [
@@ -4135,6 +4166,56 @@ if (errHdrInnerGetterRes.http_status !== 400 || errHdrInnerGetterRes.error_code 
 if (hasOwnHeadersAccessors(headersGetterObj) !== true) typeGatePass = false;
 if (hasOwnHeadersAccessors(headersInnerGetterObj) !== true) typeGatePass = false;
 if (hasOwnHeadersAccessors(getterObj) !== false) typeGatePass = false;
+
+// Adversarial throwing Proxy descriptor safety assertions
+const throwingDescProxyObj = new Proxy({}, {
+  getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+  ownKeys() { throw new Error('attack ownKeys'); }
+});
+if (hasOwnAccessors(throwingDescProxyObj) !== true) typeGatePass = false;
+if (hasOwnHeadersAccessors(throwingDescProxyObj) !== true) typeGatePass = false;
+
+const throwingHeadersProxyObj = {
+  headers: new Proxy({}, {
+    getOwnPropertyDescriptor() { throw new Error('attack headers getOwnPropertyDescriptor'); },
+    ownKeys() { throw new Error('attack headers ownKeys'); }
+  })
+};
+if (hasOwnHeadersAccessors(throwingHeadersProxyObj) !== true) typeGatePass = false;
+const putThrowingHdrRes = dispatchS3PutObject(throwingHeadersProxyObj);
+const errThrowingHdrRes = dispatchS3Error(throwingHeadersProxyObj);
+if (putThrowingHdrRes.http_status !== 400 || putThrowingHdrRes.error_code !== 'InvalidDigest' || putThrowingHdrRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+if (errThrowingHdrRes.http_status !== 400 || errThrowingHdrRes.error_code !== 'InvalidDigest' || errThrowingHdrRes.reason !== 'MALFORMED_HEADER_SYNTAX') typeGatePass = false;
+
+// Non-plain prototype taxonomy assertions (options without headers accessor -> MALFORMED_PAYLOAD_TYPE)
+const nonPlainOpt = Object.create({ payload: realPayloadBytes, 'x-amz-content-sha256': realSha256 });
+const putNonPlainRes = dispatchS3PutObject(nonPlainOpt);
+const errNonPlainRes = dispatchS3Error(nonPlainOpt);
+if (putNonPlainRes.http_status !== 400 || putNonPlainRes.error_code !== 'InvalidDigest' || putNonPlainRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errNonPlainRes.http_status !== 400 || errNonPlainRes.error_code !== 'InvalidDigest' || errNonPlainRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+const protoPayloadGetter = Object.create({ get payload() { return realPayloadBytes; } });
+const protoCodeGetter = Object.create({ get code() { return 'InvalidDigest'; } });
+const putProtoPayloadRes = dispatchS3PutObject(protoPayloadGetter);
+const errProtoPayloadRes = dispatchS3Error(protoPayloadGetter);
+const putProtoCodeRes = dispatchS3PutObject(protoCodeGetter);
+const errProtoCodeRes = dispatchS3Error(protoCodeGetter);
+if (putProtoPayloadRes.http_status !== 400 || putProtoPayloadRes.error_code !== 'InvalidDigest' || putProtoPayloadRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errProtoPayloadRes.http_status !== 400 || errProtoPayloadRes.error_code !== 'InvalidDigest' || errProtoPayloadRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (putProtoCodeRes.http_status !== 400 || putProtoCodeRes.error_code !== 'InvalidDigest' || putProtoCodeRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+if (errProtoCodeRes.http_status !== 400 || errProtoCodeRes.error_code !== 'InvalidDigest' || errProtoCodeRes.reason !== 'MALFORMED_PAYLOAD_TYPE') typeGatePass = false;
+
+const throwingProxyObj = new Proxy({}, {
+  get() { throw new Error('Proxy trap get error'); },
+  has() { throw new Error('Proxy trap has error'); },
+  ownKeys() { throw new Error('Proxy trap ownKeys error'); },
+  getOwnPropertyDescriptor() { throw new Error('Proxy trap getOwnPropertyDescriptor error'); },
+  getPrototypeOf() { throw new Error('Proxy trap getPrototypeOf error'); },
+});
+const putThrowingProxyRes = dispatchS3PutObject(throwingProxyObj);
+const errThrowingProxyRes = dispatchS3Error(throwingProxyObj);
+if (putThrowingProxyRes.http_status !== 400 || putThrowingProxyRes.error_code !== 'InvalidDigest') typeGatePass = false;
+if (errThrowingProxyRes.http_status !== 400 || errThrowingProxyRes.error_code !== 'InvalidDigest') typeGatePass = false;
 
 if (getOwn(getterObj, 'payload') !== undefined) typeGatePass = false;
 if (getOwn({ set payload(v) {} }, 'payload') !== undefined) typeGatePass = false;

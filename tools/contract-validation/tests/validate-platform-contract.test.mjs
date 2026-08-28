@@ -6,7 +6,7 @@ import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateS3ConformanceProfileSemantics, dispatchS3Error, dispatchS3PutObject, computePayloadMd5, computePayloadSha256, isMalformedBase64Md5, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, hasOwnAccessors, hasOwnHeadersAccessors } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
 const addFormats = addFormatsModule.default || addFormatsModule;
@@ -116,7 +116,7 @@ test('validate negative platform fixtures', () => {
     const valid = ajv.validate(schemaId, data);
     assert.ok(!valid, `Negative fixture ${file} incorrectly passed validation`);
 
-    const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if');
+    const filteredErrors = ajv.errors.filter(e => e.keyword !== 'if' && !e.schemaPath.includes('/contains'));
     assert.equal(filteredErrors.length, 1, `Expected exactly 1 error for ${file}, got ${filteredErrors.length}: ${ajv.errorsText()}`);
 
     const expected = EXPECTED_NEGATIVES[file];
@@ -6101,39 +6101,39 @@ test('in-memory validation: partial storage advertisements with <17 ops or nonca
     'Baseline partial storage advertisement with 19 ops must pass validatePlatformSemantics'
   );
 
-  // 2. Negative: Partial storage advertisement with 0 ops (<17 ops) is rejected
+  // 2. Negative: Partial storage advertisement with 0 ops (<15 ops) is rejected
   const zeroOpsAdv = buildPartialStorageAdv([]);
   assert.throws(
     () => validatePlatformSemantics(zeroOpsAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation .* from 17-operation baseline/
+    /storage slot advertisement missing required S3 operation .* from 15 baseline S3 operations/
   );
 
   // 3. Negative: Partial storage advertisement with subset (e.g. 2 ops) is rejected
   const twoOpsAdv = buildPartialStorageAdv(['PutObject', 'GetObject']);
   assert.throws(
     () => validatePlatformSemantics(twoOpsAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'HeadObject' from 17-operation baseline/
+    /storage slot advertisement missing required S3 operation 'HeadObject' from 15 baseline S3 operations/
   );
 
   // 4. Negative: Partial storage advertisement with 18 ops (missing CompleteMultipartUpload) is rejected
   const missingCompleteAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'CompleteMultipartUpload'));
   assert.throws(
     () => validatePlatformSemantics(missingCompleteAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'CompleteMultipartUpload' from 17-operation baseline/
+    /storage slot advertisement missing required S3 operation 'CompleteMultipartUpload' from 15 baseline S3 operations/
   );
 
   // 5. Negative: Partial storage advertisement with 18 ops (missing PutObjectRetention) is rejected
   const missingRetentionAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'PutObjectRetention'));
   assert.throws(
     () => validatePlatformSemantics(missingRetentionAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'PutObjectRetention' from 17-operation baseline/
+    /immutable storage capability advertisement missing required S3 operation 'PutObjectRetention' from 19 closed S3 operations/
   );
 
   // 5b. Negative: Partial storage advertisement with 17 ops (missing PutBucketVersioning) is rejected
   const missingVersioningAdv = buildPartialStorageAdv(ALL_19_OPS.filter(op => op !== 'PutBucketVersioning'));
   assert.throws(
     () => validatePlatformSemantics(missingVersioningAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 17-operation baseline/
+    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 15 baseline S3 operations/
   );
 
   // 6. Negative: Partial storage advertisement with noncanonical Object Lock aliases strictly rejected
@@ -6650,7 +6650,7 @@ test('schema validation: s3OperationName enum constraints on slot storage suppor
   assert.ok(validOci, 'Non-storage slots must allow arbitrary non-empty feature names');
 });
 
-test('storage slot advertisement with surplus operations outside closed 17-op baseline fails semantic validation (OPEN-2 / OPEN-5)', () => {
+test('storage slot advertisement with surplus operations outside 19 closed S3 operations fails semantic validation (OPEN-2 / OPEN-5)', () => {
   const schemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
   const sample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json'), 'utf8'));
 
@@ -6661,7 +6661,7 @@ test('storage slot advertisement with surplus operations outside closed 17-op ba
 
   assert.throws(
     () => validatePlatformSemantics(surplusHandshake, schemaId),
-    /Semantic error: storage slot advertisement contains unauthorized operation 'SurplusOp' outside closed 17-operation baseline/
+    /Semantic error: storage slot advertisement contains unauthorized operation 'SurplusOp' outside 19 closed S3 operations/
   );
 
   // 2. Storage slot advertisement containing surplus operation 'sig_v4' or 'posix-filesystem' is rejected
@@ -6671,11 +6671,11 @@ test('storage slot advertisement with surplus operations outside closed 17-op ba
 
   assert.throws(
     () => validatePlatformSemantics(surplusHandshake2, schemaId),
-    /Semantic error: storage slot advertisement contains unauthorized operation 'posix-filesystem' outside closed 17-operation baseline/
+    /Semantic error: storage slot advertisement contains unauthorized operation 'posix-filesystem' outside 19 closed S3 operations/
   );
 });
 
-test('regression: surplus storage operations outside closed 17-op baseline fail schema and semantic validation (OPEN-2 / OPEN-5)', () => {
+test('regression: surplus storage operations outside 19 closed S3 operations fail schema and semantic validation (OPEN-2 / OPEN-5)', () => {
   const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
   const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
   const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
@@ -6693,7 +6693,7 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
   );
   assert.throws(
     () => validatePlatformSemantics(surplusS3, s3SchemaId),
-    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    /contains unauthorized operation 'DeleteBucket' outside 19 closed S3 operations/,
     'Storage subset with DeleteBucket must fail semantic validation with closed baseline error'
   );
 
@@ -6720,7 +6720,7 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
   ];
   assert.throws(
     () => validatePlatformSemantics(surplusAdv, pcaSchemaId),
-    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    /contains unauthorized operation 'DeleteBucket' outside 19 closed S3 operations/,
     'Storage advertisement with DeleteBucket must fail semantic validation'
   );
 
@@ -6733,7 +6733,7 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
 
   assert.throws(
     () => validatePlatformSemantics(surplusHandshake, pcnSchemaId),
-    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    /contains unauthorized operation 'DeleteBucket' outside 19 closed S3 operations/,
     'Capability negotiation handshake with DeleteBucket must fail semantic validation'
   );
 
@@ -6746,7 +6746,7 @@ test('regression: surplus storage operations outside closed 17-op baseline fail 
 
   assert.throws(
     () => validatePlatformSemantics(surplusDecl, pcaSchemaId),
-    /contains unauthorized operation 'DeleteBucket' outside closed 17-operation baseline/,
+    /contains unauthorized operation 'DeleteBucket' outside 19 closed S3 operations/,
     'Full profile declaration with DeleteBucket must fail semantic validation'
   );
 });
@@ -6876,7 +6876,7 @@ test('semantic validation: cap.supported_features duplicate rejection and strict
   missingHeadBucketAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'HeadBucket');
   assert.throws(
     () => validatePlatformSemantics(missingHeadBucketAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'HeadBucket' from 17-operation baseline/,
+    /storage slot advertisement missing required S3 operation 'HeadBucket' from 15 baseline S3 operations/,
     'Storage capability missing HeadBucket from 15 baseline operations must be rejected'
   );
 
@@ -6885,7 +6885,7 @@ test('semantic validation: cap.supported_features duplicate rejection and strict
   partial17OpAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'PutBucketVersioning' && op !== 'GetBucketVersioning');
   assert.throws(
     () => validatePlatformSemantics(partial17OpAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 17-operation baseline/,
+    /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 15 baseline S3 operations/,
     'Locked/immutable storage profile declaring 17 ops but omitting PutBucketVersioning must be rejected'
   );
 
@@ -6894,7 +6894,7 @@ test('semantic validation: cap.supported_features duplicate rejection and strict
   partial18OpAdv.advertised_capabilities[0].supported_features = ALL_19_OPS.filter(op => op !== 'GetBucketVersioning');
   assert.throws(
     () => validatePlatformSemantics(partial18OpAdv, pcaSchemaId),
-    /storage slot advertisement missing required S3 operation 'GetBucketVersioning' from 17-operation baseline/,
+    /storage slot advertisement missing required S3 operation 'GetBucketVersioning' from 15 baseline S3 operations/,
     'Locked/immutable storage profile declaring 18 ops but omitting GetBucketVersioning must be rejected'
   );
 });
@@ -6929,7 +6929,7 @@ test('regression: immutable-profile storage capability declaring 17 operations m
 
     assert.throws(
       () => validatePlatformSemantics(fullDecl17, pcaSchemaId),
-      /immutable storage capability advertisement missing required S3 operation 'PutBucketVersioning' from 19-operation closed set/
+      /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 15 baseline S3 operations/
     );
 
     // 2. Negotiation handshake declaring 17 ops in advertisement response for immutable profile is rejected
@@ -6946,7 +6946,7 @@ test('regression: immutable-profile storage capability declaring 17 operations m
 
     assert.throws(
       () => validatePlatformSemantics(handshake17, pcnSchemaId),
-      /immutable storage capability advertisement missing required S3 operation 'PutBucketVersioning' from 19-operation closed set/
+      /storage slot advertisement missing required S3 operation 'PutBucketVersioning' from 15 baseline S3 operations/
     );
   }
 });
@@ -7086,7 +7086,7 @@ test('semantic validation: validateS3ConformanceProfileSemantics and inherited h
   assert.equal(putGetterInvoked, false, 'Inherited headers getter must not be invoked');
   assert.equal(putRes.http_status, 400);
   assert.equal(putRes.error_code, 'InvalidDigest');
-  assert.equal(putRes.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   let errGetterInvoked = false;
   const protoErr = Object.defineProperty({}, 'headers', {
@@ -7101,7 +7101,7 @@ test('semantic validation: validateS3ConformanceProfileSemantics and inherited h
   assert.equal(errGetterInvoked, false, 'Inherited headers getter must not be invoked');
   assert.equal(errRes.http_status, 400);
   assert.equal(errRes.error_code, 'InvalidDigest');
-  assert.equal(errRes.reason, 'MALFORMED_HEADER_SYNTAX');
+  assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. Standalone S3 conformance profile validation
   const sampleProfile = {
@@ -7391,4 +7391,363 @@ test('unit regression: own headers accessor returns HTTP 400 InvalidDigest MALFO
   assert.equal(errThrowingRes.http_status, 400);
   assert.equal(errThrowingRes.error_code, 'InvalidDigest');
   assert.equal(errThrowingRes.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('adversarial Proxy descriptor safety and prototype accessor taxonomy (OPEN-2 / OPEN-5)', () => {
+  const validPayload = Buffer.from('CYBRIK_PROXY_DEFENSE_PLATFORM_TEST_2026');
+  const validSha = createHash('sha256').update(validPayload).digest('hex');
+  const validMd5 = createHash('md5').update(validPayload).digest('base64');
+
+  // 1. Adversarial Proxy throwing on getOwnPropertyDescriptor
+  const descThrowingProxy = new Proxy({}, {
+    getOwnPropertyDescriptor() {
+      throw new Error('adversarial descriptor trap throw');
+    },
+    ownKeys() {
+      return ['headers', 'payload'];
+    }
+  });
+  assert.equal(hasOwnAccessors(descThrowingProxy), true, 'hasOwnAccessors must fail closed on throwing getOwnPropertyDescriptor');
+  assert.equal(hasOwnHeadersAccessors(descThrowingProxy), true, 'hasOwnHeadersAccessors must fail closed on throwing getOwnPropertyDescriptor');
+
+  const putDescProxyRes = dispatchS3PutObject(descThrowingProxy);
+  assert.equal(putDescProxyRes.http_status, 400);
+  assert.equal(putDescProxyRes.error_code, 'InvalidDigest');
+  assert.equal(putDescProxyRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const errDescProxyRes = dispatchS3Error(descThrowingProxy);
+  assert.equal(errDescProxyRes.http_status, 400);
+  assert.equal(errDescProxyRes.error_code, 'InvalidDigest');
+  assert.equal(errDescProxyRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 2. Adversarial Proxy throwing on ownKeys
+  const ownKeysThrowingProxy = new Proxy({}, {
+    ownKeys() {
+      throw new Error('adversarial ownKeys trap throw');
+    }
+  });
+  assert.equal(hasOwnAccessors(ownKeysThrowingProxy), true, 'hasOwnAccessors must fail closed on throwing ownKeys');
+  assert.equal(hasOwnHeadersAccessors(ownKeysThrowingProxy), false, 'hasOwnHeadersAccessors returns false if headers descriptor does not throw');
+
+  const putOwnKeysProxyRes = dispatchS3PutObject(ownKeysThrowingProxy);
+  assert.equal(putOwnKeysProxyRes.http_status, 400);
+  assert.equal(putOwnKeysProxyRes.error_code, 'InvalidDigest');
+  assert.equal(putOwnKeysProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errOwnKeysProxyRes = dispatchS3Error(ownKeysThrowingProxy);
+  assert.equal(errOwnKeysProxyRes.http_status, 400);
+  assert.equal(errOwnKeysProxyRes.error_code, 'InvalidDigest');
+  assert.equal(errOwnKeysProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Plain options with adversarial Proxy headers
+  const proxyHeadersObj = {
+    payload: validPayload,
+    headers: new Proxy({}, {
+      getOwnPropertyDescriptor() {
+        throw new Error('adversarial headers descriptor trap throw');
+      },
+      ownKeys() {
+        throw new Error('adversarial headers ownKeys trap throw');
+      }
+    })
+  };
+  assert.equal(hasOwnHeadersAccessors(proxyHeadersObj), true, 'hasOwnHeadersAccessors must detect throwing proxy headers');
+
+  const putProxyHdrRes = dispatchS3PutObject(proxyHeadersObj);
+  assert.equal(putProxyHdrRes.http_status, 400);
+  assert.equal(putProxyHdrRes.error_code, 'InvalidDigest');
+  assert.equal(putProxyHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const errProxyHdrRes = dispatchS3Error(proxyHeadersObj);
+  assert.equal(errProxyHdrRes.http_status, 400);
+  assert.equal(errProxyHdrRes.error_code, 'InvalidDigest');
+  assert.equal(errProxyHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 4. Non-plain prototype options without headers accessor returns MALFORMED_PAYLOAD_TYPE
+  class CustomRequestOptions {
+    constructor() {
+      this.payload = validPayload;
+      this['x-amz-content-sha256'] = validSha;
+    }
+  }
+  const customOpt = new CustomRequestOptions();
+  assert.equal(hasOwnHeadersAccessors(customOpt), false);
+  const putCustomRes = dispatchS3PutObject(customOpt);
+  assert.equal(putCustomRes.http_status, 400);
+  assert.equal(putCustomRes.error_code, 'InvalidDigest');
+  assert.equal(putCustomRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errCustomRes = dispatchS3Error(customOpt);
+  assert.equal(errCustomRes.http_status, 400);
+  assert.equal(errCustomRes.error_code, 'InvalidDigest');
+  assert.equal(errCustomRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+});
+
+test('schema-only regression: non-lock 15-operation profile omitting PutObject and substituting PutObjectRetention fails Ajv schema validation on storage S3 schema (OPEN-2)', () => {
+  const s3SchemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-storage-s3-subset.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const substitute15OpsProfile = {
+    ...sample,
+    object_lock_supported: false,
+    required_operations: [
+      'GetObject', // PutObject omitted
+      'HeadObject',
+      'DeleteObject',
+      'DeleteObjects',
+      'ListObjectsV2',
+      'HeadBucket',
+      'CreateBucket',
+      'CreateMultipartUpload',
+      'UploadPart',
+      'CompleteMultipartUpload',
+      'AbortMultipartUpload',
+      'ListParts',
+      'PutBucketVersioning',
+      'GetBucketVersioning',
+      'PutObjectRetention', // substituted 15th op
+    ],
+  };
+
+  assert.equal(substitute15OpsProfile.required_operations.length, 15);
+  assert.ok(!substitute15OpsProfile.required_operations.includes('PutObject'));
+  assert.ok(substitute15OpsProfile.required_operations.includes('PutObjectRetention'));
+
+  // Negative: Schema validation must fail on enum defect for PutObjectRetention
+  const valid = ajv.validate(s3SchemaId, substitute15OpsProfile);
+  assert.equal(valid, false, '15-op profile substituting PutObjectRetention for PutObject must fail Ajv validation on storage S3 schema');
+  assert.ok(
+    ajv.errors.some(e => e.keyword === 'enum' && (e.schemaPath.includes('s3BaselineOperationName') || e.instancePath.startsWith('/required_operations'))),
+    `Expected enum error on required_operations, got: ${JSON.stringify(ajv.errors)}`
+  );
+});
+
+test('unit regression: throwing Proxy passed to dispatchS3Error and dispatchS3PutObject fails closed with HTTP 400 InvalidDigest (never returns HTTP 200) (OPEN-2)', () => {
+  // 1. Fully throwing Proxy (throws on every trap)
+  const throwingProxyAllTraps = new Proxy({}, {
+    get() { throw new Error('attack get'); },
+    has() { throw new Error('attack has'); },
+    ownKeys() { throw new Error('attack ownKeys'); },
+    getOwnPropertyDescriptor() { throw new Error('attack getOwnPropertyDescriptor'); },
+    getPrototypeOf() { throw new Error('attack getPrototypeOf'); },
+  });
+
+  const putRes1 = dispatchS3PutObject(throwingProxyAllTraps);
+  assert.equal(putRes1.http_status, 400);
+  assert.equal(putRes1.error_code, 'InvalidDigest');
+  assert.notEqual(putRes1.http_status, 200);
+
+  const errRes1 = dispatchS3Error(throwingProxyAllTraps);
+  assert.equal(errRes1.http_status, 400);
+  assert.equal(errRes1.error_code, 'InvalidDigest');
+  assert.notEqual(errRes1.http_status, 200);
+
+  // 2. Proxy with valid payload that throws on get
+  const payloadBytes = Buffer.from('CYBRIK_IMMUTABLE_EVIDENCE_2026');
+  const validSha = computePayloadSha256(payloadBytes);
+  const throwingGetProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    get(target, prop) {
+      throw new Error(`attack get ${String(prop)}`);
+    },
+  });
+
+  const putRes2 = dispatchS3PutObject(throwingGetProxy);
+  assert.equal(putRes2.http_status, 400);
+  assert.equal(putRes2.error_code, 'InvalidDigest');
+  assert.notEqual(putRes2.http_status, 200);
+
+  const errRes2 = dispatchS3Error(throwingGetProxy);
+  assert.equal(errRes2.http_status, 400);
+  assert.equal(errRes2.error_code, 'InvalidDigest');
+  assert.notEqual(errRes2.http_status, 200);
+
+  // 3. Proxy that throws on getOwnPropertyDescriptor
+  const throwingDescProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    getOwnPropertyDescriptor(target, prop) {
+      throw new Error(`attack getOwnPropertyDescriptor ${String(prop)}`);
+    },
+  });
+
+  const putRes3 = dispatchS3PutObject(throwingDescProxy);
+  assert.equal(putRes3.http_status, 400);
+  assert.equal(putRes3.error_code, 'InvalidDigest');
+  assert.notEqual(putRes3.http_status, 200);
+
+  const errRes3 = dispatchS3Error(throwingDescProxy);
+  assert.equal(errRes3.http_status, 400);
+  assert.equal(errRes3.error_code, 'InvalidDigest');
+  assert.notEqual(errRes3.http_status, 200);
+
+  // 4. Proxy that throws on ownKeys
+  const throwingKeysProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    ownKeys() {
+      throw new Error('attack ownKeys');
+    },
+  });
+
+  const putRes4 = dispatchS3PutObject(throwingKeysProxy);
+  assert.equal(putRes4.http_status, 400);
+  assert.equal(putRes4.error_code, 'InvalidDigest');
+  assert.notEqual(putRes4.http_status, 200);
+
+  const errRes4 = dispatchS3Error(throwingKeysProxy);
+  assert.equal(errRes4.http_status, 400);
+  assert.equal(errRes4.error_code, 'InvalidDigest');
+  assert.notEqual(errRes4.http_status, 200);
+
+  // 5. Proxy that throws on getPrototypeOf
+  const throwingProtoProxy = new Proxy({
+    payload: payloadBytes,
+    'x-amz-content-sha256': validSha,
+  }, {
+    getPrototypeOf() {
+      throw new Error('attack getPrototypeOf');
+    },
+  });
+
+  const putRes5 = dispatchS3PutObject(throwingProtoProxy);
+  assert.equal(putRes5.http_status, 400);
+  assert.equal(putRes5.error_code, 'InvalidDigest');
+  assert.notEqual(putRes5.http_status, 200);
+
+  const errRes5 = dispatchS3Error(throwingProtoProxy);
+  assert.equal(errRes5.http_status, 400);
+  assert.equal(errRes5.error_code, 'InvalidDigest');
+  assert.notEqual(errRes5.http_status, 200);
+});
+
+test('unit regression: prototype-chain payload and code accessors return HTTP 400 InvalidDigest MALFORMED_PAYLOAD_TYPE (OPEN-2)', () => {
+  const validPayload = Buffer.from('CYBRIK_PROTO_ACCESSOR_TEST');
+  const validSha = computePayloadSha256(validPayload);
+
+  // 1. Prototype-chain getter for payload
+  const protoWithPayloadGetter = Object.create({
+    get payload() {
+      return validPayload;
+    },
+  });
+  protoWithPayloadGetter['x-amz-content-sha256'] = validSha;
+
+  const putRes1 = dispatchS3PutObject(protoWithPayloadGetter);
+  assert.equal(putRes1.http_status, 400);
+  assert.equal(putRes1.error_code, 'InvalidDigest');
+  assert.equal(putRes1.status, 400);
+  assert.equal(putRes1.code, 'InvalidDigest');
+  assert.equal(putRes1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes1 = dispatchS3Error(protoWithPayloadGetter);
+  assert.equal(errRes1.http_status, 400);
+  assert.equal(errRes1.error_code, 'InvalidDigest');
+  assert.equal(errRes1.status, 400);
+  assert.equal(errRes1.code, 'InvalidDigest');
+  assert.equal(errRes1.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Prototype-chain throwing getter for payload
+  const protoWithThrowingPayloadGetter = Object.create({
+    get payload() {
+      throw new Error('attack prototype payload');
+    },
+  });
+  const putRes2 = dispatchS3PutObject(protoWithThrowingPayloadGetter);
+  assert.equal(putRes2.http_status, 400);
+  assert.equal(putRes2.error_code, 'InvalidDigest');
+  assert.equal(putRes2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes2 = dispatchS3Error(protoWithThrowingPayloadGetter);
+  assert.equal(errRes2.http_status, 400);
+  assert.equal(errRes2.error_code, 'InvalidDigest');
+  assert.equal(errRes2.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Prototype-chain getter for payloadBytes
+  const protoWithPayloadBytesGetter = Object.create({
+    get payloadBytes() {
+      return validPayload;
+    },
+  });
+  const putRes3 = dispatchS3PutObject(protoWithPayloadBytesGetter);
+  assert.equal(putRes3.http_status, 400);
+  assert.equal(putRes3.error_code, 'InvalidDigest');
+  assert.equal(putRes3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes3 = dispatchS3Error(protoWithPayloadBytesGetter);
+  assert.equal(errRes3.http_status, 400);
+  assert.equal(errRes3.error_code, 'InvalidDigest');
+  assert.equal(errRes3.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 4. Prototype-chain getter for body
+  const protoWithBodyGetter = Object.create({
+    get body() {
+      return validPayload;
+    },
+  });
+  const putRes4 = dispatchS3PutObject(protoWithBodyGetter);
+  assert.equal(putRes4.http_status, 400);
+  assert.equal(putRes4.error_code, 'InvalidDigest');
+  assert.equal(putRes4.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes4 = dispatchS3Error(protoWithBodyGetter);
+  assert.equal(errRes4.http_status, 400);
+  assert.equal(errRes4.error_code, 'InvalidDigest');
+  assert.equal(errRes4.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 5. Prototype-chain getter for code
+  const protoWithCodeGetter = Object.create({
+    get code() {
+      return 'BadDigest';
+    },
+  });
+  const putRes5 = dispatchS3PutObject(protoWithCodeGetter);
+  assert.equal(putRes5.http_status, 400);
+  assert.equal(putRes5.error_code, 'InvalidDigest');
+  assert.equal(putRes5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes5 = dispatchS3Error(protoWithCodeGetter);
+  assert.equal(errRes5.http_status, 400);
+  assert.equal(errRes5.error_code, 'InvalidDigest');
+  assert.equal(errRes5.status, 400);
+  assert.equal(errRes5.code, 'InvalidDigest');
+  assert.equal(errRes5.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 6. Prototype-chain throwing getter for code
+  const protoWithThrowingCodeGetter = Object.create({
+    get code() {
+      throw new Error('attack prototype code');
+    },
+  });
+  const putRes6 = dispatchS3PutObject(protoWithThrowingCodeGetter);
+  assert.equal(putRes6.http_status, 400);
+  assert.equal(putRes6.error_code, 'InvalidDigest');
+  assert.equal(putRes6.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errRes6 = dispatchS3Error(protoWithThrowingCodeGetter);
+  assert.equal(errRes6.http_status, 400);
+  assert.equal(errRes6.error_code, 'InvalidDigest');
+  assert.equal(errRes6.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 7. Class instance with prototype getters
+  class PrototypePayloadHolder {
+    get payload() {
+      return validPayload;
+    }
+  }
+  const classInstance = new PrototypePayloadHolder();
+  const putClassRes = dispatchS3PutObject(classInstance);
+  assert.equal(putClassRes.http_status, 400);
+  assert.equal(putClassRes.error_code, 'InvalidDigest');
+  assert.equal(putClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errClassRes = dispatchS3Error(classInstance);
+  assert.equal(errClassRes.http_status, 400);
+  assert.equal(errClassRes.error_code, 'InvalidDigest');
+  assert.equal(errClassRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 });
