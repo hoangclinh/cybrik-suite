@@ -92,7 +92,7 @@ const EXPECTED_NEGATIVES = {
   'invalid-zero-artifacts-offline-manifest.json': { keyword: 'minItems', instancePath: '/artifacts', schemaPath: '#/properties/artifacts/minItems', params: { limit: 1 }, message: 'must NOT have fewer than 1 items' },
   'malformed-sha256-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/sha256', schemaPath: '#/properties/artifacts/items/properties/sha256/pattern', params: { pattern: '^[a-f0-9]{64}$' }, message: 'must match pattern "^[a-f0-9]{64}$"' },
   'missing-slot-profile.json': { keyword: 'required', instancePath: '/capability_set', schemaPath: '#/properties/capability_set/required', params: { missingProperty: 'artifact_update_mechanism' }, message: "must have required property 'artifact_update_mechanism'" },
-  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' }
+  'invalid-absolute-path-offline-manifest.json': { keyword: 'pattern', instancePath: '/artifacts/0/path', schemaPath: '#/properties/artifacts/items/properties/path/pattern', params: { pattern: '^(?!(?:manifest\\.json|manifest\\.sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$' }, message: 'must match pattern "^(?!(?:manifest\\.json|manifest\\.sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"' }
 };
 
 test('validate negative platform fixtures', () => {
@@ -365,6 +365,73 @@ test('in-memory validation: reject offline manifest with trailing slash path', (
 
   const valid = ajv.validate(schemaId, data);
   assert.ok(!valid, 'Should reject trailing slash path');
+});
+
+test('in-memory validation: reject root manifest.json and manifest.sig from artifacts in offline manifest (OPEN-1)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
+  const baseManifest = {
+    bundle_identifier: "my-bundle-1",
+    release_tag: "v1.2.3",
+    manifest_sequence: 1,
+    operator_trust_root: {
+      signing_key_id: "key-123456",
+      public_key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      signature_algorithm: "ed25519"
+    },
+    detached_signature: {
+      algorithm: "ed25519",
+      signature_file: "manifest.sig",
+      key_fingerprint: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    artifacts: [
+      {
+        name: "image-1",
+        path: "images/image-1.tar",
+        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        size_bytes: 1024
+      }
+    ],
+    migration_reversibility_guaranteed: true,
+    rollback_procedure_reference: "doc://rollback",
+    update_station_workflow: {
+      preflight_steps: [
+        {
+          step_id: "preflight-verify",
+          action: "VERIFY_DIGEST",
+          target: "images/image-1.tar"
+        }
+      ],
+      apply_steps: [
+        {
+          step_id: "apply-preload",
+          action: "PRELOAD_OCI_IMAGE",
+          target: "images/image-1.tar"
+        }
+      ],
+      rollback_steps: [
+        {
+          step_id: "rollback-restore",
+          action: "RESTORE_DATABASE_SNAPSHOT",
+          target: "snapshots/backup.db"
+        }
+      ]
+    },
+    canonicalization_scheme: "RFC_8785_JCS"
+  };
+
+  for (const prohibitedPath of ['manifest.json', 'manifest.sig']) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.artifacts[0].path = prohibitedPath;
+    const valid = ajv.validate(schemaId, copy);
+    assert.ok(!valid, `Should reject root artifact path '${prohibitedPath}'`);
+  }
+
+  for (const allowedPath of ['images/manifest.json', 'images/manifest.sig', 'nested/dir/manifest.json']) {
+    const copy = JSON.parse(JSON.stringify(baseManifest));
+    copy.artifacts[0].path = allowedPath;
+    const valid = ajv.validate(schemaId, copy);
+    assert.ok(valid, `Should allow subpath artifact path '${allowedPath}': ` + ajv.errorsText());
+  }
 });
 
 test('in-memory validation: offline manifest HEALTH_PROBE restrictions (OPEN-1 Finding 3)', () => {
