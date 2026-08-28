@@ -158,11 +158,11 @@ test('in-memory validation: reject advertisement with unresolvable evidence refe
     "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
     "advertised_capabilities": [
       {
-        "capability_name": "cap-storage",
-        "slot_id": "storage",
-        "description": "Storage slot",
+        "capability_name": "oci_container_runtime",
+        "slot_id": "oci_container_runtime",
+        "description": "Container runtime slot",
         "is_mandatory": true,
-        "supported_features": ["basic"],
+        "supported_features": ["container_lifecycle"],
         "degradation_fallback": "NONE",
         "evidence_references": ["urn:cybrik:evidence:missing-test"]
       }
@@ -4729,7 +4729,13 @@ test('in-memory validation: canonical Object Lock URN urn:cybrik:evidence:storag
       slot_id: 'storage',
       description: 'Storage slot with canonical Object Lock evidence',
       is_mandatory: true,
-      supported_features: ['PutObject', 'GetObject', 'PutObjectRetention'],
+      supported_features: [
+        'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+        'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+        'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+        'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+        'AbortMultipartUpload', 'ListParts'
+      ],
       degradation_fallback: 'NONE',
       evidence_references: [canonicalLockUrn]
     }
@@ -5868,7 +5874,13 @@ test('in-memory validation: declarations carrying custom PASS storage evidence u
       slot_id: 'storage',
       description: 'Storage slot with custom and canonical Object Lock evidence',
       is_mandatory: true,
-      supported_features: ['PutObject', 'GetObject', 'PutObjectRetention'],
+      supported_features: [
+        'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+        'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+        'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+        'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+        'AbortMultipartUpload', 'ListParts'
+      ],
       degradation_fallback: 'NONE',
       evidence_references: [canonicalLockUrn, customStorageUrn],
     });
@@ -5924,5 +5936,146 @@ test('in-memory validation: declarations carrying custom PASS storage evidence u
   assert.doesNotThrow(
     () => validatePlatformSemantics(handshakeWithCustom, pcnSchemaId),
     'Negotiation handshake with custom PASS storage evidence alongside canonical Object Lock evidence must pass validatePlatformSemantics'
+  );
+});
+
+test('in-memory validation: partial storage advertisements with <17 ops or noncanonical Object Lock aliases are strictly rejected (OPEN-2 / OPEN-5)', () => {
+  const pcaSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-advertisement.v1.schema.json';
+  const canonicalLockUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock';
+  const partialSample = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json'), 'utf8'));
+
+  const ALL_17_OPS = [
+    'PutObject', 'GetObject', 'HeadObject', 'DeleteObject', 'DeleteObjects',
+    'ListObjectsV2', 'HeadBucket', 'CreateBucket', 'PutObjectRetention',
+    'GetObjectRetention', 'PutObjectLegalHold', 'GetObjectLegalHold',
+    'CreateMultipartUpload', 'UploadPart', 'CompleteMultipartUpload',
+    'AbortMultipartUpload', 'ListParts'
+  ];
+
+  function buildPartialStorageAdv(ops = ALL_17_OPS, lockUrn = canonicalLockUrn) {
+    const doc = JSON.parse(JSON.stringify(partialSample));
+    doc.advertised_capabilities = [
+      {
+        capability_name: 's3_storage_provider',
+        slot_id: 'storage',
+        description: 'Partial storage capability declaration',
+        is_mandatory: true,
+        supported_features: [...ops],
+        degradation_fallback: 'NONE',
+        evidence_references: [lockUrn]
+      }
+    ];
+    doc.conformance_evidence = [
+      {
+        test_identifier: lockUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        executed_at: '2026-08-25T12:00:00Z',
+        report_uri: 'https://example.com/report'
+      }
+    ];
+    return doc;
+  }
+
+  // 1. Positive baseline passes
+  const validPartial = buildPartialStorageAdv();
+  assert.ok(ajv.validate(pcaSchemaId, validPartial), 'Baseline partial storage advertisement with 17 ops must pass Ajv');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(validPartial, pcaSchemaId),
+    'Baseline partial storage advertisement with 17 ops must pass validatePlatformSemantics'
+  );
+
+  // 2. Negative: Partial storage advertisement with 0 ops (<17 ops) is rejected
+  const zeroOpsAdv = buildPartialStorageAdv([]);
+  assert.throws(
+    () => validatePlatformSemantics(zeroOpsAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation .* from 17-operation baseline/
+  );
+
+  // 3. Negative: Partial storage advertisement with subset (e.g. 2 ops) is rejected
+  const twoOpsAdv = buildPartialStorageAdv(['PutObject', 'GetObject']);
+  assert.throws(
+    () => validatePlatformSemantics(twoOpsAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'HeadObject' from 17-operation baseline/
+  );
+
+  // 4. Negative: Partial storage advertisement with 16 ops (missing CompleteMultipartUpload) is rejected
+  const missingCompleteAdv = buildPartialStorageAdv(ALL_17_OPS.filter(op => op !== 'CompleteMultipartUpload'));
+  assert.throws(
+    () => validatePlatformSemantics(missingCompleteAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'CompleteMultipartUpload' from 17-operation baseline/
+  );
+
+  // 5. Negative: Partial storage advertisement with 16 ops (missing PutObjectRetention) is rejected
+  const missingRetentionAdv = buildPartialStorageAdv(ALL_17_OPS.filter(op => op !== 'PutObjectRetention'));
+  assert.throws(
+    () => validatePlatformSemantics(missingRetentionAdv, pcaSchemaId),
+    /storage slot advertisement missing required S3 operation 'PutObjectRetention' from 17-operation baseline/
+  );
+
+  // 6. Negative: Partial storage advertisement with noncanonical Object Lock aliases strictly rejected
+  const legacyAliases = [
+    'urn:cybrik:evidence:storage:object-lock:v1',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v2:object-lock',
+    'urn:cybrik:evidence:storage:object-lock',
+    'urn:cybrik:evidence:s3-object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock:legacy-alias',
+    'urn:cybrik:evidence:storage:object-lock:compliance:2026',
+  ];
+
+  for (const alias of legacyAliases) {
+    // 6a. Noncanonical alias alone (lacks canonical URN)
+    const aliasAloneAdv = buildPartialStorageAdv(ALL_17_OPS, alias);
+    assert.throws(
+      () => validatePlatformSemantics(aliasAloneAdv, pcaSchemaId),
+      /storage slot advertisement lacks Object Lock retention evidence|invalid storage_object_lock evidence URN|legacy Object Lock alias/,
+      `Noncanonical Object Lock alias alone '${alias}' in partial storage advertisement must be rejected`
+    );
+
+    // 6b. Canonical URN plus noncanonical alias (alias in multi-evidence set)
+    const dualEvidenceAdv = buildPartialStorageAdv(ALL_17_OPS, canonicalLockUrn);
+    dualEvidenceAdv.advertised_capabilities[0].evidence_references.push(alias);
+    dualEvidenceAdv.conformance_evidence.push({
+      test_identifier: alias,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report'
+    });
+    assert.throws(
+      () => validatePlatformSemantics(dualEvidenceAdv, pcaSchemaId),
+      /invalid storage_object_lock evidence URN .* must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)|legacy Object Lock alias/,
+      `Noncanonical Object Lock alias '${alias}' alongside canonical URN must be strictly rejected`
+    );
+  }
+
+  // 7. Negative: Partial storage advertisement missing Object Lock evidence entirely is rejected
+  const noLockAdv = JSON.parse(JSON.stringify(partialSample));
+  const customStorageUrn = 'urn:cybrik:evidence:storage:s3:conformance:v1:s3-17-ops';
+  noLockAdv.advertised_capabilities = [
+    {
+      capability_name: 's3_storage_provider',
+      slot_id: 'storage',
+      description: 'Storage slot without Object Lock',
+      is_mandatory: true,
+      supported_features: [...ALL_17_OPS],
+      degradation_fallback: 'NONE',
+      evidence_references: [customStorageUrn]
+    }
+  ];
+  noLockAdv.conformance_evidence = [
+    {
+      test_identifier: customStorageUrn,
+      status: 'PASS',
+      evidence_pack_digest: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      executed_at: '2026-08-25T12:00:00Z',
+      report_uri: 'https://example.com/report'
+    }
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(noLockAdv, pcaSchemaId),
+    /storage slot advertisement lacks Object Lock retention evidence/,
+    'Partial storage advertisement lacking Object Lock evidence must be rejected'
   );
 });

@@ -1453,8 +1453,8 @@ test('dispatchS3PutObject x-amz-content-sha256 validation (OPEN-2 Finding 1)', (
 test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Object (OPEN-2 Finding 3)', () => {
   const manifest = {
     parts: [
-      { part_number: 1, etag: '"etag-part-1"', size_bytes: 5242880 },
-      { part_number: 2, etag: '"etag-part-2"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
     ],
     total_parts: 2,
     total_size_bytes: 10485760,
@@ -1462,8 +1462,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 1. Success with Map
   const validMap = new Map([
-    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
-    [2, { etag: '"etag-part-2"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }],
   ]);
   const okMapRes = dispatchS3CompleteMultipartUpload(manifest, validMap);
   assert.equal(okMapRes.http_status, 200);
@@ -1471,8 +1471,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 2. Success with Object
   const validObj = {
-    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
-    2: { etag: '"etag-part-2"', size_bytes: 5242880 },
+    1: { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    2: { etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
   };
   const okObjRes = dispatchS3CompleteMultipartUpload(manifest, validObj);
   assert.equal(okObjRes.http_status, 200);
@@ -1480,7 +1480,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 3. Missing part with Map -> MissingStoredPartETag
   const missingMap = new Map([
-    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
   ]);
   const missingMapRes = dispatchS3CompleteMultipartUpload(manifest, missingMap);
   assert.equal(missingMapRes.http_status, 400);
@@ -1490,7 +1490,7 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 4. Missing part with Object -> MissingStoredPartETag
   const missingObj = {
-    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
+    1: { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
   };
   const missingObjRes = dispatchS3CompleteMultipartUpload(manifest, missingObj);
   assert.equal(missingObjRes.http_status, 400);
@@ -1499,8 +1499,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 5. ETag mismatch with Map -> ETagMismatch
   const mismatchMap = new Map([
-    [1, { etag: '"etag-part-1"', size_bytes: 5242880 }],
-    [2, { etag: '"mismatched-etag"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { etag: '"ffffffffffffffffffffffffffffffff"', size_bytes: 5242880 }],
   ]);
   const mismatchMapRes = dispatchS3CompleteMultipartUpload(manifest, mismatchMap);
   assert.equal(mismatchMapRes.http_status, 400);
@@ -1510,8 +1510,8 @@ test('dispatchS3CompleteMultipartUpload storedParts validation with Map and Obje
 
   // 6. ETag mismatch with Object -> ETagMismatch
   const mismatchObj = {
-    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
-    2: { etag: '"mismatched-etag"', size_bytes: 5242880 },
+    1: { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    2: { etag: '"ffffffffffffffffffffffffffffffff"', size_bytes: 5242880 },
   };
   const mismatchObjRes = dispatchS3CompleteMultipartUpload(manifest, mismatchObj);
   assert.equal(mismatchObjRes.http_status, 400);
@@ -1650,7 +1650,7 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
   const mismatchedEtagRes = dispatchS3CompleteMultipartUpload({
     parts: [
       { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
-      { part_number: 2, etag: '"mismatched-etag-value-000000000"' },
+      { part_number: 2, etag: '"ffffffffffffffffffffffffffffffff"' },
     ],
     storedParts,
   });
@@ -1693,11 +1693,11 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
 
   // 7. Negative: non-final part too small returns HTTP 400 EntityTooSmall
   const smallPartStored = [
-    { part_number: 1, etag: '"a"', size_bytes: 1024 },
-    { part_number: 2, etag: '"b"', size_bytes: 5242880 },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 1024 },
+    { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
   ];
   const smallPartRes = dispatchS3CompleteMultipartUpload({
-    parts: [{ part_number: 1, etag: '"a"' }, { part_number: 2, etag: '"b"' }],
+    parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' }],
     storedParts: smallPartStored,
   });
   assert.equal(smallPartRes.http_status, 400);
@@ -1705,10 +1705,10 @@ test('dispatchS3CompleteMultipartUpload with missing part and stored-ETag mismat
 
   // 8. Negative: part too large returns HTTP 400 EntityTooLarge
   const largePartStored = [
-    { part_number: 1, etag: '"a"', size_bytes: 5368709121 },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5368709121 },
   ];
   const largePartRes = dispatchS3CompleteMultipartUpload({
-    parts: [{ part_number: 1, etag: '"a"' }],
+    parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }],
     storedParts: largePartStored,
   });
   assert.equal(largePartRes.http_status, 400);
@@ -1780,22 +1780,22 @@ test('dispatchS3Error and dispatchS3CompleteMultipartUpload full taxonomy and br
 
   // 3. CompleteMultipartUpload with Map storedParts and Object storedParts
   const storedMap = new Map([
-    [1, { part_number: 1, etag: '"hash1"', size_bytes: 5242880 }],
-    [2, { part_number: 2, etag: '"hash2"', size_bytes: 5242880 }],
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }],
   ]);
   const mapRes = dispatchS3CompleteMultipartUpload({
-    parts: [{ part_number: 1, etag: '"hash1"' }, { part_number: 2, etag: '"hash2"' }],
+    parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }, { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' }],
     storedParts: storedMap,
   });
   assert.equal(mapRes.http_status, 200);
 
   const storedObj = {
-    1: { part_number: 1, etag: '"hash1"', size_bytes: 5242880 },
-    2: { part_number: 2, etag: '"hash2"', size_bytes: 5242880 },
+    1: { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    2: { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
   };
   const objRes = dispatchS3CompleteMultipartUpload({
     manifest: {
-      parts: [{ PartNumber: 1, ETag: '"hash1"' }, { PartNumber: 2, ETag: '"hash2"' }],
+      parts: [{ PartNumber: 1, ETag: '"d41d8cd98f00b204e9800998ecf8427e"' }, { PartNumber: 2, ETag: '"098f6bcd4621d373cade4e832627b4f6"' }],
     },
     storedParts: storedObj,
   });
@@ -2001,8 +2001,8 @@ test('dispatchS3PutObject and dispatchS3Error exhaustive reason taxonomy and hel
 test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and strict ETag assertions (Finding 1 & 2)', () => {
   const manifest = {
     parts: [
-      { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
-      { part_number: 2, etag: '"etag-2"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
     ],
   };
 
@@ -2026,12 +2026,12 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
   const missingEtagManifest = {
     parts: [
       { part_number: 1, etag: '' },
-      { part_number: 2, etag: '"etag-2"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
     ],
   };
   const validStored = new Map([
-    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
-    [2, { etag: '"etag-2"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }],
   ]);
   const missingEtagRes = dispatchS3CompleteMultipartUpload(missingEtagManifest, validStored);
   assert.equal(missingEtagRes.http_status, 400);
@@ -2041,7 +2041,7 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
   const noEtagFieldManifest = {
     parts: [
       { part_number: 1 },
-      { part_number: 2, etag: '"etag-2"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
     ],
   };
   const noEtagRes = dispatchS3CompleteMultipartUpload(noEtagFieldManifest, validStored);
@@ -2051,7 +2051,7 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
 
   // 3. Stored part missing or stored part ETag missing/blank -> MissingStoredPartETag
   const missingPartStored = new Map([
-    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
   ]);
   const missingPartRes = dispatchS3CompleteMultipartUpload(manifest, missingPartStored);
   assert.equal(missingPartRes.http_status, 400);
@@ -2059,7 +2059,7 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
   assert.equal(missingPartRes.reason, 'MissingStoredPartETag');
 
   const blankStoredEtag = new Map([
-    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
     [2, { etag: '  ', size_bytes: 5242880 }],
   ]);
   const blankStoredRes = dispatchS3CompleteMultipartUpload(manifest, blankStoredEtag);
@@ -2069,8 +2069,8 @@ test('dispatchS3CompleteMultipartUpload fail-closed storedParts validation and s
 
   // 4. Stored part ETag mismatch -> ETagMismatch
   const mismatchStored = new Map([
-    [1, { etag: '"etag-1"', size_bytes: 5242880 }],
-    [2, { etag: '"wrong-etag"', size_bytes: 5242880 }],
+    [1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+    [2, { etag: '"ffffffffffffffffffffffffffffffff"', size_bytes: 5242880 }],
   ]);
   const mismatchRes = dispatchS3CompleteMultipartUpload(manifest, mismatchStored);
   assert.equal(mismatchRes.http_status, 400);
@@ -2282,11 +2282,11 @@ test('dispatchS3CompleteMultipartUpload fails with MissingStoredPartETag when st
 test('dispatchS3CompleteMultipartUpload fails with InvalidETagFormat on unquoted ETags and ETagMismatch on mismatched quoted ETags (Finding 5 / OPEN-2)', () => {
   const manifest = {
     parts: [
-      { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
     ],
   };
   const storedUnquoted = new Map([
-    [1, { part_number: 1, etag: 'abc', size_bytes: 5242880 }],
+    [1, { part_number: 1, etag: 'd41d8cd98f00b204e9800998ecf8427e', size_bytes: 5242880 }],
   ]);
 
   const res = dispatchS3CompleteMultipartUpload(manifest, storedUnquoted);
@@ -2297,11 +2297,11 @@ test('dispatchS3CompleteMultipartUpload fails with InvalidETagFormat on unquoted
   // Also test manifest unquoted vs stored quoted
   const manifestUnquoted = {
     parts: [
-      { part_number: 1, etag: 'abc', size_bytes: 5242880 },
+      { part_number: 1, etag: 'd41d8cd98f00b204e9800998ecf8427e', size_bytes: 5242880 },
     ],
   };
   const storedQuoted = new Map([
-    [1, { part_number: 1, etag: '"abc"', size_bytes: 5242880 }],
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
   ]);
   const res2 = dispatchS3CompleteMultipartUpload(manifestUnquoted, storedQuoted);
   assert.equal(res2.http_status, 400);
@@ -2310,7 +2310,7 @@ test('dispatchS3CompleteMultipartUpload fails with InvalidETagFormat on unquoted
 
   // Mismatched quoted ETags return ETagMismatch
   const storedMismatchedQuoted = new Map([
-    [1, { part_number: 1, etag: '"xyz"', size_bytes: 5242880 }],
+    [1, { part_number: 1, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }],
   ]);
   const res3 = dispatchS3CompleteMultipartUpload(manifest, storedMismatchedQuoted);
   assert.equal(res3.http_status, 400);
@@ -2331,10 +2331,10 @@ test('dispatchS3PutObject and dispatchS3CompleteMultipartUpload positional calli
   const manifestWrap = {
     manifest: {
       parts: [
-        { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+        { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
       ],
     },
-    storedParts: new Map([[1, { etag: '"etag-1"', size_bytes: 5242880 }]]),
+    storedParts: new Map([[1, { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }]]),
   };
   assert.equal(dispatchS3CompleteMultipartUpload(manifestWrap).http_status, 200);
 
@@ -2368,15 +2368,15 @@ test('strict PutObject SHA256 validation, safe storedParts array lookup, multipa
 
   // 2. Safe storedParts array lookup with holes / undefined / null elements
   const storedArrayWithHoles = [
-    { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
     null,
     undefined,
-    { part_number: 3, etag: '"etag-3"', size_bytes: 5242880 },
+    { part_number: 3, etag: '"1a79a4d60de6718e8e5b326e338ae533"', size_bytes: 5242880 },
   ];
   const manifestHoles = {
     parts: [
-      { part_number: 1, etag: '"etag-1"' },
-      { part_number: 2, etag: '"etag-2"' },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
     ],
   };
   const holesRes = dispatchS3CompleteMultipartUpload(manifestHoles, storedArrayWithHoles);
@@ -2386,7 +2386,7 @@ test('strict PutObject SHA256 validation, safe storedParts array lookup, multipa
   // Max 10,000 parts limit
   const over10kParts = Array.from({ length: 10001 }, (_, i) => ({
     part_number: i + 1,
-    etag: `"${i + 1}"`,
+    etag: '"d41d8cd98f00b204e9800998ecf8427e"',
     size_bytes: 5242880,
   }));
   const tooManyRes = dispatchS3CompleteMultipartUpload({ parts: over10kParts }, storedArrayWithHoles);
@@ -2394,20 +2394,20 @@ test('strict PutObject SHA256 validation, safe storedParts array lookup, multipa
   assert.equal(tooManyRes.error_code, 'InvalidArgument');
 
   // 3. Part number range check: part_number < 1 or > 10000 -> InvalidPartNumber / InvalidArgument
-  const zeroPartNumRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 0, etag: '"etag"' }] }, storedArrayWithHoles);
+  const zeroPartNumRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 0, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }] }, storedArrayWithHoles);
   assert.equal(zeroPartNumRes.http_status, 400);
   assert.equal(zeroPartNumRes.error_code, 'InvalidArgument');
 
-  const over10kPartNumRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 10001, etag: '"etag"' }] }, storedArrayWithHoles);
+  const over10kPartNumRes = dispatchS3CompleteMultipartUpload({ parts: [{ part_number: 10001, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }] }, storedArrayWithHoles);
   assert.equal(over10kPartNumRes.http_status, 400);
   assert.equal(over10kPartNumRes.error_code, 'InvalidArgument');
 
   // 4. Part size exceeding 5 GiB -> EntityTooLarge / PartSizeExceeded
   const storedOver5GiB = [
-    { part_number: 1, etag: '"etag-1"', size_bytes: 5 * 1024 * 1024 * 1024 + 1 },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5 * 1024 * 1024 * 1024 + 1 },
   ];
   const manifestOver5GiB = {
-    parts: [{ part_number: 1, etag: '"etag-1"' }],
+    parts: [{ part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }],
   };
   const partSizeExceededRes = dispatchS3CompleteMultipartUpload(manifestOver5GiB, storedOver5GiB);
   assert.equal(partSizeExceededRes.http_status, 400);
@@ -2416,7 +2416,7 @@ test('strict PutObject SHA256 validation, safe storedParts array lookup, multipa
   // 5. Total size exceeding 5 TiB -> EntityTooLarge / TotalSizeExceeded
   const parts5TiB = Array.from({ length: 1025 }, (_, i) => ({
     part_number: i + 1,
-    etag: `"etag-${i + 1}"`,
+    etag: '"d41d8cd98f00b204e9800998ecf8427e"',
     size: 5 * 1024 * 1024 * 1024, // 5 GiB each * 1025 = 5.00488 TiB > 5 TiB
   }));
   const storedParts5TiB = parts5TiB.map(p => ({ part_number: p.part_number, etag: p.etag, size_bytes: p.size }));
@@ -2898,14 +2898,14 @@ test('dispatchS3Error coverage for InvalidPartSize, INVALID_PART_SIZE, and XAmzC
 });
 
 test('dispatchS3CompleteMultipartUpload enforces stored part size and rejects missing stored size and manifest-only size with InvalidPartSize (Finding 1 / OPEN-2)', () => {
-  // 1. Missing stored part size (sp = { part_number: 1, etag: '"abc"' }) returns HTTP 400 InvalidPart (InvalidPartSize)
+  // 1. Missing stored part size (sp = { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }) returns HTTP 400 InvalidPart (InvalidPartSize)
   const manifestNoSize = {
     parts: [
-      { part_number: 1, etag: '"abc"' },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
     ],
   };
   const storedNoSize = [
-    { part_number: 1, etag: '"abc"' },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
   ];
   const resNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedNoSize);
   assert.equal(resNoSize.http_status, 400);
@@ -2915,7 +2915,7 @@ test('dispatchS3CompleteMultipartUpload enforces stored part size and rejects mi
 
   // Also test with Map
   const storedMapNoSize = new Map([
-    [1, { part_number: 1, etag: '"abc"' }],
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }],
   ]);
   const resMapNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedMapNoSize);
   assert.equal(resMapNoSize.http_status, 400);
@@ -2924,17 +2924,17 @@ test('dispatchS3CompleteMultipartUpload enforces stored part size and rejects mi
 
   // Also test with Object
   const storedObjNoSize = {
-    1: { part_number: 1, etag: '"abc"' },
+    1: { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
   };
   const resObjNoSize = dispatchS3CompleteMultipartUpload(manifestNoSize, storedObjNoSize);
   assert.equal(resObjNoSize.http_status, 400);
   assert.equal(resObjNoSize.error_code, 'InvalidPart');
   assert.equal(resObjNoSize.reason, 'InvalidPartSize');
 
-  // 2. Manifest-only size: manifest has size_bytes but stored part has no size (sp = { part_number: 1, etag: '"abc"' }) -> returns HTTP 400 InvalidPart (InvalidPartSize)
+  // 2. Manifest-only size: manifest has size_bytes but stored part has no size (sp = { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' }) -> returns HTTP 400 InvalidPart (InvalidPartSize)
   const manifestWithSize = {
     parts: [
-      { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
     ],
   };
   const resManifestOnlySize = dispatchS3CompleteMultipartUpload(manifestWithSize, storedNoSize);
@@ -2955,7 +2955,7 @@ test('dispatchS3CompleteMultipartUpload enforces stored part size and rejects mi
 
   // 3. Positive comparison: when stored part HAS valid size, completion succeeds
   const storedWithSize = [
-    { part_number: 1, etag: '"abc"', size_bytes: 5242880 },
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
   ];
   const resValidStoredSize = dispatchS3CompleteMultipartUpload(manifestWithSize, storedWithSize);
   assert.equal(resValidStoredSize.http_status, 200);
@@ -3061,14 +3061,14 @@ test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype p
   // Setup: Poison Array.prototype with a valid part object at index 1
   Array.prototype[1] = {
     part_number: 1,
-    etag: '"poisoned-etag"',
+    etag: '"d41d8cd98f00b204e9800998ecf8427e"',
     size_bytes: 5242880,
   };
 
   try {
     const manifest = {
       parts: [
-        { part_number: 1, etag: '"etag-1"' },
+        { part_number: 1, etag: '"098f6bcd4621d373cade4e832627b4f6"' },
       ],
     };
 
@@ -3082,7 +3082,7 @@ test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype p
     assert.equal(resSparse.reason, 'MissingStoredPartETag');
 
     // Case 2: Array where slot 0 is populated but slot 1 is a hole
-    const partialArr = [{ part_number: 2, etag: '"etag-2"', size_bytes: 5242880 }];
+    const partialArr = [{ part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 }];
     partialArr.length = 2; // slot 1 is a hole, should NOT pick up Array.prototype[1]
     const resPartial = dispatchS3CompleteMultipartUpload(manifest, partialArr);
     assert.equal(resPartial.http_status, 400);
@@ -3091,8 +3091,8 @@ test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype p
 
     // Case 3: Array where element at index 1 was deleted
     const deletedArr = [
-      { part_number: 0, etag: '"etag-0"', size_bytes: 5242880 },
-      { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
+      { part_number: 0, etag: '"00000000000000000000000000000000"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
     ];
     delete deletedArr[1];
     const resDeleted = dispatchS3CompleteMultipartUpload(manifest, deletedArr);
@@ -3102,7 +3102,7 @@ test('dispatchS3CompleteMultipartUpload sparse array lookup prevents prototype p
     assert.equal(resDeleted.reason, 'MissingStoredPartETag');
 
     // Case 4: Object inheriting prototype properties without own property
-    const inheritedObj = Object.create({ 1: { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 } });
+    const inheritedObj = Object.create({ 1: { part_number: 1, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 } });
     const resInheritedObj = dispatchS3CompleteMultipartUpload(manifest, inheritedObj);
     assert.equal(resInheritedObj.http_status, 400);
     assert.equal(resInheritedObj.error_code, 'InvalidPart');
@@ -3308,14 +3308,14 @@ test('dispatchS3PutObject headers fail-closed, string payload non-heuristic hash
 
   // 3. dispatchS3CompleteMultipartUpload: TotalPartsMismatch
   const validStoredParts = [
-    { part_number: 1, etag: '"etag-1"', size_bytes: 5242880 },
-    { part_number: 2, etag: '"etag-2"', size_bytes: 1024 }
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 1024 }
   ];
   const manifestPartsMismatch = {
     total_parts: 3, // Expected 3, but parts.length is 2
     parts: [
-      { part_number: 1, etag: '"etag-1"' },
-      { part_number: 2, etag: '"etag-2"' }
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' }
     ]
   };
   const resPartsMismatch = dispatchS3CompleteMultipartUpload(manifestPartsMismatch, validStoredParts);
@@ -3328,8 +3328,8 @@ test('dispatchS3PutObject headers fail-closed, string payload non-heuristic hash
     total_parts: 2,
     total_size_bytes: 9999999, // Actual size is 5242880 + 1024 = 5243904
     parts: [
-      { part_number: 1, etag: '"etag-1"' },
-      { part_number: 2, etag: '"etag-2"' }
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' }
     ]
   };
   const resSizeMismatch = dispatchS3CompleteMultipartUpload(manifestSizeMismatch, validStoredParts);
@@ -3342,8 +3342,8 @@ test('dispatchS3PutObject headers fail-closed, string payload non-heuristic hash
     total_parts: 2,
     total_size_bytes: 5243904,
     parts: [
-      { part_number: 1, etag: '"etag-1"' },
-      { part_number: 2, etag: '"etag-2"' }
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"' },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"' }
     ]
   };
   const resMatching = dispatchS3CompleteMultipartUpload(manifestMatching, validStoredParts);
@@ -3553,13 +3553,13 @@ test('dispatchS3CompleteMultipartUpload with mismatched total_parts or total_siz
     total_parts: 2,
     total_size_bytes: 10485760,
     parts: [
-      { part_number: 1, etag: '"etag-part-1"', size_bytes: 5242880 },
-      { part_number: 2, etag: '"etag-part-2"', size_bytes: 5242880 },
+      { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      { part_number: 2, etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
     ],
   };
   const storedParts = {
-    1: { etag: '"etag-part-1"', size_bytes: 5242880 },
-    2: { etag: '"etag-part-2"', size_bytes: 5242880 },
+    1: { etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+    2: { etag: '"098f6bcd4621d373cade4e832627b4f6"', size_bytes: 5242880 },
   };
 
   // 1. Positive baseline: matching totals returns HTTP 200
@@ -4036,4 +4036,184 @@ test('dispatchS3PutObject and dispatchS3Error reject inherited valid headers wit
   assert.equal(resErrInner.http_status, 400);
   assert.equal(resErrInner.error_code, 'InvalidDigest');
   assert.equal(resErrInner.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('dispatchS3CompleteMultipartUpload rejects regex-invalid double-quoted ETags with HTTP 400 InvalidPart / InvalidETagFormat (OPEN-2)', () => {
+  const invalidEtags = [
+    '""', // empty double-quoted string
+    '"nothex"', // non-hex string
+    '"0123456789abcdef0123456789abcdef-123456"', // 6-digit part suffix exceeding {1,5} limit
+    '"0123456789abcdef"', // too short (16 hex chars)
+    '"0123456789abcdef0123456789abcdef0123456789abcdef"', // too long (48 hex chars)
+    '"0123456789abcdef0123456789abcdef-"', // hyphen without part number
+    '"0123456789abcdef0123456789abcdef-abc"', // non-numeric part suffix
+    '"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"', // non-hex characters of length 32
+  ];
+
+  const validStoredPart = {
+    part_number: 1,
+    etag: '"d41d8cd98f00b204e9800998ecf8427e"',
+    size_bytes: 5242880,
+  };
+
+  for (const badEtag of invalidEtags) {
+    // 1. Invalid ETag in manifest parts
+    const manifestWithBadEtag = {
+      parts: [
+        { part_number: 1, etag: badEtag, size_bytes: 5242880 },
+      ],
+    };
+    const validStoredMap = new Map([[1, validStoredPart]]);
+    const resManifest = dispatchS3CompleteMultipartUpload(manifestWithBadEtag, validStoredMap);
+    assert.equal(resManifest.http_status, 400, `Manifest bad ETag '${badEtag}' must return 400`);
+    assert.equal(resManifest.error_code, 'InvalidPart', `Manifest bad ETag '${badEtag}' must return InvalidPart`);
+    assert.equal(resManifest.status, 400);
+    assert.equal(resManifest.code, 'InvalidPart');
+    assert.equal(resManifest.reason, 'InvalidETagFormat', `Manifest bad ETag '${badEtag}' must have reason InvalidETagFormat`);
+
+    // 2. Invalid ETag in stored parts (with valid ETag in manifest)
+    const validManifest = {
+      parts: [
+        { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+      ],
+    };
+    const storedWithBadEtag = new Map([
+      [1, { part_number: 1, etag: badEtag, size_bytes: 5242880 }],
+    ]);
+    const resStored = dispatchS3CompleteMultipartUpload(validManifest, storedWithBadEtag);
+    assert.equal(resStored.http_status, 400, `Stored bad ETag '${badEtag}' must return 400`);
+    assert.equal(resStored.error_code, 'InvalidPart', `Stored bad ETag '${badEtag}' must return InvalidPart`);
+    assert.equal(resStored.reason, 'InvalidETagFormat', `Stored bad ETag '${badEtag}' must have reason InvalidETagFormat`);
+
+    // 3. Both manifest and stored parts have the same invalid ETag
+    const storedSameBadEtag = new Map([
+      [1, { part_number: 1, etag: badEtag, size_bytes: 5242880 }],
+    ]);
+    const resBoth = dispatchS3CompleteMultipartUpload(manifestWithBadEtag, storedSameBadEtag);
+    assert.equal(resBoth.http_status, 400, `Matched bad ETag '${badEtag}' must still return 400`);
+    assert.equal(resBoth.error_code, 'InvalidPart', `Matched bad ETag '${badEtag}' must still return InvalidPart`);
+    assert.equal(resBoth.reason, 'InvalidETagFormat', `Matched bad ETag '${badEtag}' must still have reason InvalidETagFormat`);
+  }
+
+  // 4. Positive valid ETags (32-hex single part and 1-5 digit multipart suffix) succeed
+  const validEtags = [
+    '"d41d8cd98f00b204e9800998ecf8427e"',
+    '"0123456789abcdef0123456789abcdef-1"',
+    '"0123456789abcdef0123456789abcdef-123"',
+    '"0123456789abcdef0123456789abcdef-12345"',
+  ];
+
+  for (const goodEtag of validEtags) {
+    const manifest = { parts: [{ part_number: 1, etag: goodEtag, size_bytes: 5242880 }] };
+    const stored = new Map([[1, { part_number: 1, etag: goodEtag, size_bytes: 5242880 }]]);
+    const resGood = dispatchS3CompleteMultipartUpload(manifest, stored);
+    assert.equal(resGood.http_status, 200, `Valid ETag '${goodEtag}' must return 200`);
+    assert.equal(resGood.error_code, null);
+  }
+});
+
+test('prototype input hardening: inherited payload, payloadBytes, headers, or parts fail closed across S3 dispatchers and validators (OPEN-2 / OPEN-5)', () => {
+  const payloadBytes = Buffer.from('CYBRIK_PROTOTYPE_HARDENING_REGRESSION_TEST_2026');
+  const validSha = computePayloadSha256(payloadBytes);
+
+  // 1. dispatchS3PutObject and dispatchS3Error with prototype-inherited payload
+  const protoPayload = Object.create({ payload: payloadBytes, 'x-amz-content-sha256': validSha });
+  const resPutProtoPayload = dispatchS3PutObject(protoPayload);
+  assert.equal(resPutProtoPayload.http_status, 400, 'Inherited payload in dispatchS3PutObject must fail closed with 400');
+  assert.equal(resPutProtoPayload.error_code, 'InvalidDigest');
+
+  const resErrProtoPayload = dispatchS3Error(protoPayload);
+  assert.equal(resErrProtoPayload.http_status, 400, 'Inherited payload in dispatchS3Error must fail closed with 400');
+  assert.equal(resErrProtoPayload.error_code, 'InvalidDigest');
+
+  // 2. dispatchS3PutObject and dispatchS3Error with prototype-inherited payloadBytes
+  const protoPayloadBytes = Object.create({ payloadBytes, 'x-amz-content-sha256': validSha });
+  const resPutProtoBytes = dispatchS3PutObject(protoPayloadBytes);
+  assert.equal(resPutProtoBytes.http_status, 400, 'Inherited payloadBytes in dispatchS3PutObject must fail closed with 400');
+  assert.equal(resPutProtoBytes.error_code, 'InvalidDigest');
+
+  const resErrProtoBytes = dispatchS3Error(protoPayloadBytes);
+  assert.equal(resErrProtoBytes.http_status, 400, 'Inherited payloadBytes in dispatchS3Error must fail closed with 400');
+  assert.equal(resErrProtoBytes.error_code, 'InvalidDigest');
+
+  // 3. dispatchS3PutObject and dispatchS3Error with prototype-inherited body
+  const protoBody = Object.create({ body: payloadBytes, 'x-amz-content-sha256': validSha });
+  const resPutProtoBody = dispatchS3PutObject(protoBody);
+  assert.equal(resPutProtoBody.http_status, 400, 'Inherited body in dispatchS3PutObject must fail closed with 400');
+  assert.equal(resPutProtoBody.error_code, 'InvalidDigest');
+
+  const resErrProtoBody = dispatchS3Error(protoBody);
+  assert.equal(resErrProtoBody.http_status, 400, 'Inherited body in dispatchS3Error must fail closed with 400');
+  assert.equal(resErrProtoBody.error_code, 'InvalidDigest');
+
+  // 4. dispatchS3PutObject and dispatchS3Error with prototype-inherited headers
+  const protoHeaders = Object.create({
+    headers: { 'x-amz-content-sha256': validSha },
+    payloadBytes,
+  });
+  const resPutProtoHeaders = dispatchS3PutObject(protoHeaders);
+  assert.equal(resPutProtoHeaders.http_status, 400, 'Inherited headers in dispatchS3PutObject must fail closed with 400');
+  assert.equal(resPutProtoHeaders.error_code, 'InvalidDigest');
+  assert.equal(resPutProtoHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const resErrProtoHeaders = dispatchS3Error(protoHeaders);
+  assert.equal(resErrProtoHeaders.http_status, 400, 'Inherited headers in dispatchS3Error must fail closed with 400');
+  assert.equal(resErrProtoHeaders.error_code, 'InvalidDigest');
+  assert.equal(resErrProtoHeaders.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  // 5. dispatchS3CompleteMultipartUpload with prototype-inherited parts
+  const validPartsList = [
+    { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 },
+  ];
+  const validStoredMap = new Map([
+    [1, { part_number: 1, etag: '"d41d8cd98f00b204e9800998ecf8427e"', size_bytes: 5242880 }],
+  ]);
+
+  const protoPartsManifest = Object.create({ parts: validPartsList });
+  const resProtoParts = dispatchS3CompleteMultipartUpload(protoPartsManifest, validStoredMap);
+  assert.equal(resProtoParts.http_status, 400, 'Inherited parts in dispatchS3CompleteMultipartUpload must fail closed with 400');
+  assert.equal(resProtoParts.error_code, 'InvalidArgument');
+  assert.equal(resProtoParts.reason, 'EmptyPartsList');
+
+  // 6. dispatchS3CompleteMultipartUpload with prototype-inherited manifest wrapper
+  const protoManifestWrap = Object.create({
+    manifest: { parts: validPartsList },
+    storedParts: validStoredMap,
+  });
+  const resProtoWrap = dispatchS3CompleteMultipartUpload(protoManifestWrap);
+  assert.equal(resProtoWrap.http_status, 400, 'Inherited manifest wrapper in dispatchS3CompleteMultipartUpload must fail closed with 400');
+  assert.equal(resProtoWrap.error_code, 'InvalidArgument');
+
+  // 7. validateS3MultipartSemantics with prototype-inherited parts throws semantic error
+  assert.throws(
+    () => validateS3MultipartSemantics(protoPartsManifest),
+    /Semantic error: multipart upload manifest parts array must be an own property \(inherited parts prohibited\)/,
+    'validateS3MultipartSemantics must reject inherited parts array'
+  );
+
+  // 8. dispatchS3CompleteMultipartUpload with prototype-inherited total_parts or total_size_bytes
+  const protoTotalParts = Object.create({ total_parts: 1 });
+  protoTotalParts.parts = validPartsList;
+  const resProtoTotalParts = dispatchS3CompleteMultipartUpload(protoTotalParts, validStoredMap);
+  assert.equal(resProtoTotalParts.http_status, 400, 'Inherited total_parts must fail closed with 400');
+  assert.equal(resProtoTotalParts.error_code, 'InvalidPart');
+  assert.equal(resProtoTotalParts.reason, 'TotalPartsMismatch');
+
+  const protoTotalSize = Object.create({ total_size_bytes: 5242880 });
+  protoTotalSize.parts = validPartsList;
+  const resProtoTotalSize = dispatchS3CompleteMultipartUpload(protoTotalSize, validStoredMap);
+  assert.equal(resProtoTotalSize.http_status, 400, 'Inherited total_size_bytes must fail closed with 400');
+  assert.equal(resProtoTotalSize.error_code, 'InvalidPart');
+  assert.equal(resProtoTotalSize.reason, 'TotalSizeMismatch');
+
+  // 9. dispatchS3PutObject / dispatchS3Error with prototype-inherited sha256 or md5 direct keys
+  const protoDirectSha = Object.create({ 'x-amz-content-sha256': validSha });
+  protoDirectSha.payloadBytes = payloadBytes;
+  const resPutProtoDirectSha = dispatchS3PutObject(protoDirectSha);
+  assert.equal(resPutProtoDirectSha.http_status, 400, 'Inherited direct sha256 header must fail closed with 400');
+  assert.equal(resPutProtoDirectSha.error_code, 'InvalidDigest');
+
+  const resErrProtoDirectSha = dispatchS3Error(protoDirectSha);
+  assert.equal(resErrProtoDirectSha.http_status, 400, 'Inherited direct sha256 header in dispatchS3Error must fail closed with 400');
+  assert.equal(resErrProtoDirectSha.error_code, 'InvalidDigest');
 });
