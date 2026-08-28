@@ -2905,7 +2905,7 @@ export function validatePlatformSemantics(data, schemaId) {
               throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability '${cap.capability_name || cap.slot_id}' cannot be degraded in lease`);
             }
           }
-          const lockCap = caps.find(c => c.capability_name === 'storage_object_lock' || (c.slot_id === 'storage' && c.capability_name?.includes('lock')));
+          const lockCap = caps.find(c => c.capability_name === 'storage_object_lock' && c.slot_id === 'storage');
           if (!lockCap) {
             throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
           }
@@ -3274,7 +3274,7 @@ export function validatePlatformSemantics(data, schemaId) {
                 }
               }
             }
-            const lockCap = leaseCaps.find(c => c.capability_name === 'storage_object_lock' || (c.slot_id === 'storage' && c.capability_name?.includes('lock')));
+            const lockCap = leaseCaps.find(c => c.capability_name === 'storage_object_lock' && c.slot_id === 'storage');
             if (!lockCap) {
               throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
             }
@@ -4672,6 +4672,24 @@ try {
   pcnImmutableMissingLockCaught = e.message.includes('immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition');
 }
 H('30m', pcnImmutableMissingLockCaught, 'immutable storage profile lease omitting storage_object_lock capability must fail validatePlatformSemantics');
+
+// 30n. in-memory validation: reject immutable storage profile lease with storage_object_lock alias (OPEN-5)
+const pcnImmutableAliasLock = JSON.parse(JSON.stringify(pcnSample));
+pcnImmutableAliasLock.negotiation_request.requested_optional_capabilities =
+  pcnImmutableAliasLock.negotiation_request.requested_optional_capabilities.map(c =>
+    c.capability_name === 'storage_object_lock' ? { ...c, capability_name: 'storage_lock_alias' } : c
+  );
+pcnImmutableAliasLock.agreed_capability_lease.negotiated_optional_capabilities =
+  pcnImmutableAliasLock.agreed_capability_lease.negotiated_optional_capabilities.map(c =>
+    c.capability_name === 'storage_object_lock' ? { ...c, capability_name: 'storage_lock_alias' } : c
+  );
+let pcnImmutableAliasLockCaught = false;
+try {
+  validatePlatformSemantics(pcnImmutableAliasLock, pcnSchemaId);
+} catch (e) {
+  pcnImmutableAliasLockCaught = e.message.includes('immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition');
+}
+H('30n', pcnImmutableAliasLockCaught, 'immutable storage profile lease with storage_object_lock alias must fail validatePlatformSemantics');
 
 
 

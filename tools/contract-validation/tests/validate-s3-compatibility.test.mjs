@@ -10136,3 +10136,427 @@ test('adversarial regressions for immutable-storage object-lock coupling and sub
     /requested optional capability 'unslotted_optimal_cap' is required for optimal operation but is not resolved in agreed_capability_lease/
   );
 });
+
+test('adversarial regression: exact storage_object_lock identity and requirement across all immutable profiles (OPEN-2 / OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  if (!ajv.getSchema(pcnSchemaId)) {
+    const pcnPath = join(JSON_SCHEMA_DIR, 'cybrik.provider-capability-negotiation.v1.schema.json');
+    const pcnDoc = JSON.parse(readFileSync(pcnPath, 'utf8'));
+    ajv.addSchema(pcnDoc, pcnDoc.$id);
+  }
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const immutableProfileIds = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  for (const profileId of immutableProfileIds) {
+    const profilePath = join(ROOT, 'contracts/examples/platform', `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    // 1. Adversarial: Omission of storage_object_lock from lease fails validation terminally
+    const omittedLockHandshake = JSON.parse(JSON.stringify(sample));
+    omittedLockHandshake.target_profile_id = profileId;
+    omittedLockHandshake.target_profile_digest = profileDigest;
+    omittedLockHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+    omittedLockHandshake.agreed_capability_lease.target_profile_id = profileId;
+    omittedLockHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+    omittedLockHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+    omittedLockHandshake.negotiation_request.requested_optional_capabilities = [
+      {
+        capability_name: 'ai_tensor_acceleration',
+        slot_id: 'ai_model_runtime',
+        required_for_optimal: false,
+        preferred_fallback: 'CORE_EMULATION_FALLBACK',
+      },
+    ];
+    omittedLockHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: 'ai_tensor_acceleration',
+        slot_id: 'ai_model_runtime',
+        disposition: 'GRANTED_FULL',
+        active_mode: 'native_gpu_acceleration',
+        fallback_applied: 'NONE',
+      },
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(omittedLockHandshake, pcnSchemaId),
+      /immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition/,
+      `Expected ${profileId} lease omitting storage_object_lock to fail validation terminally`
+    );
+
+    // 2. Adversarial: Degraded storage_object_lock (GRANTED_DEGRADED) fails validation terminally
+    const degradedLockHandshake = JSON.parse(JSON.stringify(sample));
+    degradedLockHandshake.target_profile_id = profileId;
+    degradedLockHandshake.target_profile_digest = profileDigest;
+    degradedLockHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+    degradedLockHandshake.agreed_capability_lease.target_profile_id = profileId;
+    degradedLockHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+    degradedLockHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+    degradedLockHandshake.negotiation_request.requested_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        required_for_optimal: false,
+        preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+      },
+    ];
+    degradedLockHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        disposition: 'GRANTED_DEGRADED',
+        active_mode: 'emulated_retention',
+        fallback_applied: 'FEATURE_DISABLED_GRACEFUL',
+      },
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(degradedLockHandshake, pcnSchemaId),
+      /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} lease with degraded storage_object_lock to fail validation terminally`
+    );
+
+    // 3. Adversarial: GRANTED_FULL with non-NONE fallback on storage_object_lock fails
+    const invalidFallbackLockHandshake = JSON.parse(JSON.stringify(sample));
+    invalidFallbackLockHandshake.target_profile_id = profileId;
+    invalidFallbackLockHandshake.target_profile_digest = profileDigest;
+    invalidFallbackLockHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+    invalidFallbackLockHandshake.agreed_capability_lease.target_profile_id = profileId;
+    invalidFallbackLockHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+    invalidFallbackLockHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+    invalidFallbackLockHandshake.negotiation_request.requested_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        required_for_optimal: false,
+        preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+      },
+    ];
+    invalidFallbackLockHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        disposition: 'GRANTED_FULL',
+        active_mode: 'native_s3_object_lock',
+        fallback_applied: 'FEATURE_DISABLED_GRACEFUL',
+      },
+    ];
+    assert.throws(
+      () => validatePlatformSemantics(invalidFallbackLockHandshake, pcnSchemaId),
+      /cannot have fallback 'FEATURE_DISABLED_GRACEFUL' \(must be 'NONE'\)|DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
+      `Expected ${profileId} lease with GRANTED_FULL but non-NONE fallback on storage_object_lock to fail`
+    );
+
+    // 4. Adversarial: Renamed / pseudo-lock capability name substitution fails exact storage_object_lock requirement
+    const pseudoLockNames = [
+      'storage_custom_worm',
+      's3_object_lock',
+      'object_lock',
+      'storage_retention_lock',
+      'storage_object_retention'
+    ];
+    for (const pseudoName of pseudoLockNames) {
+      const pseudoLockHandshake = JSON.parse(JSON.stringify(sample));
+      pseudoLockHandshake.target_profile_id = profileId;
+      pseudoLockHandshake.target_profile_digest = profileDigest;
+      pseudoLockHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+      pseudoLockHandshake.agreed_capability_lease.target_profile_id = profileId;
+      pseudoLockHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+      pseudoLockHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+      pseudoLockHandshake.negotiation_request.requested_optional_capabilities = [
+        {
+          capability_name: pseudoName,
+          slot_id: 'storage',
+          required_for_optimal: false,
+          preferred_fallback: 'CORE_EMULATION_FALLBACK',
+        },
+      ];
+      pseudoLockHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+        {
+          capability_name: pseudoName,
+          slot_id: 'storage',
+          disposition: 'GRANTED_FULL',
+          active_mode: 'native_retention',
+          fallback_applied: 'NONE',
+        },
+      ];
+      assert.throws(
+        () => validatePlatformSemantics(pseudoLockHandshake, pcnSchemaId),
+        /immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition/,
+        `Expected ${profileId} with pseudo-lock '${pseudoName}' to fail exact storage_object_lock requirement`
+      );
+    }
+
+    // 5. Positive: Exact storage_object_lock with GRANTED_FULL and NONE fallback passes
+    const validLockHandshake = JSON.parse(JSON.stringify(sample));
+    validLockHandshake.target_profile_id = profileId;
+    validLockHandshake.target_profile_digest = profileDigest;
+    if (validLockHandshake.advertisement_response) {
+      validLockHandshake.advertisement_response.target_profile_digest = profileDigest;
+    }
+    validLockHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+    validLockHandshake.agreed_capability_lease.target_profile_id = profileId;
+    validLockHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+    validLockHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+    validLockHandshake.negotiation_request.requested_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        required_for_optimal: false,
+        preferred_fallback: 'FEATURE_DISABLED_GRACEFUL',
+      },
+    ];
+    validLockHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+      {
+        capability_name: 'storage_object_lock',
+        slot_id: 'storage',
+        disposition: 'GRANTED_FULL',
+        active_mode: 'native_s3_object_lock',
+        fallback_applied: 'NONE',
+      },
+    ];
+    assert.ok(ajv.validate(pcnSchemaId, validLockHandshake), `${profileId} valid lock handshake must pass schema validation`);
+    assert.doesNotThrow(
+      () => validatePlatformSemantics(validLockHandshake, pcnSchemaId),
+      `${profileId} valid lock handshake must pass validatePlatformSemantics`
+    );
+  }
+});
+
+test('adversarial regression: strict alias rejection across all immutable profiles (OPEN-2 / OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  if (!ajv.getSchema(pcnSchemaId)) {
+    const pcnPath = join(JSON_SCHEMA_DIR, 'cybrik.provider-capability-negotiation.v1.schema.json');
+    const pcnDoc = JSON.parse(readFileSync(pcnPath, 'utf8'));
+    ajv.addSchema(pcnDoc, pcnDoc.$id);
+  }
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const immutableProfileIds = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  const aliasUrns = [
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object_lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:objectlock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:OBJECT-LOCK',
+    'urn:aws:evidence:storage:s3:object-lock',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock-v1',
+    'urn:cybrik:evidence:storage:s3:conformance:v1:s3-object-lock'
+  ];
+
+  for (const profileId of immutableProfileIds) {
+    const profilePath = join(ROOT, 'contracts/examples/platform', `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    for (const aliasUrn of aliasUrns) {
+      // 1. Alias URN in advertised_capabilities for storage slot
+      const aliasStorageHandshake = JSON.parse(JSON.stringify(sample));
+      aliasStorageHandshake.target_profile_id = profileId;
+      aliasStorageHandshake.target_profile_digest = profileDigest;
+      if (aliasStorageHandshake.advertisement_response) {
+        aliasStorageHandshake.advertisement_response.target_profile_digest = profileDigest;
+        const storeCap = aliasStorageHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+        if (storeCap) {
+          storeCap.evidence_references = [
+            'urn:cybrik:evidence:storage:s3-19-ops:v1',
+            aliasUrn
+          ];
+        }
+        aliasStorageHandshake.advertisement_response.conformance_evidence.push({
+          test_identifier: aliasUrn,
+          status: 'PASS',
+          evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+          executed_at: '2026-08-27T12:00:00Z',
+          report_uri: 'https://reports.cybrik.example/evidence/alias.json'
+        });
+      }
+      assert.throws(
+        () => validatePlatformSemantics(aliasStorageHandshake, pcnSchemaId),
+        /Semantic error: (invalid storage_object_lock evidence URN .* must strictly match canonical URN 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock' \(aliases strictly prohibited\)|storage slot advertisement lacks Object Lock retention evidence|storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock')/,
+        `Expected ${profileId} to reject storage slot alias URN '${aliasUrn}'`
+      );
+
+      // 2. Alias URN in advertised_capabilities for storage_object_lock capability
+      const aliasCapHandshake = JSON.parse(JSON.stringify(sample));
+      aliasCapHandshake.target_profile_id = profileId;
+      aliasCapHandshake.target_profile_digest = profileDigest;
+      if (aliasCapHandshake.advertisement_response) {
+        aliasCapHandshake.advertisement_response.target_profile_digest = profileDigest;
+        const storeCap = aliasCapHandshake.advertisement_response.advertised_capabilities.find(c => c.slot_id === 'storage');
+        if (storeCap) {
+          storeCap.capability_name = 'storage_object_lock';
+          storeCap.evidence_references = [aliasUrn];
+        }
+        aliasCapHandshake.advertisement_response.conformance_evidence.push({
+          test_identifier: aliasUrn,
+          status: 'PASS',
+          evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+          executed_at: '2026-08-27T12:00:00Z',
+          report_uri: 'https://reports.cybrik.example/evidence/alias.json'
+        });
+      }
+      assert.throws(
+        () => validatePlatformSemantics(aliasCapHandshake, pcnSchemaId),
+        /Semantic error: (storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'|invalid storage_object_lock evidence URN .* must strictly match canonical URN|storage slot advertisement lacks Object Lock retention evidence)/,
+        `Expected ${profileId} to reject storage_object_lock advertised alias URN '${aliasUrn}'`
+      );
+
+      // 3. Alias URN in agreed_capability_lease for storage_object_lock capability
+      const aliasLeaseHandshake = JSON.parse(JSON.stringify(sample));
+      aliasLeaseHandshake.target_profile_id = profileId;
+      aliasLeaseHandshake.target_profile_digest = profileDigest;
+      if (aliasLeaseHandshake.advertisement_response) {
+        aliasLeaseHandshake.advertisement_response.target_profile_digest = profileDigest;
+      }
+      aliasLeaseHandshake.agreed_capability_lease.target_profile_id = profileId;
+      aliasLeaseHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+      const leaseLock = aliasLeaseHandshake.agreed_capability_lease.negotiated_optional_capabilities.find(c => c.capability_name === 'storage_object_lock');
+      if (leaseLock) {
+        leaseLock.evidence_references = [aliasUrn];
+      }
+      aliasLeaseHandshake.advertisement_response.conformance_evidence.push({
+        test_identifier: aliasUrn,
+        status: 'PASS',
+        evidence_pack_digest: 'a106060606060606060606060606060606060606060606060606060606060606',
+        executed_at: '2026-08-27T12:00:00Z',
+        report_uri: 'https://reports.cybrik.example/evidence/alias.json'
+      });
+      assert.throws(
+        () => validatePlatformSemantics(aliasLeaseHandshake, pcnSchemaId),
+        /Semantic error: (storage_object_lock evidence URN must strictly equal 'urn:cybrik:evidence:storage:s3:conformance:v1:object-lock'|invalid storage_object_lock evidence URN .* must strictly match canonical URN)/,
+        `Expected ${profileId} to reject storage_object_lock lease alias URN '${aliasUrn}'`
+      );
+    }
+  }
+});
+
+test('adversarial regression: capability lease subset matching and closure validation (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  if (!ajv.getSchema(pcnSchemaId)) {
+    const pcnPath = join(JSON_SCHEMA_DIR, 'cybrik.provider-capability-negotiation.v1.schema.json');
+    const pcnDoc = JSON.parse(readFileSync(pcnPath, 'utf8'));
+    ajv.addSchema(pcnDoc, pcnDoc.$id);
+  }
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const privateCloudPath = join(ROOT, 'contracts/examples/platform/private-cloud-v1.profile.json');
+  const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+
+  const onpremPath = join(ROOT, 'contracts/examples/platform/onprem-standard-v1.profile.json');
+  const onpremDigest = createHash('sha256').update(readFileSync(onpremPath)).digest('hex');
+
+  // 1. Positive: exact 1-to-1 cardinality match (lines 3825-3852 reference) passes
+  const handshakeData = JSON.parse(readFileSync(samplePath, 'utf8'));
+  const requested = handshakeData.negotiation_request?.requested_optional_capabilities || [];
+  const leased = handshakeData.agreed_capability_lease?.negotiated_optional_capabilities || [];
+  assert.equal(requested.length, leased.length, 'Exact cardinality match between requested and leased');
+  const reqKeys = requested.map(r => `${r.capability_name}::${r.slot_id}`).sort();
+  const leaseKeys = leased.map(l => `${l.capability_name}::${l.slot_id}`).sort();
+  assert.deepEqual(reqKeys, leaseKeys, 'Exact 1-to-1 multiset equality on baseline handshake fixture');
+  assert.doesNotThrow(() => validatePlatformSemantics(handshakeData, pcnSchemaId));
+
+  // 2. Positive: valid strict subset lease omitting non-optimal capabilities under ACTIVE_OPTIMAL
+  const subsetOptimalHandshake = JSON.parse(JSON.stringify(sample));
+  subsetOptimalHandshake.target_profile_id = 'private-cloud-v1';
+  subsetOptimalHandshake.target_profile_digest = privateCloudDigest;
+  if (subsetOptimalHandshake.advertisement_response) {
+    subsetOptimalHandshake.advertisement_response.target_profile_digest = privateCloudDigest;
+  }
+  subsetOptimalHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  subsetOptimalHandshake.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  subsetOptimalHandshake.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  subsetOptimalHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  // Request contains 3 optional capabilities:
+  subsetOptimalHandshake.negotiation_request.requested_optional_capabilities = [
+    { capability_name: 'ai_tensor_acceleration', slot_id: 'ai_model_runtime', required_for_optimal: false, preferred_fallback: 'CORE_EMULATION_FALLBACK' },
+    { capability_name: 'storage_object_lock', slot_id: 'storage', required_for_optimal: false, preferred_fallback: 'FEATURE_DISABLED_GRACEFUL' },
+    { capability_name: 'cache_cluster_replication', slot_id: 'cache', required_for_optimal: false, preferred_fallback: 'FEATURE_DISABLED_GRACEFUL' },
+  ];
+  // Lease is a proper subset with only 1 capability (omitted 2 non-optimal capabilities):
+  subsetOptimalHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    { capability_name: 'storage_object_lock', slot_id: 'storage', disposition: 'GRANTED_FULL', active_mode: 'native_s3_object_lock', fallback_applied: 'NONE' },
+  ];
+  assert.ok(ajv.validate(pcnSchemaId, subsetOptimalHandshake), 'Subset optimal handshake must pass schema validation');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(subsetOptimalHandshake, pcnSchemaId),
+    'Strict subset lease omitting required_for_optimal: false capabilities must pass under ACTIVE_OPTIMAL'
+  );
+
+  // 3. Positive: valid strict subset lease omitting required_for_optimal: true capability under ACTIVE_DEGRADED
+  const subsetDegradedHandshake = JSON.parse(JSON.stringify(sample));
+  subsetDegradedHandshake.target_profile_id = 'onprem-standard-v1';
+  subsetDegradedHandshake.target_profile_digest = onpremDigest;
+  if (subsetDegradedHandshake.advertisement_response) {
+    subsetDegradedHandshake.advertisement_response.target_profile_digest = onpremDigest;
+  }
+  subsetDegradedHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  subsetDegradedHandshake.agreed_capability_lease.target_profile_id = 'onprem-standard-v1';
+  subsetDegradedHandshake.agreed_capability_lease.target_profile_digest = onpremDigest;
+  subsetDegradedHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  subsetDegradedHandshake.negotiation_request.requested_optional_capabilities = [
+    { capability_name: 'ai_tensor_acceleration', slot_id: 'ai_model_runtime', required_for_optimal: true, preferred_fallback: 'CORE_EMULATION_FALLBACK' },
+    { capability_name: 'storage_object_lock', slot_id: 'storage', required_for_optimal: false, preferred_fallback: 'FEATURE_DISABLED_GRACEFUL' },
+  ];
+  // Lease grants storage_object_lock in full, omits ai_tensor_acceleration under ACTIVE_DEGRADED
+  subsetDegradedHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    { capability_name: 'storage_object_lock', slot_id: 'storage', disposition: 'GRANTED_FULL', active_mode: 'native_s3_object_lock', fallback_applied: 'NONE' },
+  ];
+  assert.ok(ajv.validate(pcnSchemaId, subsetDegradedHandshake), 'Subset degraded handshake must pass schema validation');
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(subsetDegradedHandshake, pcnSchemaId),
+    'Strict subset lease omitting required_for_optimal: true capability must pass under ACTIVE_DEGRADED'
+  );
+
+  // 4. Negative: omitting required_for_optimal: true capability under ACTIVE_OPTIMAL is rejected
+  const invalidOmissionHandshake = JSON.parse(JSON.stringify(subsetOptimalHandshake));
+  invalidOmissionHandshake.negotiation_request.requested_optional_capabilities = [
+    { capability_name: 'ai_tensor_acceleration', slot_id: 'ai_model_runtime', required_for_optimal: true, preferred_fallback: 'CORE_EMULATION_FALLBACK' },
+    { capability_name: 'storage_object_lock', slot_id: 'storage', required_for_optimal: false, preferred_fallback: 'FEATURE_DISABLED_GRACEFUL' },
+  ];
+  invalidOmissionHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    { capability_name: 'storage_object_lock', slot_id: 'storage', disposition: 'GRANTED_FULL', active_mode: 'native_s3_object_lock', fallback_applied: 'NONE' },
+  ];
+  assert.throws(
+    () => validatePlatformSemantics(invalidOmissionHandshake, pcnSchemaId),
+    /Semantic error: requested optional capability 'ai_tensor_acceleration' for slot 'ai_model_runtime' is required for optimal operation but is not resolved in agreed_capability_lease/,
+    'Omitting required_for_optimal: true capability under ACTIVE_OPTIMAL must fail'
+  );
+
+  // 5. Negative: surplus / superset capability in lease not requested
+  const surplusHandshake = JSON.parse(JSON.stringify(subsetOptimalHandshake));
+  surplusHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'unrequested_secret_boost',
+    slot_id: 'secrets',
+    disposition: 'GRANTED_FULL',
+    active_mode: 'fast_path',
+    fallback_applied: 'NONE',
+  });
+  assert.throws(
+    () => validatePlatformSemantics(surplusHandshake, pcnSchemaId),
+    /Semantic error: agreed_capability_lease contains unrequested or surplus optional capability 'unrequested_secret_boost' for slot 'secrets'/,
+    'Lease containing surplus unrequested capability must fail'
+  );
+
+  // 6. Negative: duplicate capability key in lease
+  const duplicateKeyHandshake = JSON.parse(JSON.stringify(subsetOptimalHandshake));
+  duplicateKeyHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+    capability_name: 'storage_object_lock',
+    slot_id: 'storage',
+    disposition: 'GRANTED_FULL',
+    active_mode: 'native_s3_object_lock',
+    fallback_applied: 'NONE',
+  });
+  assert.throws(
+    () => validatePlatformSemantics(duplicateKeyHandshake, pcnSchemaId),
+    /Semantic error: negotiated_optional_capabilities contains duplicate composite key \(storage_object_lock, storage\)/,
+    'Lease containing duplicate composite key must fail'
+  );
+});
