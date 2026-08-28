@@ -34,6 +34,7 @@ import {
   hasOversizedDeclaredLength,
   S3_DECLARED_LENGTH_KEYS,
   validateIJson,
+  ALL_13_CONFORMANCE_SLOTS,
 } from '../validate-schemas.mjs';
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -8071,7 +8072,7 @@ test('regression: dispatchS3Error with UNSIGNED-PAYLOAD and missing / alias flag
   assert.equal(resAuthorizedPresigned.error_code, null);
 });
 
-test('unit regression: Proxy with hidden content_length: 5368709121 that throws on isolated get returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) (OPEN-2)', () => {
+test('unit regression: Proxy with hidden content_length: 5368709121 that throws on isolated get returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) under proxy fail-closed gating (OPEN-2)', () => {
   const payload = Buffer.from('TEST_PAYLOAD');
   const validSha = computePayloadSha256(payload);
 
@@ -8086,11 +8087,12 @@ test('unit regression: Proxy with hidden content_length: 5368709121 that throws 
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenOversizedPutProxy), true);
   const putRes = dispatchS3PutObject(hiddenOversizedPutProxy);
   assert.equal(putRes.http_status, 400);
-  assert.equal(putRes.error_code, 'EntityTooLarge');
-  assert.equal(putRes.code, 'EntityTooLarge');
-  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
   assert.notEqual(putRes.http_status, 200);
 
   // 2. Proxy with target content_length: 5368709121 and throwing isolated get trap passed to dispatchS3Error
@@ -8103,11 +8105,12 @@ test('unit regression: Proxy with hidden content_length: 5368709121 that throws 
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenOversizedErrProxy), true);
   const errRes = dispatchS3Error(hiddenOversizedErrProxy);
   assert.equal(errRes.http_status, 400);
-  assert.equal(errRes.error_code, 'EntityTooLarge');
-  assert.equal(errRes.code, 'EntityTooLarge');
-  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
   assert.notEqual(errRes.http_status, 200);
 
   // 3. Proxy with ownKeys & getOwnPropertyDescriptor revealing content_length: 5368709121
@@ -8129,15 +8132,16 @@ test('unit regression: Proxy with hidden content_length: 5368709121 that throws 
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenDescriptorProxy), true);
   const descPutRes = dispatchS3PutObject(hiddenDescriptorProxy);
   assert.equal(descPutRes.http_status, 400);
-  assert.equal(descPutRes.error_code, 'EntityTooLarge');
-  assert.equal(descPutRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(descPutRes.error_code, 'InvalidDigest');
+  assert.equal(descPutRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   const descErrRes = dispatchS3Error(hiddenDescriptorProxy);
   assert.equal(descErrRes.http_status, 400);
-  assert.equal(descErrRes.error_code, 'EntityTooLarge');
-  assert.equal(descErrRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(descErrRes.error_code, 'InvalidDigest');
+  assert.equal(descErrRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 4. Proxy with oversized contentLength / size_bytes variations
   const sizeBytesProxy = new Proxy({
@@ -8147,10 +8151,22 @@ test('unit regression: Proxy with hidden content_length: 5368709121 that throws 
       throw new Error(`attack isolated get: ${String(prop)}`);
     },
   });
+  assert.equal(hasOversizedDeclaredLength(sizeBytesProxy), true);
   const sizeBytesRes = dispatchS3PutObject(sizeBytesProxy);
   assert.equal(sizeBytesRes.http_status, 400);
-  assert.equal(sizeBytesRes.error_code, 'EntityTooLarge');
-  assert.equal(sizeBytesRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(sizeBytesRes.error_code, 'InvalidDigest');
+  assert.equal(sizeBytesRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 5. Plain object with oversized contentLength returns EntityTooLarge
+  const plainOversizedObj = {
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: 5368709121,
+  };
+  const plainPutRes = dispatchS3PutObject(plainOversizedObj);
+  assert.equal(plainPutRes.http_status, 400);
+  assert.equal(plainPutRes.error_code, 'EntityTooLarge');
+  assert.equal(plainPutRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
 });
 
 test('unit regression: Proxy with hidden configurable properties from ownKeys that throws on property access in multipart returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
@@ -8564,7 +8580,7 @@ test('schema synchronization: root and $defs.storageConformanceProfile harmonize
   );
 });
 
-test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and descriptors returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and descriptors returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) under proxy fail-closed gating (OPEN-2)', () => {
   const payload = Buffer.from('TEST_PAYLOAD_HIDDEN_LENGTH');
   const validSha = computePayloadSha256(payload);
 
@@ -8594,11 +8610,12 @@ test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenLengthPutProxy), true);
   const putRes = dispatchS3PutObject(hiddenLengthPutProxy);
   assert.equal(putRes.http_status, 400);
-  assert.equal(putRes.error_code, 'EntityTooLarge');
-  assert.equal(putRes.code, 'EntityTooLarge');
-  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. Proxy hiding content_length: 5368709121 from ownKeys, has, and getOwnPropertyDescriptor passed to dispatchS3Error
   const hiddenLengthErrProxy = new Proxy({
@@ -8625,11 +8642,12 @@ test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenLengthErrProxy), true);
   const errRes = dispatchS3Error(hiddenLengthErrProxy);
   assert.equal(errRes.http_status, 400);
-  assert.equal(errRes.error_code, 'EntityTooLarge');
-  assert.equal(errRes.code, 'EntityTooLarge');
-  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 3. Proxy with headers hiding content-length: 5368709121 from ownKeys, has, and descriptors
   const hiddenHeaderProxy = new Proxy({
@@ -8668,15 +8686,16 @@ test('regression: Proxy hiding content_length: 5368709121 from ownKeys, has, and
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(hiddenHeaderProxy), true);
   const putHeaderRes = dispatchS3PutObject(hiddenHeaderProxy);
   assert.equal(putHeaderRes.http_status, 400);
-  assert.equal(putHeaderRes.error_code, 'EntityTooLarge');
-  assert.equal(putHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(putHeaderRes.error_code, 'InvalidDigest');
+  assert.equal(putHeaderRes.reason, 'MALFORMED_HEADER_SYNTAX');
 
   const errHeaderRes = dispatchS3Error(hiddenHeaderProxy);
   assert.equal(errHeaderRes.http_status, 400);
-  assert.equal(errHeaderRes.error_code, 'EntityTooLarge');
-  assert.equal(errHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(errHeaderRes.error_code, 'InvalidDigest');
+  assert.equal(errHeaderRes.reason, 'MALFORMED_HEADER_SYNTAX');
 });
 
 test('regression: Proxy hiding parts from ownKeys returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) in dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics (OPEN-2)', () => {
@@ -9349,8 +9368,8 @@ test('unit regression: direct length reads are authoritative and fail closed on 
       },
     });
     assert.equal(hasOversizedDeclaredLength(spoofSmallDescProxy), true, `Direct-read must be authoritative for ${key} over small descriptor`);
-    assert.equal(dispatchS3PutObject(spoofSmallDescProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
-    assert.equal(dispatchS3Error(spoofSmallDescProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+    assert.equal(dispatchS3PutObject(spoofSmallDescProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(dispatchS3Error(spoofSmallDescProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
   }
 
   // 3. Adversarial Proxy: Descriptor says > 5 GiB, but direct-read returns 0
@@ -9372,8 +9391,8 @@ test('unit regression: direct length reads are authoritative and fail closed on 
       },
     });
     assert.equal(hasOversizedDeclaredLength(spoofLargeDescProxy), true, `Descriptor with > 5 GiB must fail closed for ${key}`);
-    assert.equal(dispatchS3PutObject(spoofLargeDescProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
-    assert.equal(dispatchS3Error(spoofLargeDescProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+    assert.equal(dispatchS3PutObject(spoofLargeDescProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(dispatchS3Error(spoofLargeDescProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
   }
 
   // 4. Nested headers adversarial Proxy: Descriptor says 0, but direct-read returns > 5 GiB
@@ -9397,28 +9416,44 @@ test('unit regression: direct length reads are authoritative and fail closed on 
       }),
     };
     assert.equal(hasOversizedDeclaredLength(nestedHdrProxy), true, `Direct read on nested headers must be authoritative for ${key}`);
-    assert.equal(dispatchS3PutObject(nestedHdrProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
-    assert.equal(dispatchS3Error(nestedHdrProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+    assert.equal(dispatchS3PutObject(nestedHdrProxy).reason, 'MALFORMED_HEADER_SYNTAX');
+    assert.equal(dispatchS3Error(nestedHdrProxy).reason, 'MALFORMED_HEADER_SYNTAX');
   }
 
-  // 5. Getter returning > 5 GiB without descriptor value
+  // 5. Accessor-backed length returning > 5 GiB does NOT trigger hasOversizedDeclaredLength and fails closed to MALFORMED_PAYLOAD_TYPE
   for (const key of lengthKeys) {
+    let getterInvoked = false;
     const getterObj = {
       payloadBytes: payload,
       'x-amz-content-sha256': validSha,
     };
     Object.defineProperty(getterObj, key, {
-      get() { return 6000000000; },
+      get() {
+        getterInvoked = true;
+        return 6000000000;
+      },
       enumerable: true,
       configurable: true,
     });
-    assert.equal(hasOversizedDeclaredLength(getterObj), true, `Getter returning > 5 GiB must trigger hasOversizedDeclaredLength for ${key}`);
-    assert.equal(dispatchS3PutObject(getterObj).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
-    assert.equal(dispatchS3Error(getterObj).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+    assert.equal(hasOversizedDeclaredLength(getterObj), false, `Accessor on ${key} must not be treated as declared length`);
+    assert.equal(getterInvoked, false, `hasOversizedDeclaredLength must not invoke getter for ${key}`);
+
+    const putRes = dispatchS3PutObject(getterObj);
+    assert.equal(putRes.http_status, 400);
+    assert.equal(putRes.error_code, 'InvalidDigest');
+    assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(getterInvoked, false, `dispatchS3PutObject must not invoke getter for ${key}`);
+
+    const errRes = dispatchS3Error(getterObj);
+    assert.equal(errRes.http_status, 400);
+    assert.equal(errRes.error_code, 'InvalidDigest');
+    assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.equal(getterInvoked, false, `dispatchS3Error must not invoke getter for ${key}`);
+
   }
 });
 
-test('adversarial regression: Proxy with direct content_length: 5368709121 and conflicting small descriptor returns HTTP 400 EntityTooLarge (PAYLOAD_EXCEEDS_5GIB_LIMIT) in dispatchS3PutObject and dispatchS3Error (OPEN-2)', () => {
+test('adversarial regression: Proxy with direct content_length: 5368709121 and conflicting small descriptor returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) under proxy fail-closed gating (OPEN-2)', () => {
   const payload = Buffer.from('TEST_CONFLICTING_DESCRIPTOR_PAYLOAD');
   const validSha = computePayloadSha256(payload);
 
@@ -9445,11 +9480,12 @@ test('adversarial regression: Proxy with direct content_length: 5368709121 and c
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(conflictingLengthPutProxy), true);
   const putRes = dispatchS3PutObject(conflictingLengthPutProxy);
   assert.equal(putRes.http_status, 400);
-  assert.equal(putRes.error_code, 'EntityTooLarge');
-  assert.equal(putRes.code, 'EntityTooLarge');
-  assert.equal(putRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(putRes.error_code, 'InvalidDigest');
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 2. Error option Proxy where getOwnPropertyDescriptor returns small value but direct property returns 5368709121
   const conflictingLengthErrProxy = new Proxy({
@@ -9473,11 +9509,12 @@ test('adversarial regression: Proxy with direct content_length: 5368709121 and c
     },
   });
 
+  assert.equal(hasOversizedDeclaredLength(conflictingLengthErrProxy), true);
   const errRes = dispatchS3Error(conflictingLengthErrProxy);
   assert.equal(errRes.http_status, 400);
-  assert.equal(errRes.error_code, 'EntityTooLarge');
-  assert.equal(errRes.code, 'EntityTooLarge');
-  assert.equal(errRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(errRes.error_code, 'InvalidDigest');
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
 
   // 3. Headers Proxy where getOwnPropertyDescriptor returns small value ('100') but get returns '5368709121'
   const conflictingHeaderProxy = {
@@ -9504,15 +9541,16 @@ test('adversarial regression: Proxy with direct content_length: 5368709121 and c
     }),
   };
 
+  assert.equal(hasOversizedDeclaredLength(conflictingHeaderProxy), true);
   const putHeaderRes = dispatchS3PutObject(conflictingHeaderProxy);
   assert.equal(putHeaderRes.http_status, 400);
-  assert.equal(putHeaderRes.error_code, 'EntityTooLarge');
-  assert.equal(putHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(putHeaderRes.error_code, 'InvalidDigest');
+  assert.equal(putHeaderRes.reason, 'MALFORMED_HEADER_SYNTAX');
 
   const errHeaderRes = dispatchS3Error(conflictingHeaderProxy);
   assert.equal(errHeaderRes.http_status, 400);
-  assert.equal(errHeaderRes.error_code, 'EntityTooLarge');
-  assert.equal(errHeaderRes.reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(errHeaderRes.error_code, 'InvalidDigest');
+  assert.equal(errHeaderRes.reason, 'MALFORMED_HEADER_SYNTAX');
 
   // 4. BigInt and string variations
   const conflictingBigIntProxy = new Proxy({
@@ -9533,10 +9571,11 @@ test('adversarial regression: Proxy with direct content_length: 5368709121 and c
       return Reflect.get(target, prop);
     },
   });
+  assert.equal(hasOversizedDeclaredLength(conflictingBigIntProxy), true);
   assert.equal(dispatchS3PutObject(conflictingBigIntProxy).http_status, 400);
-  assert.equal(dispatchS3PutObject(conflictingBigIntProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3PutObject(conflictingBigIntProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
   assert.equal(dispatchS3Error(conflictingBigIntProxy).http_status, 400);
-  assert.equal(dispatchS3Error(conflictingBigIntProxy).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3Error(conflictingBigIntProxy).reason, 'MALFORMED_PAYLOAD_TYPE');
 });
 
 test('adversarial regression: time-varying Proxy for parts returning valid array initially then undefined or hiding from ownKeys returns HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
@@ -10099,7 +10138,7 @@ test('adversarial regressions for immutable-storage object-lock coupling and sub
   ];
   assert.throws(
     () => validatePlatformSemantics(secondaryStorageDegradedHandshake, pcnSchemaId),
-    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN.*immutable storage capability 'storage_custom_perf' cannot be degraded in lease/,
+    /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/,
     'onprem-standard-v1 with degraded secondary storage capability must fail validation terminally'
   );
 
@@ -10285,7 +10324,7 @@ test('adversarial regression: exact storage_object_lock identity and requirement
       ];
       assert.throws(
         () => validatePlatformSemantics(pseudoLockHandshake, pcnSchemaId),
-        /immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition/,
+        /(?:DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease|immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition)/,
         `Expected ${profileId} with pseudo-lock '${pseudoName}' to fail exact storage_object_lock requirement`
       );
     }
@@ -10559,4 +10598,840 @@ test('adversarial regression: capability lease subset matching and closure valid
     /Semantic error: negotiated_optional_capabilities contains duplicate composite key \(storage_object_lock, storage\)/,
     'Lease containing duplicate composite key must fail'
   );
+});
+
+test('adversarial regression: prohibit non-canonical storage capability coexistence on immutable profiles (OPEN-5)', () => {
+  const pcnSchemaId = 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json';
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const sample = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  const immutableProfiles = [
+    'onprem-standard-v1',
+    'onprem-airgap-v1',
+    'hybrid-sovereign-v1'
+  ];
+
+  const nonCanonicalStorageCaps = [
+    'storage_lock_alias',
+    'storage_worm_lock',
+    'storage_object_lock_custom',
+    'storage_custom_perf',
+    'storage_worm',
+    'storage_tiering'
+  ];
+
+  for (const profileId of immutableProfiles) {
+    const profilePath = join(ROOT, 'contracts/examples/platform', `${profileId}.profile.json`);
+    const profileDigest = createHash('sha256').update(readFileSync(profilePath)).digest('hex');
+
+    for (const nonCanonCap of nonCanonicalStorageCaps) {
+      // 1. Coexisting non-canonical storage capability in request and lease alongside granted storage_object_lock
+      const coexistingHandshake = JSON.parse(JSON.stringify(sample));
+      coexistingHandshake.target_profile_id = profileId;
+      coexistingHandshake.target_profile_digest = profileDigest;
+      if (coexistingHandshake.advertisement_response) {
+        coexistingHandshake.advertisement_response.target_profile_digest = profileDigest;
+      }
+      coexistingHandshake.agreed_capability_lease.target_profile_id = profileId;
+      coexistingHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+      coexistingHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+      coexistingHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+
+      coexistingHandshake.negotiation_request.requested_optional_capabilities.push({
+        capability_name: nonCanonCap,
+        slot_id: 'storage',
+        required_for_optimal: false,
+        preferred_fallback: 'FEATURE_DISABLED_GRACEFUL'
+      });
+      coexistingHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+        capability_name: nonCanonCap,
+        slot_id: 'storage',
+        disposition: 'GRANTED_FULL',
+        active_mode: 'active_default',
+        fallback_applied: 'NONE'
+      });
+
+      assert.throws(
+        () => validatePlatformSemantics(coexistingHandshake, pcnSchemaId),
+        /Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease/,
+        `Expected ${profileId} to reject coexisting non-canonical storage capability '${nonCanonCap}'`
+      );
+
+      // 2. Non-canonical storage capability in request only
+      const reqOnlyHandshake = JSON.parse(JSON.stringify(sample));
+      reqOnlyHandshake.target_profile_id = profileId;
+      reqOnlyHandshake.target_profile_digest = profileDigest;
+      if (reqOnlyHandshake.advertisement_response) {
+        reqOnlyHandshake.advertisement_response.target_profile_digest = profileDigest;
+      }
+      reqOnlyHandshake.agreed_capability_lease.target_profile_id = profileId;
+      reqOnlyHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+      reqOnlyHandshake.negotiation_request.requested_optional_capabilities.push({
+        capability_name: nonCanonCap,
+        slot_id: 'storage',
+        required_for_optimal: false,
+        preferred_fallback: 'FEATURE_DISABLED_GRACEFUL'
+      });
+      assert.throws(
+        () => validatePlatformSemantics(reqOnlyHandshake, pcnSchemaId),
+        /Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease/,
+        `Expected ${profileId} to reject requested non-canonical storage capability '${nonCanonCap}'`
+      );
+
+      // 3. Non-canonical storage capability in lease only
+      const leaseOnlyHandshake = JSON.parse(JSON.stringify(sample));
+      leaseOnlyHandshake.target_profile_id = profileId;
+      leaseOnlyHandshake.target_profile_digest = profileDigest;
+      if (leaseOnlyHandshake.advertisement_response) {
+        leaseOnlyHandshake.advertisement_response.target_profile_digest = profileDigest;
+      }
+      leaseOnlyHandshake.agreed_capability_lease.target_profile_id = profileId;
+      leaseOnlyHandshake.agreed_capability_lease.target_profile_digest = profileDigest;
+      leaseOnlyHandshake.agreed_capability_lease.negotiated_optional_capabilities.push({
+        capability_name: nonCanonCap,
+        slot_id: 'storage',
+        disposition: 'GRANTED_FULL',
+        active_mode: 'active_default',
+        fallback_applied: 'NONE'
+      });
+      assert.throws(
+        () => validatePlatformSemantics(leaseOnlyHandshake, pcnSchemaId),
+        /Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease/,
+        `Expected ${profileId} to reject leased non-canonical storage capability '${nonCanonCap}'`
+      );
+    }
+  }
+
+  // 4. Permitted on non-immutable profile (private-cloud-v1)
+  const privateCloudPath = join(ROOT, 'contracts/examples/platform/private-cloud-v1.profile.json');
+  const privateCloudDigest = createHash('sha256').update(readFileSync(privateCloudPath)).digest('hex');
+  const privateCustomStorageHandshake = JSON.parse(JSON.stringify(sample));
+  privateCustomStorageHandshake.target_profile_id = 'private-cloud-v1';
+  privateCustomStorageHandshake.target_profile_digest = privateCloudDigest;
+  if (privateCustomStorageHandshake.advertisement_response) {
+    privateCustomStorageHandshake.advertisement_response.target_profile_digest = privateCloudDigest;
+  }
+  privateCustomStorageHandshake.negotiation_status = 'AGREED_LEASE_GRANTED';
+  privateCustomStorageHandshake.agreed_capability_lease.target_profile_id = 'private-cloud-v1';
+  privateCustomStorageHandshake.agreed_capability_lease.target_profile_digest = privateCloudDigest;
+  privateCustomStorageHandshake.agreed_capability_lease.lease_status = 'ACTIVE_OPTIMAL';
+  privateCustomStorageHandshake.negotiation_request.requested_optional_capabilities = [
+    {
+      capability_name: 'storage_custom_perf',
+      slot_id: 'storage',
+      required_for_optimal: false,
+      preferred_fallback: 'FEATURE_DISABLED_GRACEFUL'
+    }
+  ];
+  privateCustomStorageHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    {
+      capability_name: 'storage_custom_perf',
+      slot_id: 'storage',
+      disposition: 'GRANTED_FULL',
+      active_mode: 'high_speed',
+      fallback_applied: 'NONE'
+    }
+  ];
+  assert.doesNotThrow(
+    () => validatePlatformSemantics(privateCustomStorageHandshake, pcnSchemaId),
+    'Non-immutable profile must permit non-canonical storage capabilities'
+  );
+});
+
+test('early accessor and transparent proxy fail-closed gating for OPEN-2', () => {
+  const validPayload = Buffer.from('CYBRIK_FAIL_CLOSED_GATE_2026');
+  const validSha = computePayloadSha256(validPayload);
+  const validMd5 = computePayloadMd5(validPayload);
+
+  // 1. Transparent get-trapping Proxy on request options passed to dispatchS3PutObject
+  let getTrapCount = 0;
+  const transparentProxy = new Proxy({
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+  }, {
+    get(target, prop) {
+      getTrapCount++;
+      return target[prop];
+    },
+  });
+  const putProxyRes = dispatchS3PutObject(transparentProxy);
+  assert.equal(putProxyRes.http_status, 400);
+  assert.equal(putProxyRes.error_code, 'InvalidDigest');
+  assert.equal(putProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Transparent get-trapping Proxy passed to dispatchS3Error
+  const errProxyRes = dispatchS3Error(transparentProxy);
+  assert.equal(errProxyRes.http_status, 400);
+  assert.equal(errProxyRes.error_code, 'InvalidDigest');
+  assert.equal(errProxyRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. hasOwnAccessors detects uninvoked getters via getOwnPropertyDescriptors directly
+  let getterInvoked = false;
+  const objWithExplosiveGetter = {
+    get payload() {
+      getterInvoked = true;
+      throw new Error('EXPLOSIVE_GETTER_ACCESSED');
+    },
+    'x-amz-content-sha256': validSha,
+  };
+  assert.equal(hasOwnAccessors(objWithExplosiveGetter), true);
+  assert.equal(getterInvoked, false, 'hasOwnAccessors must inspect descriptors directly without invoking getters');
+
+  const putExplosiveRes = dispatchS3PutObject(objWithExplosiveGetter);
+  assert.equal(putExplosiveRes.http_status, 400);
+  assert.equal(putExplosiveRes.error_code, 'InvalidDigest');
+  assert.equal(putExplosiveRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(getterInvoked, false, 'dispatchS3PutObject must fail closed on accessors without invoking getters');
+
+  // 4. Early accessor gating runs before hasOversizedDeclaredLength
+  let lengthGetterInvoked = false;
+  const objWithLengthGetter = {
+    payloadBytes: validPayload,
+    'x-amz-content-sha256': validSha,
+    get content_length() {
+      lengthGetterInvoked = true;
+      return 10000000000; // > 5 GiB
+    },
+  };
+  const putLengthGetterRes = dispatchS3PutObject(objWithLengthGetter);
+  assert.equal(putLengthGetterRes.http_status, 400);
+  assert.equal(putLengthGetterRes.error_code, 'InvalidDigest', 'Must fail closed with InvalidDigest MALFORMED_PAYLOAD_TYPE, not EntityTooLarge');
+  assert.equal(putLengthGetterRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(lengthGetterInvoked, false, 'content_length getter must not be evaluated when accessor gate triggers');
+
+  const errLengthGetterRes = dispatchS3Error(objWithLengthGetter);
+  assert.equal(errLengthGetterRes.http_status, 400);
+  assert.equal(errLengthGetterRes.error_code, 'InvalidDigest');
+  assert.equal(errLengthGetterRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+  assert.equal(lengthGetterInvoked, false, 'content_length getter must not be evaluated in dispatchS3Error');
+
+  // 5. Transparent Proxy wrapping multipart manifest in dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics
+  const transparentManifestProxy = new Proxy({
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+    ],
+  }, {
+    get(target, prop) {
+      return target[prop];
+    },
+  });
+  const multipartProxyRes = dispatchS3CompleteMultipartUpload(transparentManifestProxy, [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }]);
+  assert.equal(multipartProxyRes.http_status, 400);
+  assert.equal(multipartProxyRes.error_code, 'InvalidPart');
+  assert.equal(multipartProxyRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.throws(
+    () => validateS3MultipartSemantics(transparentManifestProxy),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+
+  // 6. Transparent Proxy wrapping parts array in dispatchS3CompleteMultipartUpload and validateS3MultipartSemantics
+  const transparentPartsArrayProxy = new Proxy([
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' },
+  ], {
+    get(target, prop) {
+      return target[prop];
+    },
+  });
+  const multipartPartsProxyRes = dispatchS3CompleteMultipartUpload({ parts: transparentPartsArrayProxy }, [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }]);
+  assert.equal(multipartPartsProxyRes.http_status, 400);
+  assert.equal(multipartPartsProxyRes.error_code, 'InvalidPart');
+  assert.equal(multipartPartsProxyRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.throws(
+    () => validateS3MultipartSemantics({ parts: transparentPartsArrayProxy }),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+
+  // 7. Multipart manifest with uninvoked explosive parts getter
+  let partsGetterInvoked = false;
+  const explosivePartsManifest = {
+    get parts() {
+      partsGetterInvoked = true;
+      throw new Error('EXPLOSIVE_PARTS_GETTER');
+    },
+  };
+  const expPartsRes = dispatchS3CompleteMultipartUpload(explosivePartsManifest);
+  assert.equal(expPartsRes.http_status, 400);
+  assert.equal(expPartsRes.error_code, 'InvalidPart');
+  assert.equal(expPartsRes.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(partsGetterInvoked, false, 'parts getter must not be invoked');
+
+  assert.throws(
+    () => validateS3MultipartSemantics(explosivePartsManifest),
+    /Semantic error: multipart upload manifest structure is invalid or malformed \(InvalidPart\)/
+  );
+  assert.equal(partsGetterInvoked, false, 'parts getter must not be invoked in validateS3MultipartSemantics');
+});
+
+test('adversarial regression: zero getter invocation when PutObject options or Error conditions contain accessors (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_ZERO_GETTER_PAYLOAD');
+  const validSha = computePayloadSha256(payload);
+
+  const probeKeys = [
+    'payload',
+    'payloadBytes',
+    'body',
+    'headers',
+    'content_length',
+    'contentLength',
+    'content_length_bytes',
+    'size_bytes',
+    'size',
+    'Content-Length',
+    'content-length',
+    'contentMd5Header',
+    'content_md5_header',
+    'contentMd5',
+    'Content-MD5',
+    'content_md5',
+    'content_md5_declared',
+    'x-amz-content-sha256',
+    'X-Amz-Content-Sha256',
+    'contentSha256Header',
+    'content_sha256_header',
+    'contentSha256',
+    'xAmzContentSha256',
+    'x_amz_content_sha256',
+    'sha256Header',
+    'allow_unsigned_payload',
+    'is_presigned',
+    'error_condition',
+    'expected_error',
+    'code',
+    'reason',
+  ];
+
+  for (const key of probeKeys) {
+    let getterInvoked = false;
+    const optsWithGetter = {
+      payloadBytes: payload,
+      'x-amz-content-sha256': validSha,
+    };
+    Object.defineProperty(optsWithGetter, key, {
+      get() {
+        getterInvoked = true;
+        throw new Error(`CRITICAL: Getter on '${key}' must NEVER be invoked!`);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+
+    // 1. hasOwnAccessors must return true and catch at descriptor level without calling getter
+    assert.equal(hasOwnAccessors(optsWithGetter), true, `hasOwnAccessors must detect accessor on '${key}' at descriptor level`);
+    assert.equal(getterInvoked, false, `hasOwnAccessors must NOT invoke getter on '${key}'`);
+
+    // 2. dispatchS3PutObject must fail closed to HTTP 400 InvalidDigest without calling getter
+    const putRes = dispatchS3PutObject(optsWithGetter);
+    assert.equal(putRes.http_status, 400, `dispatchS3PutObject must return HTTP 400 for accessor on '${key}'`);
+    assert.equal(putRes.error_code, 'InvalidDigest', `dispatchS3PutObject must return InvalidDigest for accessor on '${key}'`);
+    assert.equal(getterInvoked, false, `dispatchS3PutObject must NOT invoke getter on '${key}'`);
+
+    // 3. dispatchS3Error must fail closed to HTTP 400 InvalidDigest without calling getter
+    const errRes = dispatchS3Error(optsWithGetter);
+    assert.equal(errRes.http_status, 400, `dispatchS3Error must return HTTP 400 for accessor on '${key}'`);
+    assert.equal(errRes.error_code, 'InvalidDigest', `dispatchS3Error must return InvalidDigest for accessor on '${key}'`);
+    assert.equal(getterInvoked, false, `dispatchS3Error must NOT invoke getter on '${key}'`);
+  }
+
+  // Nested headers accessor zero getter invocation
+  const headerKeys = ['Content-MD5', 'content-md5', 'x-amz-content-sha256', 'X-Amz-Content-Sha256', 'Content-Length', 'content-length'];
+  for (const hKey of headerKeys) {
+    let hdrGetterInvoked = false;
+    const hdrsObj = {};
+    Object.defineProperty(hdrsObj, hKey, {
+      get() {
+        hdrGetterInvoked = true;
+        throw new Error(`CRITICAL: Header getter on '${hKey}' must NEVER be invoked!`);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const optsWithHdrGetter = {
+      payloadBytes: payload,
+      'x-amz-content-sha256': validSha,
+      headers: hdrsObj,
+    };
+
+    assert.equal(hasOwnAccessors(hdrsObj), true);
+    assert.equal(hdrGetterInvoked, false, `hasOwnAccessors must NOT invoke header getter on '${hKey}'`);
+
+    const putHdrRes = dispatchS3PutObject(optsWithHdrGetter);
+    assert.equal(putHdrRes.http_status, 400);
+    assert.equal(putHdrRes.error_code, 'InvalidDigest');
+    assert.equal(hdrGetterInvoked, false, `dispatchS3PutObject must NOT invoke header getter on '${hKey}'`);
+
+    const errHdrRes = dispatchS3Error(optsWithHdrGetter);
+    assert.equal(errHdrRes.http_status, 400);
+    assert.equal(errHdrRes.error_code, 'InvalidDigest');
+    assert.equal(hdrGetterInvoked, false, `dispatchS3Error must NOT invoke header getter on '${hKey}'`);
+  }
+});
+
+test('adversarial regression: accessor-backed oversized length returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE), NOT EntityTooLarge (OPEN-2)', () => {
+  const payload = Buffer.from('TEST_ACCESSOR_OVERSIZED_PAYLOAD');
+  const validSha = computePayloadSha256(payload);
+
+  const lengthKeys = [
+    'content_length',
+    'contentLength',
+    'content_length_bytes',
+    'size_bytes',
+    'size',
+    'Content-Length',
+    'content-length',
+  ];
+
+  for (const key of lengthKeys) {
+    let getterInvoked = false;
+    const accessorOversizedOpts = {
+      payloadBytes: payload,
+      'x-amz-content-sha256': validSha,
+    };
+    Object.defineProperty(accessorOversizedOpts, key, {
+      get() {
+        getterInvoked = true;
+        return 6000000000; // 6 GiB (> 5 GiB limit)
+      },
+      enumerable: true,
+      configurable: true,
+    });
+
+    // 1. hasOversizedDeclaredLength must return false because accessor is not a valid data property
+    assert.equal(hasOversizedDeclaredLength(accessorOversizedOpts), false, `hasOversizedDeclaredLength must return false for accessor on '${key}'`);
+    assert.equal(getterInvoked, false, `hasOversizedDeclaredLength must not invoke getter for '${key}'`);
+
+    // 2. dispatchS3PutObject returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE), NOT EntityTooLarge
+    const putRes = dispatchS3PutObject(accessorOversizedOpts);
+    assert.equal(putRes.http_status, 400);
+    assert.equal(putRes.error_code, 'InvalidDigest', `Expected InvalidDigest for accessor-backed ${key}, got ${putRes.error_code}`);
+    assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.notEqual(putRes.error_code, 'EntityTooLarge', `Accessor-backed length must NOT return EntityTooLarge for ${key}`);
+    assert.equal(getterInvoked, false, `dispatchS3PutObject must not invoke getter for '${key}'`);
+
+    // 3. dispatchS3Error returns HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE), NOT EntityTooLarge
+    const errRes = dispatchS3Error(accessorOversizedOpts);
+    assert.equal(errRes.http_status, 400);
+    assert.equal(errRes.error_code, 'InvalidDigest', `Expected InvalidDigest for accessor-backed ${key}, got ${errRes.error_code}`);
+    assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+    assert.notEqual(errRes.error_code, 'EntityTooLarge', `Accessor-backed length must NOT return EntityTooLarge for ${key}`);
+    assert.equal(getterInvoked, false, `dispatchS3Error must not invoke getter for '${key}'`);
+  }
+
+  // Nested headers accessor-backed oversized length
+  for (const hKey of ['Content-Length', 'content-length']) {
+    let hdrGetterInvoked = false;
+    const hdrsObj = {};
+    Object.defineProperty(hdrsObj, hKey, {
+      get() {
+        hdrGetterInvoked = true;
+        return '6000000000';
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    const nestedHdrOpts = {
+      payloadBytes: payload,
+      'x-amz-content-sha256': validSha,
+      headers: hdrsObj,
+    };
+
+    assert.equal(hasOversizedDeclaredLength(nestedHdrOpts), false);
+    assert.equal(hdrGetterInvoked, false);
+
+    const putHdrRes = dispatchS3PutObject(nestedHdrOpts);
+    assert.equal(putHdrRes.http_status, 400);
+    assert.equal(putHdrRes.error_code, 'InvalidDigest');
+    assert.equal(putHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+    assert.notEqual(putHdrRes.error_code, 'EntityTooLarge');
+    assert.equal(hdrGetterInvoked, false);
+
+    const errHdrRes = dispatchS3Error(nestedHdrOpts);
+    assert.equal(errHdrRes.http_status, 400);
+    assert.equal(errHdrRes.error_code, 'InvalidDigest');
+    assert.equal(errHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+    assert.notEqual(errHdrRes.error_code, 'EntityTooLarge');
+    assert.equal(hdrGetterInvoked, false);
+  }
+});
+
+test('adversarial regression: transparent get-trapping Proxies around valid PutObject options fail closed to HTTP 400 InvalidDigest (MALFORMED_PAYLOAD_TYPE) (OPEN-2)', () => {
+  const payload = Buffer.from('VALID_PUT_OBJECT_PAYLOAD_DATA');
+  const validSha = computePayloadSha256(payload);
+
+  const validPutOptions = {
+    payloadBytes: payload,
+    'x-amz-content-sha256': validSha,
+    content_length: payload.length,
+  };
+
+  // 1. Transparent get-trapping Proxy wrapping valid PutObject options
+  let getTrapCount = 0;
+  const transparentPutProxy = new Proxy(validPutOptions, {
+    get(target, prop, receiver) {
+      getTrapCount++;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+
+  const putRes = dispatchS3PutObject(transparentPutProxy);
+  assert.equal(putRes.http_status, 400, 'dispatchS3PutObject must return HTTP 400 for transparent get-trapping Proxy');
+  assert.equal(putRes.error_code, 'InvalidDigest', 'dispatchS3PutObject must return InvalidDigest for transparent get-trapping Proxy');
+  assert.equal(putRes.code, 'InvalidDigest');
+  assert.equal(putRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 2. Transparent get-trapping Proxy passed to dispatchS3Error
+  const errRes = dispatchS3Error(transparentPutProxy);
+  assert.equal(errRes.http_status, 400, 'dispatchS3Error must return HTTP 400 for transparent get-trapping Proxy');
+  assert.equal(errRes.error_code, 'InvalidDigest', 'dispatchS3Error must return InvalidDigest for transparent get-trapping Proxy');
+  assert.equal(errRes.code, 'InvalidDigest');
+  assert.equal(errRes.reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  // 3. Transparent get-trapping Proxy on headers property
+  const validHeaders = {
+    'x-amz-content-sha256': validSha,
+    'content-length': String(payload.length),
+  };
+  const transparentHeadersProxy = new Proxy(validHeaders, {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const putWithProxyHeaders = {
+    payloadBytes: payload,
+    headers: transparentHeadersProxy,
+  };
+
+  const putHdrRes = dispatchS3PutObject(putWithProxyHeaders);
+  assert.equal(putHdrRes.http_status, 400);
+  assert.equal(putHdrRes.error_code, 'InvalidDigest');
+  assert.equal(putHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const errHdrRes = dispatchS3Error(putWithProxyHeaders);
+  assert.equal(errHdrRes.http_status, 400);
+  assert.equal(errHdrRes.error_code, 'InvalidDigest');
+  assert.equal(errHdrRes.reason, 'MALFORMED_HEADER_SYNTAX');
+});
+
+test('adversarial regression: transparent get-trapping Proxies around valid multipart manifests fail closed to HTTP 400 InvalidPart (INVALID_MULTIPART_MANIFEST_STRUCTURE) (OPEN-2)', () => {
+  const validStoredParts = [
+    { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 },
+    { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880 },
+  ];
+
+  const validManifest = {
+    parts: [
+      { part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880, sha256: 'a'.repeat(64) },
+      { part_number: 2, etag: '"abcdef0123456789abcdef0123456789"', size_bytes: 5242880, sha256: 'b'.repeat(64) },
+    ],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+
+  // 1. Transparent get-trapping Proxy wrapping root multipart manifest
+  const transparentManifestProxy = new Proxy(validManifest, {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+
+  const res1 = dispatchS3CompleteMultipartUpload(transparentManifestProxy, validStoredParts);
+  assert.equal(res1.http_status, 400, 'dispatchS3CompleteMultipartUpload must return HTTP 400 for transparent manifest Proxy');
+  assert.equal(res1.error_code, 'InvalidPart', 'dispatchS3CompleteMultipartUpload must return InvalidPart for transparent manifest Proxy');
+  assert.equal(res1.code, 'InvalidPart');
+  assert.equal(res1.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // Also in options wrapper
+  const optionsWithProxyManifest = {
+    manifest: transparentManifestProxy,
+    storedParts: validStoredParts,
+  };
+  const res1b = dispatchS3CompleteMultipartUpload(optionsWithProxyManifest);
+  assert.equal(res1b.http_status, 400);
+  assert.equal(res1b.error_code, 'InvalidPart');
+  assert.equal(res1b.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // validateS3MultipartSemantics must fail closed
+  assert.throws(
+    () => validateS3MultipartSemantics(transparentManifestProxy),
+    /InvalidPart/,
+    'validateS3MultipartSemantics must throw InvalidPart for transparent manifest Proxy'
+  );
+
+  // 2. Transparent get-trapping Proxy wrapping parts array inside valid manifest
+  const transparentPartsArrayProxy = new Proxy(validManifest.parts, {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const manifestWithProxyParts = {
+    parts: transparentPartsArrayProxy,
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+
+  const res2 = dispatchS3CompleteMultipartUpload(manifestWithProxyParts, validStoredParts);
+  assert.equal(res2.http_status, 400);
+  assert.equal(res2.error_code, 'InvalidPart');
+  assert.equal(res2.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.throws(
+    () => validateS3MultipartSemantics(manifestWithProxyParts),
+    /InvalidPart/,
+    'validateS3MultipartSemantics must throw InvalidPart for transparent parts array Proxy'
+  );
+
+  // 3. Transparent get-trapping Proxy wrapping individual part element
+  const transparentPartElementProxy = new Proxy(validManifest.parts[0], {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const manifestWithProxyElement = {
+    parts: [transparentPartElementProxy, validManifest.parts[1]],
+    total_parts: 2,
+    total_size_bytes: 10485760,
+  };
+
+  const res3 = dispatchS3CompleteMultipartUpload(manifestWithProxyElement, validStoredParts);
+  assert.equal(res3.http_status, 400);
+  assert.equal(res3.error_code, 'InvalidPart');
+  assert.equal(res3.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.throws(
+    () => validateS3MultipartSemantics(manifestWithProxyElement),
+    /InvalidPart/,
+    'validateS3MultipartSemantics must throw InvalidPart for transparent part element Proxy'
+  );
+
+  // 4. Transparent get-trapping Proxy wrapping storedParts array
+  const transparentStoredPartsProxy = new Proxy(validStoredParts, {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const res4 = dispatchS3CompleteMultipartUpload(validManifest, transparentStoredPartsProxy);
+  assert.equal(res4.http_status, 400);
+  assert.equal(res4.error_code, 'InvalidPart');
+  assert.equal(res4.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 5. Transparent get-trapping Proxy wrapping individual storedPart element
+  const transparentStoredPartElemProxy = new Proxy(validStoredParts[0], {
+    get(target, prop, receiver) {
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  const res5 = dispatchS3CompleteMultipartUpload(validManifest, [transparentStoredPartElemProxy, validStoredParts[1]]);
+  assert.equal(res5.http_status, 400);
+  assert.equal(res5.error_code, 'InvalidPart');
+  assert.equal(res5.reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+});
+
+test('comprehensive branch coverage for proxy, accessor, and multipart gating (OPEN-2)', () => {
+  // 1. hasOwnAccessors with throwing Proxy ownKeys
+  const throwingOwnKeysProxy = new Proxy({}, {
+    ownKeys() { throw new Error('trap ownKeys'); }
+  });
+  assert.equal(hasOwnAccessors(throwingOwnKeysProxy), true);
+
+  // 2. hasOwnAccessors with throwing getOwnPropertyDescriptor for probe key
+  const throwingGetDescProxy = new Proxy({}, {
+    getOwnPropertyDescriptor(t, p) {
+      if (p === 'payload') throw new Error('trap getOwnPropertyDescriptor');
+      return undefined;
+    }
+  });
+  assert.equal(hasOwnAccessors(throwingGetDescProxy), true);
+
+  // 3. hasOwnAccessors with setter-only property
+  const setterOnlyObj = { set payload(v) {} };
+  assert.equal(hasOwnAccessors(setterOnlyObj), true);
+
+  // 4. hasOversizedDeclaredLength with string values
+  assert.equal(hasOversizedDeclaredLength({ content_length: '6000000000' }), true);
+  assert.equal(hasOversizedDeclaredLength({ content_length: 'invalid_number' }), false);
+  assert.equal(hasOversizedDeclaredLength({ content_length: '500' }), false);
+
+  // 5. hasOversizedDeclaredLength with diverging headers
+  const diffHeadersObj = new Proxy({
+    headers: { content_length: 6000000000 }
+  }, {
+    getOwnPropertyDescriptor(t, p) {
+      if (p === 'headers') return { value: { content_length: 100 }, configurable: true, enumerable: true, writable: true };
+      return Reflect.getOwnPropertyDescriptor(t, p);
+    }
+  });
+  assert.equal(hasOversizedDeclaredLength(diffHeadersObj), true);
+
+  // 6. dispatchS3CompleteMultipartUpload branches
+  const inhStored = Object.create({ storedParts: [] });
+  inhStored.manifest = { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] };
+  assert.equal(dispatchS3CompleteMultipartUpload(inhStored).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const spGetterObj = {
+    manifest: { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    get storedParts() { return []; }
+  };
+  assert.equal(dispatchS3CompleteMultipartUpload(spGetterObj).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const manGetterObj = {
+    get manifest() { return { parts: [] }; }
+  };
+  assert.equal(dispatchS3CompleteMultipartUpload(manGetterObj).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const badPartsProto = [];
+  Object.setPrototypeOf(badPartsProto, {});
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: badPartsProto }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.equal(dispatchS3CompleteMultipartUpload({ parts: 123 }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 7. validateS3MultipartSemantics branches
+  const inhTotal = Object.create({ total_parts: 1 });
+  inhTotal.parts = [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }];
+  assert.throws(() => validateS3MultipartSemantics(inhTotal));
+
+  const inhSize = Object.create({ total_size_bytes: 5242880 });
+  inhSize.parts = [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"', size_bytes: 5242880 }];
+  assert.throws(() => validateS3MultipartSemantics(inhSize));
+
+  const inhPartPnum = Object.create({ part_number: 1 });
+  inhPartPnum.etag = '"0123456789abcdef0123456789abcdef"';
+  inhPartPnum.size_bytes = 5242880;
+  assert.throws(() => validateS3MultipartSemantics({ parts: [inhPartPnum] }));
+
+  const inhPartEtag = Object.create({ etag: '"0123456789abcdef0123456789abcdef"' });
+  inhPartEtag.part_number = 1;
+  inhPartEtag.size_bytes = 5242880;
+  assert.throws(() => validateS3MultipartSemantics({ parts: [inhPartEtag] }));
+
+  const inhPartSize = Object.create({ size_bytes: 5242880 });
+  inhPartSize.part_number = 1;
+  inhPartSize.etag = '"0123456789abcdef0123456789abcdef"';
+  assert.throws(() => validateS3MultipartSemantics({ parts: [inhPartSize] }));
+
+  const throwProtoPart = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880
+  }, {
+    getPrototypeOf() { throw new Error('trap getPrototypeOf'); }
+  });
+  assert.throws(() => validateS3MultipartSemantics({ parts: [throwProtoPart] }));
+
+  const throwPropPart = new Proxy({
+    part_number: 1,
+    etag: '"0123456789abcdef0123456789abcdef"',
+    size_bytes: 5242880
+  }, {
+    get(t, p) {
+      if (p === 'etag') throw new Error('trap etag');
+      return t[p];
+    }
+  });
+  assert.throws(() => validateS3MultipartSemantics({ parts: [throwPropPart] }));
+
+  // 8. dispatchS3PutObject inherited keys & declared length types
+  const sampleBuf = Buffer.from('TEST_DATA');
+  const sampleSha = computePayloadSha256(sampleBuf);
+
+  const hdrsInh = Object.create({ 'x-amz-content-sha256': sampleSha });
+  const reqHdrsInh = { payloadBytes: sampleBuf, headers: hdrsInh };
+  assert.equal(dispatchS3PutObject(reqHdrsInh).reason, 'MALFORMED_HEADER_SYNTAX');
+
+  const reqInhDigest = Object.create({ 'x-amz-content-sha256': sampleSha });
+  reqInhDigest.payloadBytes = sampleBuf;
+  assert.equal(dispatchS3PutObject(reqInhDigest).reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const reqInhPayload = Object.create({ size_bytes: 100 });
+  reqInhPayload.payloadBytes = sampleBuf;
+  reqInhPayload['x-amz-content-sha256'] = sampleSha;
+  assert.equal(dispatchS3PutObject(reqInhPayload).reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, 'x-amz-content-sha256': sampleSha, content_length: 6000000000n }).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, 'x-amz-content-sha256': sampleSha, content_length: '6000000000' }).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+  assert.equal(dispatchS3PutObject({ payloadBytes: sampleBuf, 'x-amz-content-sha256': sampleSha, headers: { 'content-length': 6000000000 } }).reason, 'PAYLOAD_EXCEEDS_5GIB_LIMIT');
+
+  // 9. Extra branch coverage for S3 conformance semantics with duplicates
+  const dupOpsProfile = {
+    profile_id: 'test-dup-ops',
+    profile_version: 'v1',
+    object_lock_supported: true,
+    required_operations: [...S3_19_CLOSED_OPS, S3_19_CLOSED_OPS[0]],
+    required_error_codes: S3_CANONICAL_ERROR_CODES,
+  };
+  assert.throws(() => validateS3ConformanceProfileSemantics(dupOpsProfile), /duplicate operation/);
+
+  // 10. Platform semantics advertised capabilities count and lease object lock fallback
+  const pcaSchemaId = 'cybrik.provider-capability-advertisement.v1.schema.json';
+  const pcnSchemaId = 'cybrik.provider-capability-negotiation.v1.schema.json';
+  const badAdvCaps = {
+    claim_type: 'FULL_PROFILE_CONFORMANCE_DECLARATION',
+    target_profile_id: 'cloud-aws-v1',
+    advertised_capabilities: [{ capability_name: 'storage_s3_baseline', slot_id: 'storage', supported_modes: ['native'] }],
+  };
+  assert.throws(() => validatePlatformSemantics(badAdvCaps, pcaSchemaId), /missing required mandatory profile slot/);
+
+  const slots14 = [...ALL_13_CONFORMANCE_SLOTS, 'extra_slot'].map(s => ({ capability_name: `cap_${s}`, slot_id: s, supported_modes: ['native'] }));
+  const badAdvCaps14 = {
+    claim_type: 'FULL_PROFILE_CONFORMANCE_DECLARATION',
+    target_profile_id: 'cloud-aws-v1',
+    advertised_capabilities: slots14,
+  };
+  assert.throws(() => validatePlatformSemantics(badAdvCaps14, pcaSchemaId), /must declare exactly 13 advertised capabilities/);
+
+  // 11. Immutable lease storage_object_lock with fallback != NONE
+  const samplePath = join(ROOT, 'contracts/examples/platform/sample-capability-negotiation-handshake.json');
+  const badLockFbHandshake = JSON.parse(readFileSync(samplePath, 'utf8'));
+  badLockFbHandshake.negotiation_status = 'DEGRADED_LEASE_GRANTED';
+  badLockFbHandshake.agreed_capability_lease.lease_status = 'ACTIVE_DEGRADED';
+  badLockFbHandshake.agreed_capability_lease.negotiated_optional_capabilities = [
+    { capability_name: 'storage_object_lock', slot_id: 'storage', disposition: 'GRANTED_DEGRADED', active_mode: 'native_s3_object_lock', fallback_applied: 'CORE_EMULATION_FALLBACK' }
+  ];
+  assert.throws(() => validatePlatformSemantics(badLockFbHandshake, pcnSchemaId), /DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN/);
+
+  // 12. dispatchS3CompleteMultipartUpload wrapper branches
+  const inhManWrapper = Object.create({ manifest: { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] } });
+  assert.equal(dispatchS3CompleteMultipartUpload(inhManWrapper).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  const proxyHdrsWrapper = {
+    manifest: { parts: [{ part_number: 1, etag: '"0123456789abcdef0123456789abcdef"' }] },
+    headers: new Proxy({}, {})
+  };
+  assert.equal(dispatchS3CompleteMultipartUpload(proxyHdrsWrapper).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  // 13. Additional targeted branch coverage for isPlainOrNull, proto accessors, and error dispatch
+  const throwingProtoObj = new Proxy({}, { getPrototypeOf() { throw new Error('trap getPrototypeOf'); } });
+  assert.equal(isPlainOrNull(throwingProtoObj), false);
+
+  const protoAccessorObj = Object.create({ get content_length() { return 6000000000; } });
+  assert.equal(hasOversizedDeclaredLength(protoAccessorObj), false);
+
+  const hdrsAccessorObj = { get headers() { return { content_length: 6000000000 }; } };
+  assert.equal(hasOversizedDeclaredLength(hdrsAccessorObj), false);
+
+  const putProtoPayload = Object.create({ get payload() { return Buffer.from('x'); } });
+  assert.equal(dispatchS3PutObject(putProtoPayload).reason, 'MALFORMED_PAYLOAD_TYPE');
+  const putProtoBytes = Object.create({ get payloadBytes() { return Buffer.from('x'); } });
+  assert.equal(dispatchS3PutObject(putProtoBytes).reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  const errProtoPayload = Object.create({ get payload() { return Buffer.from('x'); } });
+  assert.equal(dispatchS3Error(errProtoPayload).reason, 'MALFORMED_PAYLOAD_TYPE');
+  const errProtoBytes = Object.create({ get payloadBytes() { return Buffer.from('x'); } });
+  assert.equal(dispatchS3Error(errProtoBytes).reason, 'MALFORMED_PAYLOAD_TYPE');
+  const errProtoCode = Object.create({ get code() { return 'InvalidDigest'; } });
+  assert.equal(dispatchS3Error(errProtoCode).reason, 'MALFORMED_PAYLOAD_TYPE');
+  const errProtoReason = Object.create({ get reason() { return 'INVALID'; } });
+  assert.equal(dispatchS3Error(errProtoReason).reason, 'MALFORMED_PAYLOAD_TYPE');
+
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: new Proxy({}, {}) }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: Object.create({ parts: [] }) }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: { get parts() { return []; } } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+  assert.equal(dispatchS3CompleteMultipartUpload({ manifest: { parts: new Proxy([], {}) } }).reason, 'INVALID_MULTIPART_MANIFEST_STRUCTURE');
+
+  assert.throws(() => validateS3MultipartSemantics(new Proxy({}, {})));
+  assert.throws(() => validateS3MultipartSemantics(Object.create({ parts: [] })));
+  assert.throws(() => validateS3MultipartSemantics({ get parts() { return []; } }));
+  assert.throws(() => validateS3MultipartSemantics({ parts: new Proxy([], {}) }));
+  assert.throws(() => validateS3MultipartSemantics({ parts: [new Proxy({}, {})] }));
+  assert.throws(() => validateS3MultipartSemantics({ parts: [{ get part_number() { return 1; } }] }));
 });

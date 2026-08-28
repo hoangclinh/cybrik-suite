@@ -14,6 +14,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { types } from 'node:util';
 import { dirname, resolve, join, basename, sep, posix } from 'node:path';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
@@ -433,6 +434,7 @@ export function getOwn(obj, prop) {
 export function hasOwnAccessors(obj) {
   if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) return false;
   try {
+    if (types.isProxy(obj)) return true;
     if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) return false;
     const keys = Reflect.ownKeys(obj);
     for (const key of keys) {
@@ -440,33 +442,13 @@ export function hasOwnAccessors(obj) {
       if (desc && (desc.get !== undefined || desc.set !== undefined)) {
         return true;
       }
-      try {
-        void obj[key];
-      } catch {
-        return true;
-      }
     }
     for (const key of S3_PROBE_KEYS) {
-      try {
-        const desc = Object.getOwnPropertyDescriptor(obj, key);
-        if (desc) {
-          if (desc.get !== undefined || desc.set !== undefined) {
-            return true;
-          }
-          try {
-            void obj[key];
-          } catch {
-            return true;
-          }
-        }
-      } catch {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc && (desc.get !== undefined || desc.set !== undefined)) {
         return true;
       }
-      try {
-        if (Object.prototype.hasOwnProperty.call(obj, key) && !keys.includes(key)) {
-          return true;
-        }
-      } catch {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && !keys.includes(key)) {
         return true;
       }
     }
@@ -486,7 +468,7 @@ export function hasOwnHeadersAccessors(obj) {
         return true;
       }
       const val = desc.value;
-      if (val && (typeof val === 'object' || typeof val === 'function') && hasOwnAccessors(val)) {
+      if (val && (typeof val === 'object' || typeof val === 'function') && (types.isProxy(val) || hasOwnAccessors(val))) {
         return true;
       }
     }
@@ -517,6 +499,7 @@ export function hasPrototypeChainAccessor(obj, prop) {
 export function isPlainOrNull(o) {
   if (o === null || typeof o !== 'object') return false;
   try {
+    if (types.isProxy(o)) return false;
     const proto = Object.getPrototypeOf(o);
     return proto === Object.prototype || proto === null;
   } catch {
@@ -534,6 +517,18 @@ function checkDirectAndDescriptorLength(target) {
   if (Buffer.isBuffer(target) || target instanceof Uint8Array) return false;
 
   for (const key of S3_DECLARED_LENGTH_KEYS) {
+    let desc;
+    try {
+      desc = Object.getOwnPropertyDescriptor(target, key);
+    } catch {}
+
+    if (desc && (desc.get !== undefined || desc.set !== undefined)) {
+      continue;
+    }
+    if (hasPrototypeChainAccessor(target, key)) {
+      continue;
+    }
+
     let directVal;
     let hasDirectVal = false;
     try {
@@ -551,11 +546,6 @@ function checkDirectAndDescriptorLength(target) {
         if (!Number.isNaN(parsed) && parsed > 5368709120) return true;
       }
     }
-
-    let desc;
-    try {
-      desc = Object.getOwnPropertyDescriptor(target, key);
-    } catch {}
 
     if (desc && desc.value !== undefined && desc.value !== null) {
       const val = desc.value;
@@ -580,18 +570,23 @@ export function hasOversizedDeclaredLength(obj, headersObj = null) {
       try {
         headersDesc = Object.getOwnPropertyDescriptor(obj, 'headers');
       } catch {}
-      if (headersDesc && headersDesc.value && (typeof headersDesc.value === 'object' || typeof headersDesc.value === 'function') && !Buffer.isBuffer(headersDesc.value) && !(headersDesc.value instanceof Uint8Array)) {
-        if (checkDirectAndDescriptorLength(headersDesc.value)) return true;
-      }
-      let headersDirect;
-      try {
-        if (Object.prototype.hasOwnProperty.call(obj, 'headers')) {
-          headersDirect = obj.headers;
+
+      if (headersDesc && (headersDesc.get !== undefined || headersDesc.set !== undefined)) {
+        // Accessor on headers: do not invoke getter
+      } else {
+        if (headersDesc && headersDesc.value && (typeof headersDesc.value === 'object' || typeof headersDesc.value === 'function') && !Buffer.isBuffer(headersDesc.value) && !(headersDesc.value instanceof Uint8Array)) {
+          if (checkDirectAndDescriptorLength(headersDesc.value)) return true;
         }
-      } catch {}
-      if (headersDirect && (typeof headersDirect === 'object' || typeof headersDirect === 'function') && !Buffer.isBuffer(headersDirect) && !(headersDirect instanceof Uint8Array)) {
-        if (headersDirect !== (headersDesc && headersDesc.value)) {
-          if (checkDirectAndDescriptorLength(headersDirect)) return true;
+        let headersDirect;
+        try {
+          if (Object.prototype.hasOwnProperty.call(obj, 'headers')) {
+            headersDirect = obj.headers;
+          }
+        } catch {}
+        if (headersDirect && (typeof headersDirect === 'object' || typeof headersDirect === 'function') && !Buffer.isBuffer(headersDirect) && !(headersDirect instanceof Uint8Array)) {
+          if (headersDirect !== (headersDesc && headersDesc.value)) {
+            if (checkDirectAndDescriptorLength(headersDirect)) return true;
+          }
         }
       }
     }
@@ -605,10 +600,6 @@ export function hasOversizedDeclaredLength(obj, headersObj = null) {
 
 export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha256Header) {
   try {
-    if (hasOversizedDeclaredLength(optionsOrPayload)) {
-      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
-    }
-
     if (hasOwnHeadersAccessors(optionsOrPayload)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
@@ -629,6 +620,7 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       optionsOrPayload instanceof Set ||
       optionsOrPayload instanceof ArrayBuffer ||
       (ArrayBuffer.isView(optionsOrPayload) && !Buffer.isBuffer(optionsOrPayload) && !(optionsOrPayload instanceof Uint8Array)) ||
+      types.isProxy(optionsOrPayload) ||
       hasOwnAccessors(optionsOrPayload) ||
       hasPrototypeChainAccessor(optionsOrPayload, 'payload') ||
       hasPrototypeChainAccessor(optionsOrPayload, 'payloadBytes') ||
@@ -645,6 +637,10 @@ export function dispatchS3PutObject(optionsOrPayload, maybeMd5Header, maybeSha25
       hasPrototypeChainAccessor(optionsOrPayload, 'Content-Length')
     ) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+
+    if (hasOversizedDeclaredLength(optionsOrPayload)) {
+      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
     }
 
   let payloadBytes;
@@ -974,7 +970,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
-    if (hasOwnHeadersAccessors(manifestOrOptions) || hasOwnAccessors(manifestOrOptions) || !isPlainOrNull(manifestOrOptions)) {
+    if (types.isProxy(manifestOrOptions) || hasOwnHeadersAccessors(manifestOrOptions) || hasOwnAccessors(manifestOrOptions) || !isPlainOrNull(manifestOrOptions)) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
@@ -997,7 +993,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
       const hdrs = getOwn(manifestOrOptions, 'headers');
-      if (hdrs !== undefined && hdrs !== null && (!isPlainOrNull(hdrs) || hasOwnAccessors(hdrs))) {
+      if (hdrs !== undefined && hdrs !== null && (!isPlainOrNull(hdrs) || types.isProxy(hdrs) || hasOwnAccessors(hdrs))) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
     }
@@ -1022,7 +1018,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       if (Array.isArray(manifestProp)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
-      if (hasOwnHeadersAccessors(manifestProp) || hasOwnAccessors(manifestProp) || !isPlainOrNull(manifestProp)) {
+      if (types.isProxy(manifestProp) || hasOwnHeadersAccessors(manifestProp) || hasOwnAccessors(manifestProp) || !isPlainOrNull(manifestProp)) {
         return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
       }
       manifest = manifestProp;
@@ -1047,7 +1043,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
     if (Array.isArray(manifest)) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
-    if (!isPlainOrNull(manifest) || hasOwnAccessors(manifest) || hasOwnHeadersAccessors(manifest)) {
+    if (types.isProxy(manifest) || !isPlainOrNull(manifest) || hasOwnAccessors(manifest) || hasOwnHeadersAccessors(manifest)) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
@@ -1059,6 +1055,11 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
+    const partsVal = manifestPartsDesc.value;
+    if (!partsVal || !Array.isArray(partsVal) || Object.getPrototypeOf(partsVal) !== Array.prototype || types.isProxy(partsVal) || hasOwnAccessors(partsVal)) {
+      return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
+    }
+
     // Capture snapshot of manifest.parts once
     let parts;
     try {
@@ -1067,7 +1068,7 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
-    if (!Array.isArray(parts) || Object.getPrototypeOf(parts) !== Array.prototype || hasOwnAccessors(parts)) {
+    if (!Array.isArray(parts) || Object.getPrototypeOf(parts) !== Array.prototype || types.isProxy(parts) || hasOwnAccessors(parts)) {
       return { http_status: 400, error_code: 'InvalidPart', status: 400, code: 'InvalidPart', reason: 'INVALID_MULTIPART_MANIFEST_STRUCTURE' };
     }
 
@@ -1375,10 +1376,6 @@ export function dispatchS3CompleteMultipartUpload(manifestOrOptions = {}, maybeS
 
 export function dispatchS3Error(conditionOrOptions, maybeHeader) {
   try {
-    if (hasOversizedDeclaredLength(conditionOrOptions)) {
-      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
-    }
-
     if (hasOwnHeadersAccessors(conditionOrOptions)) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_HEADER_SYNTAX' };
     }
@@ -1399,6 +1396,7 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       conditionOrOptions instanceof Set ||
       conditionOrOptions instanceof ArrayBuffer ||
       (ArrayBuffer.isView(conditionOrOptions) && !Buffer.isBuffer(conditionOrOptions) && !(conditionOrOptions instanceof Uint8Array)) ||
+      types.isProxy(conditionOrOptions) ||
       hasOwnAccessors(conditionOrOptions) ||
       hasPrototypeChainAccessor(conditionOrOptions, 'payload') ||
       hasPrototypeChainAccessor(conditionOrOptions, 'payloadBytes') ||
@@ -1406,6 +1404,10 @@ export function dispatchS3Error(conditionOrOptions, maybeHeader) {
       hasPrototypeChainAccessor(conditionOrOptions, 'code')
     ) {
       return { http_status: 400, error_code: 'InvalidDigest', status: 400, code: 'InvalidDigest', reason: 'MALFORMED_PAYLOAD_TYPE' };
+    }
+
+    if (hasOversizedDeclaredLength(conditionOrOptions)) {
+      return { http_status: 400, error_code: 'EntityTooLarge', status: 400, code: 'EntityTooLarge', reason: 'PAYLOAD_EXCEEDS_5GIB_LIMIT' };
     }
 
   const isRequestShape =
@@ -2310,7 +2312,7 @@ export function validateS3MultipartSemantics(manifest) {
       throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
     }
 
-    if (hasOwnHeadersAccessors(manifest) || hasOwnAccessors(manifest)) {
+    if (types.isProxy(manifest) || hasOwnHeadersAccessors(manifest) || hasOwnAccessors(manifest)) {
       throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
     }
 
@@ -2339,6 +2341,11 @@ export function validateS3MultipartSemantics(manifest) {
       throw new Error('Semantic error: multipart upload manifest parts array must be an own property (inherited parts prohibited)');
     }
 
+    const partsVal = partsDesc.value;
+    if (!partsVal || !Array.isArray(partsVal) || Object.getPrototypeOf(partsVal) !== Array.prototype || types.isProxy(partsVal) || hasOwnAccessors(partsVal)) {
+      throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+    }
+
     try {
       void manifest.parts;
       void manifest.total_parts;
@@ -2355,7 +2362,7 @@ export function validateS3MultipartSemantics(manifest) {
       throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
     }
 
-    if (!Array.isArray(parts) || Object.getPrototypeOf(parts) !== Array.prototype || hasOwnAccessors(parts)) {
+    if (!Array.isArray(parts) || Object.getPrototypeOf(parts) !== Array.prototype || types.isProxy(parts) || hasOwnAccessors(parts)) {
       throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
     }
 
@@ -2395,6 +2402,10 @@ export function validateS3MultipartSemantics(manifest) {
       if (!Object.prototype.hasOwnProperty.call(parts, i)) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
+      const partDesc = Object.getOwnPropertyDescriptor(parts, i);
+      if (!partDesc || partDesc.get !== undefined || partDesc.set !== undefined) {
+        throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
+      }
       let part;
       try {
         part = parts[i];
@@ -2407,7 +2418,7 @@ export function validateS3MultipartSemantics(manifest) {
         } catch {
           throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
         }
-        if (hasOwnHeadersAccessors(part)) {
+        if (types.isProxy(part) || hasOwnHeadersAccessors(part) || hasOwnAccessors(part)) {
           throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
         }
       }
@@ -2425,7 +2436,7 @@ export function validateS3MultipartSemantics(manifest) {
       } catch {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
-      if (hasOwnAccessors(part)) {
+      if (types.isProxy(part) || hasOwnAccessors(part)) {
         throw new Error('Semantic error: multipart upload manifest structure is invalid or malformed (InvalidPart)');
       }
       if ('part_number' in part && !Object.prototype.hasOwnProperty.call(part, 'part_number')) {
@@ -2892,6 +2903,18 @@ export function validatePlatformSemantics(data, schemaId) {
           resolvedProfileForLease.immutable_storage_required === true;
 
         if (immutableStorageMandated) {
+          if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
+            for (const cap of data.negotiation_request.requested_optional_capabilities) {
+              if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
+                throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
+              }
+            }
+          }
+          for (const cap of caps) {
+            if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
+              throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
+            }
+          }
           for (const cap of caps) {
             const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
             const isDegraded =
@@ -2913,6 +2936,12 @@ export function validatePlatformSemantics(data, schemaId) {
           const lockFb = lockCap.fallback_applied || lockCap.effective_fallback || 'NONE';
           if (lockDisp !== 'GRANTED_FULL' || lockFb !== 'NONE') {
             throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
+          }
+          for (const cap of caps) {
+            const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+            if (isStorageCap && cap.capability_name !== 'storage_object_lock') {
+              throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability alias '${cap.capability_name || cap.slot_id}' cannot coexist in lease`);
+            }
           }
         }
       }
@@ -3263,7 +3292,19 @@ export function validatePlatformSemantics(data, schemaId) {
             profile.immutable_storage_required === true;
 
           if (immutableStorageMandated) {
+            if (data.negotiation_request && Array.isArray(data.negotiation_request.requested_optional_capabilities)) {
+              for (const cap of data.negotiation_request.requested_optional_capabilities) {
+                if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
+                  throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
+                }
+              }
+            }
             const leaseCaps = lease.negotiated_optional_capabilities || lease.agreed_capabilities || [];
+            for (const cap of leaseCaps) {
+              if (cap.slot_id === 'storage' && cap.capability_name !== 'storage_object_lock') {
+                throw new Error("Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease");
+              }
+            }
             for (const cap of leaseCaps) {
               const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
               if (isStorageCap) {
@@ -3282,6 +3323,12 @@ export function validatePlatformSemantics(data, schemaId) {
             const lockFb = lockCap.fallback_applied || lockCap.effective_fallback || 'NONE';
             if (lockDisp !== 'GRANTED_FULL' || lockFb !== 'NONE') {
               throw new Error("Semantic error: immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition");
+            }
+            for (const cap of leaseCaps) {
+              const isStorageCap = cap.slot_id === 'storage' || cap.capability_name === 'storage_object_lock';
+              if (isStorageCap && cap.capability_name !== 'storage_object_lock') {
+                throw new Error(`Semantic error: DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage capability alias '${cap.capability_name || cap.slot_id}' cannot coexist in lease`);
+              }
             }
           }
         }
@@ -4687,9 +4734,32 @@ let pcnImmutableAliasLockCaught = false;
 try {
   validatePlatformSemantics(pcnImmutableAliasLock, pcnSchemaId);
 } catch (e) {
-  pcnImmutableAliasLockCaught = e.message.includes('immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition');
+  pcnImmutableAliasLockCaught = e.message.includes('DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease') || e.message.includes('immutable storage profile requires storage_object_lock capability in lease with GRANTED_FULL disposition');
 }
 H('30n', pcnImmutableAliasLockCaught, 'immutable storage profile lease with storage_object_lock alias must fail validatePlatformSemantics');
+
+// 30o. in-memory validation: reject coexisting non-canonical storage capability on immutable storage profile even if storage_object_lock is granted (OPEN-5)
+const pcnCoexistingAlias = JSON.parse(JSON.stringify(pcnSample));
+pcnCoexistingAlias.negotiation_request.requested_optional_capabilities.push({
+  capability_name: 'storage_custom_perf',
+  slot_id: 'storage',
+  required_for_optimal: false,
+  preferred_fallback: 'FEATURE_DISABLED_GRACEFUL'
+});
+pcnCoexistingAlias.agreed_capability_lease.negotiated_optional_capabilities.push({
+  capability_name: 'storage_custom_perf',
+  slot_id: 'storage',
+  disposition: 'GRANTED_FULL',
+  active_mode: 'high_perf',
+  fallback_applied: 'NONE'
+});
+let pcnCoexistingAliasCaught = false;
+try {
+  validatePlatformSemantics(pcnCoexistingAlias, pcnSchemaId);
+} catch (e) {
+  pcnCoexistingAliasCaught = e.message.includes('DEGRADATION_OF_IMMUTABLE_STORAGE_FORBIDDEN: immutable storage profile prohibits non-canonical storage capability aliases or surplus storage capabilities in request or lease');
+}
+H('30o', pcnCoexistingAliasCaught, 'coexisting non-canonical storage capability in request or lease under immutable profile must fail closed terminally');
 
 
 
