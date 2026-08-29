@@ -324,6 +324,6 @@
     "update_station_workflow",
     "canonicalization_scheme"
   ],
-  "x-cybrik-lifecycle": "PROPOSED",
-  "description": "CYBRIK Offline Install Update Manifest v1 [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
+  "x-cybrik-lifecycle": "ACCEPTED FOR IMPLEMENTATION",
+  "description": "CYBRIK Offline Install Update Manifest v1"
 }

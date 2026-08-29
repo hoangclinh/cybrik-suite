@@ -17121,3 +17121,61 @@ test('OPEN-2 and OPEN-5: consolidate size aliases, standalone advertisement stor
     assert.equal(resObjCond.reason, 'EmptyPartsList');
   }
 });
+
+test('OPEN-1, OPEN-2, OPEN-5 schema lifecycle invariants and Founder acceptance binding', () => {
+  const schemaNames = [
+    {
+      name: 'cybrik.offline-install-update-manifest.v1.schema.json',
+      id: 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json',
+      openItem: 'OPEN-1',
+      specFile: 'contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md',
+    },
+    {
+      name: 'cybrik.storage-s3-compatibility-subset.v1.schema.json',
+      id: 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json',
+      openItem: 'OPEN-2',
+      specFile: 'contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md',
+    },
+    {
+      name: 'cybrik.provider-capability-negotiation.v1.schema.json',
+      id: 'https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json',
+      openItem: 'OPEN-5',
+      specFile: 'contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md',
+    },
+  ];
+
+  const founderPacketPath = join(ROOT, 'docs/adr/FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md');
+  assert.ok(existsSync(founderPacketPath), 'Founder decision packet must exist on disk');
+  const packetText = readFileSync(founderPacketPath, 'utf8');
+
+  for (const s of schemaNames) {
+    const p = join(JSON_SCHEMA_DIR, s.name);
+    assert.ok(existsSync(p), `Schema file must exist: ${p}`);
+    const doc = JSON.parse(readFileSync(p, 'utf8'));
+
+    // 1. Schema lifecycle properties
+    assert.equal(doc.$schema, 'https://json-schema.org/draft/2020-12/schema');
+    assert.equal(doc.$id, s.id);
+    assert.equal(doc['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION');
+    assert.equal(doc['x-cybrik-not-accepted'], false);
+    assert.equal(doc['x-cybrik-contract-version'], '0.1.0');
+    assert.equal(doc['$comment'], 'CYBRIK Suite Contract Specification v0.1.0');
+    if (doc['x-cybrik-lifecycle']) {
+      assert.equal(doc['x-cybrik-lifecycle'], 'ACCEPTED FOR IMPLEMENTATION');
+    }
+    assert.ok(!doc.description?.includes('PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT'), `${s.name} description must not contain stale PROPOSED marker`);
+
+    // 2. Specification lifecycle properties
+    const specPath = join(ROOT, s.specFile);
+    assert.ok(existsSync(specPath), `Specification file must exist: ${specPath}`);
+    const specText = readFileSync(specPath, 'utf8');
+    assert.ok(specText.includes('ACCEPTED FOR IMPLEMENTATION'), `${s.specFile} must declare ACCEPTED FOR IMPLEMENTATION`);
+    assert.ok(!specText.includes('v0.1.0-proposed'), `${s.specFile} must not declare proposed title`);
+    assert.ok(!specText.includes('pending future Founder decision'), `${s.specFile} must not contain pending future decision text`);
+
+    // 3. Founder packet binding
+    assert.ok(packetText.includes(s.openItem), `Founder decision packet must explicitly record acceptance of ${s.openItem}`);
+    assert.ok(packetText.includes(s.name), `Founder decision packet must bind to schema ${s.name}`);
+  }
+});
+

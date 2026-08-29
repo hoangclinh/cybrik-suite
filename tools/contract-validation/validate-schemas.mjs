@@ -3966,6 +3966,15 @@ const checkLifecycle = (label, obj) => {
   if (!LC || !obj) return;
   if (obj['x-cybrik-status'] !== LC.status) fail(`${label}: x-cybrik-status must be '${LC.status}' to match the manifest lifecycle (got '${obj['x-cybrik-status']}')`);
   if (obj['x-cybrik-not-accepted'] !== LC.notAccepted) fail(`${label}: x-cybrik-not-accepted must be ${LC.notAccepted} to match the manifest lifecycle`);
+  if (obj['x-cybrik-lifecycle'] !== undefined && obj['x-cybrik-lifecycle'] !== LC.status) {
+    fail(`${label}: x-cybrik-lifecycle must be '${LC.status}' to match the manifest lifecycle (got '${obj['x-cybrik-lifecycle']}')`);
+  }
+  if (typeof obj.description === 'string' && obj.description.includes('PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT') && LC.status === 'ACCEPTED FOR IMPLEMENTATION') {
+    fail(`${label}: description retains stale PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT marker under accepted lifecycle`);
+  }
+  if (typeof obj['$comment'] === 'string' && obj['$comment'].includes('proposed') && LC.status === 'ACCEPTED FOR IMPLEMENTATION') {
+    fail(`${label}: $comment retains stale proposed marker under accepted lifecycle`);
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -4029,6 +4038,12 @@ for (const name of [...SCHEMA_FILES, ...ACCEPTED_OPEN_ITEM_SCHEMA_FILES, ...PROP
   else idByBasename[name] = doc.$id;
   if (SCHEMA_FILES.includes(name) || ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
     checkLifecycle(`json-schema/${name}`, doc);
+    if (ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
+      const founderPacketPath = join(ROOT, 'docs', 'adr', 'FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md');
+      if (!existsSync(founderPacketPath)) {
+        fail(`json-schema/${name}: accepted open item schema requires committed Founder Decision Packet`);
+      }
+    }
   } else {
     if (doc['x-cybrik-status'] !== 'PROPOSED') fail(`json-schema/${name}: x-cybrik-status must be 'PROPOSED'`);
     if (doc['x-cybrik-not-accepted'] !== true) fail(`json-schema/${name}: x-cybrik-not-accepted must be true`);
