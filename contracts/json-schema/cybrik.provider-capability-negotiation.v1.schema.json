@@ -1,0 +1,1174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.provider-capability-negotiation.v1.schema.json",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Specification v0.1.0",
+  "title": "CYBRIK Provider Capability Negotiation Handshake v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "s3OperationName": {
+      "type": "string",
+      "enum": [
+        "PutObject",
+        "GetObject",
+        "HeadObject",
+        "DeleteObject",
+        "DeleteObjects",
+        "ListObjectsV2",
+        "HeadBucket",
+        "CreateBucket",
+        "CreateMultipartUpload",
+        "UploadPart",
+        "CompleteMultipartUpload",
+        "AbortMultipartUpload",
+        "ListParts",
+        "PutBucketVersioning",
+        "GetBucketVersioning",
+        "PutObjectRetention",
+        "GetObjectRetention",
+        "PutObjectLegalHold",
+        "GetObjectLegalHold"
+      ]
+    }
+  },
+  "properties": {
+    "handshake_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "minLength": 3
+    },
+    "protocol_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "provider_namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-_]*[a-z0-9]$",
+      "minLength": 2
+    },
+    "target_profile_id": {
+      "type": "string",
+      "enum": [
+        "onprem-standard-v1",
+        "onprem-airgap-v1",
+        "private-cloud-v1",
+        "hybrid-sovereign-v1"
+      ]
+    },
+    "target_profile_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "target_profile_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "negotiation_status": {
+      "type": "string",
+      "enum": [
+        "AGREED_LEASE_GRANTED",
+        "DEGRADED_LEASE_GRANTED",
+        "TERMINAL_REJECTED"
+      ]
+    },
+    "negotiation_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requested_slots": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 13,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "oci_container_runtime",
+              "isolation_substrate",
+              "orchestration_capability",
+              "network_segmentation",
+              "storage",
+              "database",
+              "cache",
+              "secrets",
+              "crypto",
+              "identity_workload_identity",
+              "observability",
+              "ai_model_runtime",
+              "artifact_update_mechanism"
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "oci_container_runtime"
+              }
+            },
+            {
+              "contains": {
+                "const": "isolation_substrate"
+              }
+            },
+            {
+              "contains": {
+                "const": "network_segmentation"
+              }
+            },
+            {
+              "contains": {
+                "const": "storage"
+              }
+            },
+            {
+              "contains": {
+                "const": "database"
+              }
+            },
+            {
+              "contains": {
+                "const": "secrets"
+              }
+            },
+            {
+              "contains": {
+                "const": "crypto"
+              }
+            },
+            {
+              "contains": {
+                "const": "identity_workload_identity"
+              }
+            },
+            {
+              "contains": {
+                "const": "artifact_update_mechanism"
+              }
+            }
+          ]
+        },
+        "requested_optional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "required_for_optimal": {
+                "type": "boolean"
+              },
+              "preferred_fallback": {
+                "type": "string",
+                "enum": [
+                  "CORE_EMULATION_FALLBACK",
+                  "FEATURE_DISABLED_GRACEFUL"
+                ]
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "preferred_fallback"
+            ]
+          }
+        },
+        "client_nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{16,64}$"
+        },
+        "degradation_policy": {
+          "type": "string",
+          "enum": [
+            "FAIL_CLOSED_ON_MANDATORY_GRACEFUL_ON_OPTIONAL",
+            "FAIL_CLOSED_STRICT"
+          ]
+        }
+      },
+      "required": [
+        "request_id",
+        "timestamp",
+        "requested_slots",
+        "requested_optional_capabilities",
+        "client_nonce",
+        "degradation_policy"
+      ]
+    },
+    "advertisement_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "response_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "server_nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{16,64}$"
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": [
+            "PARTIAL_CAPABILITY_ADVERTISEMENT",
+            "FULL_PROFILE_CONFORMANCE_DECLARATION"
+          ]
+        },
+        "target_profile_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "advertised_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "is_mandatory": {
+                "type": "boolean"
+              },
+              "supported_features": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S+"
+                }
+              },
+              "degradation_fallback": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fallback_supported": {
+                    "type": "boolean"
+                  },
+                  "fallback_mode": {
+                    "type": "string",
+                    "enum": [
+                      "CORE_EMULATION_FALLBACK",
+                      "FEATURE_DISABLED_GRACEFUL",
+                      "NONE_REQUIRED"
+                    ]
+                  },
+                  "degradation_notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "fallback_supported",
+                  "fallback_mode"
+                ]
+              },
+              "evidence_references": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
+                }
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "is_mandatory",
+              "supported_features",
+              "degradation_fallback",
+              "evidence_references"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "slot_id": {
+                      "const": "storage"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "supported_features": {
+                      "items": {
+                        "$ref": "#/$defs/s3OperationName"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "conformance_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "test_identifier": {
+                "type": "string",
+                "pattern": "^urn:cybrik:evidence:[a-z0-9][a-z0-9-_:]*[a-z0-9]$"
+              },
+              "status": {
+                "const": "PASS"
+              },
+              "evidence_pack_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "executed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "report_uri": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "test_identifier",
+              "status",
+              "evidence_pack_digest"
+            ]
+          }
+        },
+        "degradation_behavior": {
+          "const": "FAIL_CLOSED"
+        },
+        "authenticated_discovery": {
+          "const": true
+        }
+      },
+      "required": [
+        "response_id",
+        "timestamp",
+        "server_nonce",
+        "claim_type",
+        "target_profile_digest",
+        "advertised_capabilities",
+        "conformance_evidence",
+        "degradation_behavior",
+        "authenticated_discovery"
+      ]
+    },
+    "agreed_capability_lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 3
+        },
+        "target_profile_id": {
+          "type": "string",
+          "enum": [
+            "onprem-standard-v1",
+            "onprem-airgap-v1",
+            "private-cloud-v1",
+            "hybrid-sovereign-v1"
+          ]
+        },
+        "target_profile_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "lease_status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_OPTIMAL",
+            "ACTIVE_DEGRADED",
+            "REJECTED_FAIL_CLOSED"
+          ]
+        },
+        "mandatory_slots_satisfied": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 13,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "oci_container_runtime",
+              "isolation_substrate",
+              "orchestration_capability",
+              "network_segmentation",
+              "storage",
+              "database",
+              "cache",
+              "secrets",
+              "crypto",
+              "identity_workload_identity",
+              "observability",
+              "ai_model_runtime",
+              "artifact_update_mechanism"
+            ]
+          }
+        },
+        "negotiated_optional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "capability_name": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+$",
+                "minLength": 2
+              },
+              "slot_id": {
+                "type": "string",
+                "enum": [
+                  "oci_container_runtime",
+                  "isolation_substrate",
+                  "orchestration_capability",
+                  "network_segmentation",
+                  "storage",
+                  "database",
+                  "cache",
+                  "secrets",
+                  "crypto",
+                  "identity_workload_identity",
+                  "observability",
+                  "ai_model_runtime",
+                  "artifact_update_mechanism"
+                ]
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "GRANTED_FULL",
+                  "GRANTED_DEGRADED",
+                  "REJECTED_UNSUPPORTED"
+                ]
+              },
+              "active_mode": {
+                "type": "string",
+                "minLength": 2
+              },
+              "fallback_applied": {
+                "type": "string",
+                "enum": [
+                  "CORE_EMULATION_FALLBACK",
+                  "FEATURE_DISABLED_GRACEFUL",
+                  "NONE"
+                ]
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "capability_name",
+              "slot_id",
+              "disposition",
+              "active_mode",
+              "fallback_applied"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_FULL"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_FULL"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "disposition": {
+                      "enum": [
+                        "GRANTED_DEGRADED",
+                        "REJECTED_UNSUPPORTED"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fallback_applied": {
+                      "enum": [
+                        "CORE_EMULATION_FALLBACK",
+                        "FEATURE_DISABLED_GRACEFUL"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "fail_closed_violations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "lease_id",
+        "target_profile_id",
+        "target_profile_digest",
+        "issued_at",
+        "valid_until",
+        "ttl_seconds",
+        "lease_status",
+        "mandatory_slots_satisfied",
+        "negotiated_optional_capabilities",
+        "fail_closed_violations"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "negotiated_optional_capabilities": {
+                "items": {
+                  "properties": {
+                    "disposition": {
+                      "const": "GRANTED_FULL"
+                    },
+                    "fallback_applied": {
+                      "const": "NONE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "negotiated_optional_capabilities": {
+                "items": {
+                  "if": {
+                    "properties": {
+                      "disposition": {
+                        "const": "GRANTED_DEGRADED"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "fallback_applied": {
+                        "not": {
+                          "const": "NONE"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence_binding_verified": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "handshake_id",
+    "protocol_version",
+    "provider_namespace",
+    "target_profile_id",
+    "target_profile_version",
+    "target_profile_digest",
+    "negotiation_status",
+    "negotiation_request",
+    "advertisement_response",
+    "agreed_capability_lease",
+    "evidence_binding_verified"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "enum": [
+              "AGREED_LEASE_GRANTED",
+              "DEGRADED_LEASE_GRANTED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "evidence_binding_verified": {
+            "const": true
+          },
+          "agreed_capability_lease": {
+            "properties": {
+              "fail_closed_violations": {
+                "maxItems": 0
+              },
+              "mandatory_slots_satisfied": {
+                "minItems": 9,
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "oci_container_runtime"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "isolation_substrate"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "network_segmentation"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "storage"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "database"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "secrets"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "crypto"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "identity_workload_identity"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "artifact_update_mechanism"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "const": "AGREED_LEASE_GRANTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "const": "DEGRADED_LEASE_GRANTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_OPTIMAL"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "AGREED_LEASE_GRANTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "ACTIVE_DEGRADED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "DEGRADED_LEASE_GRANTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_status": {
+            "const": "TERMINAL_REJECTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "REJECTED_FAIL_CLOSED"
+              },
+              "fail_closed_violations": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "const": "REJECTED_FAIL_CLOSED"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "const": "TERMINAL_REJECTED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "negotiation_request": {
+            "properties": {
+              "degradation_policy": {
+                "const": "FAIL_CLOSED_STRICT"
+              }
+            },
+            "required": [
+              "degradation_policy"
+            ]
+          }
+        },
+        "required": [
+          "negotiation_request"
+        ]
+      },
+      "then": {
+        "properties": {
+          "negotiation_status": {
+            "not": {
+              "const": "DEGRADED_LEASE_GRANTED"
+            }
+          },
+          "agreed_capability_lease": {
+            "properties": {
+              "lease_status": {
+                "not": {
+                  "const": "ACTIVE_DEGRADED"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "advertisement_response": {
+            "properties": {
+              "claim_type": {
+                "const": "FULL_PROFILE_CONFORMANCE_DECLARATION"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "advertisement_response": {
+            "allOf": [
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "minItems": 13,
+                    "maxItems": 13,
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "oci_container_runtime"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "isolation_substrate"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "orchestration_capability"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "network_segmentation"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "storage"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "database"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "cache"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "secrets"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "crypto"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "identity_workload_identity"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "observability"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "ai_model_runtime"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "advertised_capabilities": {
+                    "contains": {
+                      "properties": {
+                        "slot_id": {
+                          "const": "artifact_update_mechanism"
+                        }
+                      },
+                      "required": [
+                        "slot_id"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "advertised_capabilities": {
+                "maxItems": 13
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

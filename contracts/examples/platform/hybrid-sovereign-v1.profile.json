@@ -93,6 +93,13 @@
     "ai_model_runtime": "MANDATORY",
     "artifact_update_mechanism": "MANDATORY"
   },
+  "slots": {
+    "storage": {
+      "specification": {
+        "immutable_storage_required": true
+      }
+    }
+  },
   "sovereignty_class": "OPTIONAL_HYBRID",
   "isolation_policy": {
     "floor": "S2_UNTRUSTED_HOSTILE_CODE_EXECUTION",

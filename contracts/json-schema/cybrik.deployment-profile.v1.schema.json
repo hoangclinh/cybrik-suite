@@ -431,6 +431,51 @@
           "const": true
         }
       }
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage"
+      ],
+      "properties": {
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "specification"
+          ],
+          "properties": {
+            "slot_id": {
+              "const": "storage"
+            },
+            "specification": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "immutable_storage_required"
+              ],
+              "properties": {
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "interface_standard": {
+                  "type": "string"
+                },
+                "immutable_storage_required": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "conformance_profile": {
+              "type": "string"
+            }
+          }
+        }
+      }
     }
   },
   "required": [
@@ -439,7 +484,8 @@
     "capability_set",
     "strength",
     "sovereignty_class",
-    "isolation_policy"
+    "isolation_policy",
+    "slots"
   ],
   "x-cybrik-lifecycle": "PROPOSED",
   "allOf": [

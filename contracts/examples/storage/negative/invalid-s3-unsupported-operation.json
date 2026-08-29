@@ -1,5 +1,5 @@
 {
-  "provider_identifier": "minio-embedded",
+  "provider_identifier": "minio-enterprise-s3",
   "mandatory_operations": {
     "crud": true,
     "multipart_upload": true,
@@ -15,7 +15,27 @@
     "GOVERNANCE"
   ],
   "legal_hold_supported": true,
-  "required_operations": [],
+  "required_operations": [
+    "PutObject",
+    "GetObject",
+    "HeadObject",
+    "DeleteObject",
+    "DeleteObjects",
+    "ListObjectsV2",
+    "HeadBucket",
+    "CreateBucket",
+    "PutObjectRetention",
+    "GetObjectRetention",
+    "PutObjectLegalHold",
+    "GetObjectLegalHold",
+    "CreateMultipartUpload",
+    "UploadPart",
+    "CompleteMultipartUpload",
+    "AbortMultipartUpload",
+    "PutObjectAclUnsupported",
+    "ListParts",
+    "PutBucketVersioning"
+  ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
   "required_error_codes": [

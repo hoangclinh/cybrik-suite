@@ -1,5 +1,5 @@
 {
-  "provider_identifier": "minio-embedded",
+  "provider_identifier": "minio-enterprise-s3",
   "mandatory_operations": {
     "crud": true,
     "multipart_upload": true,
@@ -15,9 +15,33 @@
     "GOVERNANCE"
   ],
   "legal_hold_supported": true,
-  "required_operations": [],
+  "required_operations": [
+    "PutObject",
+    "GetObject",
+    "HeadObject",
+    "DeleteObject",
+    "DeleteObjects",
+    "ListObjectsV2",
+    "HeadBucket",
+    "CreateBucket",
+    "CreateMultipartUpload",
+    "UploadPart",
+    "CompleteMultipartUpload",
+    "AbortMultipartUpload",
+    "ListParts",
+    "PutBucketVersioning",
+    "GetBucketVersioning",
+    "PutObjectRetention",
+    "GetObjectRetention",
+    "PutObjectLegalHold",
+    "GetObjectLegalHold"
+  ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
+  "evidence_references": [
+    "urn:cybrik:evidence:storage:s3:conformance:v1:core-operations",
+    "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"
+  ],
   "required_error_codes": [
     "BadDigest",
     "InvalidDigest",

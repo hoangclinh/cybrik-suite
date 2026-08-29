@@ -1,13 +1,186 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json",
-  "x-cybrik-status": "PROPOSED",
-  "x-cybrik-not-accepted": true,
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
-  "$comment": "CYBRIK Suite Contract Proposal v0.1.0-proposed",
+  "$comment": "CYBRIK Suite Contract Specification v0.1.0",
   "title": "CYBRIK Offline Install Update Manifest v1",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "workflow_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "VERIFY_DIGEST",
+            "PRELOAD_OCI_IMAGE",
+            "APPLY_SQL_MIGRATION",
+            "HEALTH_PROBE",
+            "RESTORE_DATABASE_SNAPSHOT"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parameters": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "action",
+        "target"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "VERIFY_DIGEST"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "PRELOAD_OCI_IMAGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^images\\/(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+\\.tar$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "APPLY_SQL_MIGRATION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^migrations\\/(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+\\.sql$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "transactional": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "HEALTH_PROBE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "pattern": "^https?:\\/\\/(?:localhost|127\\.0\\.0\\.1|\\[::1\\]|10\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])|172\\.(?:1[6-9]|2[0-9]|3[0-1])\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])|192\\.168\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))(?::(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:\\/[a-zA-Z0-9_\\-\\.\\/]*)*$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "HEAD"
+                    ]
+                  },
+                  "expected_status": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 599
+                  },
+                  "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "retries": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "RESTORE_DATABASE_SNAPSHOT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^(?:snapshots|\\$PRE_APPLY_SNAPSHOT)\\/(?!.*\\/\\/)((?!\\.)[a-zA-Z0-9_\\-\\.]+\\/)*(?!\\.)[a-zA-Z0-9_\\-\\.]+\\.(?:sql|db|bak)$"
+              },
+              "parameters": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
   "properties": {
     "bundle_identifier": {
       "type": "string",
@@ -16,6 +189,10 @@
     "release_tag": {
       "type": "string",
       "pattern": "^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([a-z0-9.-]+))?$"
+    },
+    "manifest_sequence": {
+      "type": "integer",
+      "minimum": 1
     },
     "operator_trust_root": {
       "type": "object",
@@ -27,15 +204,10 @@
         },
         "public_key_fingerprint": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "signature_algorithm": {
-          "type": "string",
-          "enum": [
-            "ed25519",
-            "ecdsa-p256-sha256",
-            "rsa-pss-sha256"
-          ]
+          "const": "ed25519"
         }
       },
       "required": [
@@ -44,9 +216,26 @@
         "signature_algorithm"
       ]
     },
-    "bundle_signature": {
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9+/=_-]{32,512}$"
+    "detached_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "signature_file": {
+          "const": "manifest.sig"
+        },
+        "key_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "algorithm",
+        "signature_file",
+        "key_fingerprint"
+      ]
     },
     "artifacts": {
       "type": "array",
@@ -60,7 +249,7 @@
           },
           "path": {
             "type": "string",
-            "pattern": "^(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"
+            "pattern": "^(?!(?:manifest\\.json|manifest\\.sig)$)(?!\\/)(?!^\\.\\/)(?!.*\\.\\.)(?!.*(?:\\/\\.|\\/\\/|\\/$))[a-z0-9._/-]+[a-z0-9._-]$"
           },
           "sha256": {
             "type": "string",
@@ -95,27 +284,21 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         },
         "apply_steps": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         },
         "rollback_steps": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "\\S+"
+            "$ref": "#/$defs/workflow_step"
           }
         }
       },
@@ -132,14 +315,15 @@
   "required": [
     "bundle_identifier",
     "release_tag",
+    "manifest_sequence",
     "operator_trust_root",
-    "bundle_signature",
+    "detached_signature",
     "artifacts",
     "migration_reversibility_guaranteed",
     "rollback_procedure_reference",
     "update_station_workflow",
     "canonicalization_scheme"
   ],
-  "x-cybrik-lifecycle": "PROPOSED",
-  "description": "CYBRIK Offline Install Update Manifest v1 [PROPOSED_SUBORDINATE_CONTRACT_ARTIFACT]"
+  "x-cybrik-lifecycle": "ACCEPTED FOR IMPLEMENTATION",
+  "description": "CYBRIK Offline Install Update Manifest v1"
 }

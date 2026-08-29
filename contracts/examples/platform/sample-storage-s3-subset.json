@@ -9,9 +9,12 @@
     "versioning": true,
     "error_mappings": true
   },
-  "supported_optional_features": {
-    "object_lock": true
-  },
+  "object_lock_supported": true,
+  "retention_modes_supported": [
+    "COMPLIANCE",
+    "GOVERNANCE"
+  ],
+  "legal_hold_supported": true,
   "required_operations": [
     "PutObject",
     "GetObject",
@@ -25,16 +28,33 @@
     "UploadPart",
     "CompleteMultipartUpload",
     "AbortMultipartUpload",
+    "ListParts",
     "PutBucketVersioning",
-    "GetBucketVersioning"
+    "GetBucketVersioning",
+    "PutObjectRetention",
+    "GetObjectRetention",
+    "PutObjectLegalHold",
+    "GetObjectLegalHold"
   ],
   "addressing_style": "path_style",
   "auth_mechanism": "AWS4-HMAC-SHA256",
-  "required_error_codes": [
-    "NoSuchKey",
-    "NoSuchBucket",
-    "AccessDenied",
-    "EntityTooLarge"
+  "evidence_references": [
+    "urn:cybrik:evidence:storage:s3:conformance:v1:core-operations",
+    "urn:cybrik:evidence:storage:s3:conformance:v1:object-lock"
   ],
-  "optional_retention": true
+  "required_error_codes": [
+    "BadDigest",
+    "InvalidDigest",
+    "NoSuchBucket",
+    "NoSuchKey",
+    "NoSuchUpload",
+    "ObjectLockConfigurationNotFoundError",
+    "PreconditionFailed",
+    "AccessDenied",
+    "EntityTooLarge",
+    "EntityTooSmall",
+    "InvalidArgument",
+    "InvalidPart",
+    "InvalidPartOrder"
+  ]
 }
