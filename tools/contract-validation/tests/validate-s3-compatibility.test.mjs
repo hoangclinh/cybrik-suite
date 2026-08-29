@@ -161,9 +161,9 @@ const CLOSED_13_S3_ERROR_CODES = [
 test('schema governance and lifecycle invariants', () => {
   assert.equal(s3SchemaDoc.$schema, 'https://json-schema.org/draft/2020-12/schema');
   assert.equal(s3SchemaDoc.$id, S3_SCHEMA_ID);
-  assert.equal(s3SchemaDoc['x-cybrik-status'], 'PROPOSED');
-  assert.equal(s3SchemaDoc['x-cybrik-lifecycle'], 'PROPOSED');
-  assert.equal(s3SchemaDoc['x-cybrik-not-accepted'], true);
+  assert.equal(s3SchemaDoc['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(s3SchemaDoc['x-cybrik-lifecycle'], 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(s3SchemaDoc['x-cybrik-not-accepted'], false);
   assert.equal(s3SchemaDoc['x-cybrik-contract-version'], '0.1.0');
 });
 

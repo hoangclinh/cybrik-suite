@@ -3985,13 +3985,16 @@ const SCHEMA_FILES = [
   'cybrik.approval-decision.v1.schema.json'
 ];
 
-const PROPOSED_SCHEMA_FILES = [
-  'cybrik.deployment-profile.v1.schema.json',
-  'cybrik.platform-contract.v1.schema.json',
-  'cybrik.provider-capability-advertisement.v1.schema.json',
+const ACCEPTED_OPEN_ITEM_SCHEMA_FILES = [
   'cybrik.provider-capability-negotiation.v1.schema.json',
   'cybrik.offline-install-update-manifest.v1.schema.json',
   'cybrik.storage-s3-compatibility-subset.v1.schema.json'
+];
+
+const PROPOSED_SCHEMA_FILES = [
+  'cybrik.deployment-profile.v1.schema.json',
+  'cybrik.platform-contract.v1.schema.json',
+  'cybrik.provider-capability-advertisement.v1.schema.json'
 ];
 
 
@@ -4013,7 +4016,7 @@ for (const kw of ['x-cybrik-status', 'x-cybrik-not-accepted', 'x-cybrik-contract
 
 const schemas = {}; // basename -> { doc, path }
 const idByBasename = {};
-for (const name of [...SCHEMA_FILES, ...PROPOSED_SCHEMA_FILES]) {
+for (const name of [...SCHEMA_FILES, ...ACCEPTED_OPEN_ITEM_SCHEMA_FILES, ...PROPOSED_SCHEMA_FILES]) {
   const p = join(JSON_SCHEMA_DIR, name);
   if (!existsSync(p)) { fail(`missing schema file: json-schema/${name}`); continue; }
   let doc;
@@ -4024,7 +4027,7 @@ for (const name of [...SCHEMA_FILES, ...PROPOSED_SCHEMA_FILES]) {
   if (doc.$schema !== DRAFT_2020) fail(`json-schema/${name}: $schema is not 2020-12 (${doc.$schema})`);
   if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
-  if (SCHEMA_FILES.includes(name)) {
+  if (SCHEMA_FILES.includes(name) || ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
     checkLifecycle(`json-schema/${name}`, doc);
   } else {
     if (doc['x-cybrik-status'] !== 'PROPOSED') fail(`json-schema/${name}: x-cybrik-status must be 'PROPOSED'`);
