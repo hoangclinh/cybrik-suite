@@ -1,9 +1,9 @@
 # Platform Contract Slot 5: Storage S3-Compatible Subset Specification v1
 
-**Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
-**Authoring Phase:** `v0.1.0-proposed` (Architecture / governance proposal; carries no product, runtime, or deployment authority)
+**Status:** `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only)
+**Authoring Phase:** `v0.1.0` (Architecture Contract Authority Only; carries no product, runtime, or deployment authority)
 **Document Identifier:** `contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md`
-**Contract Version:** `0.1.0-proposed`
+**Contract Version:** `0.1.0`
 **Governing Architecture Records:** `ADR-0015` (§5.2 Slot 5, §14.1 `OPEN-2`), `ADR-0001` (Versioning), `ADR-0005` (Isolation Substrate), `ADR-0014` (Receipt Trust & Durability)
 **Platform Contract Placement:** Slot 5 (`storage`)
 **Authority Scope:** `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`
@@ -21,8 +21,8 @@ This document operates strictly under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`. It
 In accordance with `ADR-0015` and `CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md`:
 * **No Provider Selection**: This specification does **NOT** select, mandate, or endorse any specific cloud provider (e.g., AWS, GCP, Azure, Cloudflare) or on-premise / self-hosted storage substrate (e.g., MinIO, SeaweedFS, Ceph, Garage).
 * **No Implementation Authority**: This specification does **NOT** authorize product, runtime, or infrastructure source code changes.
-* **No Production or Release Authority**: This proposal does **NOT** authorize production deployment, staging promotion, or release tagging.
-* **Open-Item Retention**: The presence of this specification in the repository does **NOT** automatically close `OPEN-2`. Final closure of `OPEN-2` requires explicit Founder decision and formal governance acceptance.
+* **No Production or Release Authority**: This specification does **NOT** authorize production deployment, staging promotion, or release tagging.
+* **Open-Item Resolution**: `OPEN-2` is formally `RESOLVED` (Architecture Contract Authority Only) by Founder decision on 2026-08-29.
 * **Informative References**: Any references to concrete storage engines, tools, or SDKs within this document are strictly non-normative illustrative examples.
 
 ---

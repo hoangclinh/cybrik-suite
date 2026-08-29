@@ -1,7 +1,7 @@
 # CYBRIK Provider Capability Negotiation Specification (v0.1.0-proposed)
 
-**Status:** PROPOSED (Open-Item Elaboration) — NOT ACCEPTED
-**Authoring Phase:** v0.1.0-proposed (Architecture contract proposal; no implementation or deployment authority)
+**Status:** ACCEPTED FOR IMPLEMENTATION (Founder, 2026-08-29; Architecture Contract Authority Only)
+**Authoring Phase:** v0.1.0 (Architecture Contract Authority Only; no implementation or deployment authority)
 **Decider:** FOUNDER
 **Reference Target Schema:** [`contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`](../json-schema/cybrik.provider-capability-negotiation.v1.schema.json)
 **Normative Governance Authority:** `cybrik-suite:docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md` §8.2, §8.3, §8.4; `contracts/platform/CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md` §6
@@ -343,7 +343,7 @@ In accordance with `ADR-0015` §14 and Platform Contract Proposal §9, authoring
 
 | Open Item ID | Title in ADR-0015 | Governance Mandate | Effect of This Specification |
 |---|---|---|---|
-| `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | ADR-0015 §8.2, §8.3, §8.4: Define discovery encoding, version matching, degradation reporting, conformance evidence, and exclusive storage capability authorization under immutable profiles. | **ELABORATED & FORMALIZED (PROPOSED)**. Provides normative specification, JSON Schema 2020-12, and handshake fixture. Enforces `storage_object_lock` exclusivity and prohibits coexisting non-canonical storage capabilities on immutable profiles (`SR-NEG-07`). |
+| `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | ADR-0015 §8.2, §8.3, §8.4: Define discovery encoding, version matching, degradation reporting, conformance evidence, and exclusive storage capability authorization under immutable profiles. | **RESOLVED (ACCEPTED)**. Provides normative specification, JSON Schema 2020-12, and handshake fixture. Enforces `storage_object_lock` exclusivity and prohibits coexisting non-canonical storage capabilities on immutable profiles (`SR-NEG-07`). Accepted by Founder decision on 2026-08-29. |
 | `OPEN-10` | Platform Contract Slot Semantics | ADR-0015 §5.2: 13 capability slots defined. | **UPHELD**. Operates strictly over the 13 defined capability slots without adding unapproved slots. |
 | `OPEN-2` | Minimum S3 Compatibility Subset | Platform Contract §5: 15-operation baseline (8 CRUD/Bucket + 5 Multipart + `PutBucketVersioning` + `GetBucketVersioning`) on non-immutable profiles, and 19 operations when Object Lock is included. | **UPHELD**. Enforces closed S3 baseline (15 operations baseline / 19 operations with Object Lock) and strict payload type gating as non-degradable mandatory baseline under Slot 5 (`storage`). |
 | `OPEN-6`/`7`/`8` | Substrate & Provider Selection | ADR-0015 §14: Architecture authority only. | **PRESERVED**. Retains substrate neutrality; zero vendor lock-in. |

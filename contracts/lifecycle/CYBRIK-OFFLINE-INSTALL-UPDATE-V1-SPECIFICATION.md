@@ -1,6 +1,6 @@
 # CYBRIK Offline Installation & Update Manifest Contract Specification (v0.1.0-proposed)
 
-- **Document Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
+- **Document Status:** `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only)
 - **Contract Version:** `0.1.0`
 - **Platform Capability Slot:** `Slot 13: artifact_update_mechanism`
 - **Authority:** Architecture Contract Authority Only (Subordinate to ADR-0015 & Platform Contract Proposal v0.1.0)
@@ -556,13 +556,11 @@ Across all four deployment profiles (`onprem-airgap-v1`, `onprem-standard-v1`, `
 ## 9. Governance, Lifecycle & Non-Claims
 
 ### 9.1 Lifecycle Status
-This document is statused as **`PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`**.
-
-Moving this contract from `PROPOSED` to `ACCEPTED FOR IMPLEMENTATION` requires formal Founder approval under ADR-0001 lifecycle governance.
+This document is statused as **`ACCEPTED FOR IMPLEMENTATION`** (Founder, 2026-08-29; Architecture Contract Authority Only).
 
 ### 9.2 Resolution of Open Item OPEN-1
 This specification fully elaborates and satisfies the architectural and contract requirements for **OPEN-1 (`OFFLINE_INSTALL_UPDATE_CONTRACT`)** subordinate to parent Platform Contract Proposal §7 and ADR-0015 §14, proposing the detached signature model to supersede parent §7's embedded signature formulation while preserving parent proposal byte-stability pending future Founder decision.
 
-Upon Founder review and acceptance:
+By Founder decision on 2026-08-29:
 - `OPEN-1` status transitions to `RESOLVED` (Architecture Contract Authority Only).
 - Product repositories (`cybrik-soc-command-center`, `cybrik-cyber-ai-platform`, `cybrik-security-tool-fabric`) obtain the normative standard for building offline packaging tooling and update-station agents without introducing provider lock-in or unverified dependencies.

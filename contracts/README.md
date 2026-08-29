@@ -21,16 +21,12 @@ The following specifications and packets have been formally accepted through the
 * **[W2-H Resource-Bounds Packet](compatibility/cybrik-suite-resource-bounds-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0; Gate W2-H)
 * **[W2-K Transport Peer-Evidence Packet](compatibility/cybrik-suite-transport-peer-evidence-packet.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0; Gate W2-K)
 * **[Receipt Trust & Durability Packet](compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json)**: `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED` (v0.1.0)
-
-### Open-Item Elaboration Proposals (`PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`)
-The following normative specifications elaborate open items identified in `ADR-0015` and `CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md`. All carry status `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed) under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`:
-
-* **[Storage S3-Compatibility Subset Specification](storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
-  * Defines the normative minimum S3-compatible object storage subset interface under Platform Contract Slot 5 (`storage`), elaborating open item `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`).
-* **[Offline Installation & Update Manifest Specification](lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
-  * Defines the normative offline installation, air-gapped update manifest, and atomic rollback specification under Platform Contract Slot 13 (`artifact_update_mechanism`), elaborating open item `OPEN-1` (`OFFLINE_INSTALL_UPDATE_CONTRACT`).
-* **[Provider Capability Negotiation Specification](platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md)**: `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed)
-  * Defines the normative provider capability advertisement, discovery, graceful degradation, and lease negotiation protocol under Platform Contract Proposal §6, elaborating open item `OPEN-5` (`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`).
+* **[Storage S3-Compatibility Subset Specification](storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md)**: `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only) (v0.1.0)
+  * Defines the normative minimum S3-compatible object storage subset interface under Platform Contract Slot 5 (`storage`), resolving open item `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`).
+* **[Offline Installation & Update Manifest Specification](lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md)**: `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only) (v0.1.0)
+  * Defines the normative offline installation, air-gapped update manifest, and atomic rollback specification under Platform Contract Slot 13 (`artifact_update_mechanism`), resolving open item `OPEN-1` (`OFFLINE_INSTALL_UPDATE_CONTRACT`).
+* **[Provider Capability Negotiation Specification](platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md)**: `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only) (v0.1.0)
+  * Defines the normative provider capability advertisement, discovery, graceful degradation, and lease negotiation protocol under Platform Contract Proposal §6, resolving open item `OPEN-5` (`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`).
 
 ### Initial Cross-Product Packet (`PROPOSED — NOT ACCEPTED`)
 * The initial v1 packet (all `PROPOSED — NOT ACCEPTED`): shared JSON Schemas under `json-schema/` (envelope,
