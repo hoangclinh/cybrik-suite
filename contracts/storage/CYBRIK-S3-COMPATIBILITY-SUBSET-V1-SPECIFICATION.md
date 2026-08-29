@@ -1066,11 +1066,11 @@ Any implementation declaring conformance with Platform Contract Slot 5 MUST sati
 
 ---
 
-## 11. Acceptance Checklist & Transition Requirements
+## 11. Acceptance & Governance Record
 
-To advance this specification from `PROPOSED` to `ACCEPTED`, the following conditions MUST be met:
+This specification was formally **ACCEPTED FOR IMPLEMENTATION** by Founder Decision on 2026-08-29 under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`:
 
-1. **Founder Decision**: Formal review and acceptance recorded in a dedicated Founder Decision Packet.
+1. **Founder Decision**: Formal review and acceptance recorded in [`docs/adr/FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md`](../../docs/adr/FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md).
 2. **Schema & Fixture Closure**: Schema `cybrik.storage-s3-compatibility-subset.v1.schema.json` and associated test fixtures reconciled to reflect the 15-operation baseline (non-immutable profiles) and 19 operations when Object Lock is included.
 3. **Automated Test Validation**: 100% test pass across canonical contract validation suites (`validate:platform`, `validate:schemas`, `validate:s3`).
-4. **Provider-Neutral Verification**: Reconfirmation that the specification contains zero proprietary SDK tokens, vendor-specific lock-ins, or cloud provider hard dependencies.
+4. **Provider-Neutral Verification**: Contains zero proprietary SDK tokens, vendor-specific lock-ins, or cloud provider hard dependencies.

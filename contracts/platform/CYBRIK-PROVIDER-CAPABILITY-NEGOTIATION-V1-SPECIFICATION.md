@@ -1,4 +1,4 @@
-# CYBRIK Provider Capability Negotiation Specification (v0.1.0-proposed)
+# CYBRIK Provider Capability Negotiation Specification (v0.1.0)
 
 **Status:** ACCEPTED FOR IMPLEMENTATION (Founder, 2026-08-29; Architecture Contract Authority Only)
 **Authoring Phase:** v0.1.0 (Architecture Contract Authority Only; no implementation or deployment authority)

@@ -41,7 +41,7 @@ This transitions all three contracts to `ACCEPTED FOR IMPLEMENTATION` and resolv
 ## 2. Acceptance Scope & Explicit Non-Claims
 
 - **Authority Scope**: `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`
-- **Implementation Authority**: Unblocks ordinary contract-first implementation under Standing Delegation across product repositories (`cybrik-security-tool-fabric`, `cybrik-soc-command-center`, `cybrik-cyber-ai-platform`).
+- **Implementation Authority**: Confined strictly to contract-first architecture standard definition. Any future implementation touching product repositories must strictly follow repository-specific governance rules (e.g. touching `cybrik-soc-command-center` requires explicit Founder approval in session per `CLAUDE.md`), and separate dependency, migration, runtime, and deployment gates remain closed.
 - **Explicit Non-Claims**:
   - `PROVIDER_SELECTION = NOT_GRANTED`
   - `KUBERNETES_SELECTION = NOT_GRANTED`
@@ -72,4 +72,4 @@ This transitions all three contracts to `ACCEPTED FOR IMPLEMENTATION` and resolv
 
 ## 4. Next Action Sequence
 
-`MERGE_PR_75 -> VERIFY_CANONICAL_MAIN -> REBUILD_DAG -> EXECUTE_MULTI_LANE_IMPLEMENTATION`
+`MERGE_PR_75 -> VERIFY_CANONICAL_MAIN -> REBUILD_OPEN_ITEM_DAG`
