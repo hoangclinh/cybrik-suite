@@ -181,27 +181,27 @@ verification, durable ordering, fail-closed completion, append-only replay, and 
 coupling without selecting a signer, key store, ledger, endpoint, deployment, or production
 configuration. See `compatibility/cybrik-suite-receipt-trust-durability-proposal.v1.manifest.json`.
 
-## Open-Item Elaboration Specifications (`PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`)
+## Open-Item Elaboration Specifications (Accepted)
 
-The following normative specifications elaborate open items identified in `ADR-0015` and `CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md`. All carry status `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED` (v0.1.0-proposed) under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`:
+The following normative specifications elaborate and resolve open items identified in `ADR-0015` and `CYBRIK-PLATFORM-CONTRACT-V1-PROPOSAL.md`. All carry status `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29) under `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`:
 
 ### 1. Storage S3-Compatibility Subset (`contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md`)
-* **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
-* **Open Item:** `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`)
+* **Status:** `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only)
+* **Open Item:** `OPEN-2` (`S3_COMPATIBILITY_MINIMUM_CONTRACT`) — **RESOLVED**
 * **Slot:** Slot 5 (`storage`)
 * **Normative Schema:** `contracts/json-schema/cybrik.storage-s3-compatibility-subset.v1.schema.json`
 * **Coverage:** Reconciled 15 baseline / 19 full closed operations model (15 baseline operations: `PutObject`, `GetObject`, `HeadObject`, `DeleteObject`, `DeleteObjects`, `ListObjectsV2`, `HeadBucket`, `CreateBucket`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`, `AbortMultipartUpload`, `ListParts`, `PutBucketVersioning`, `GetBucketVersioning`; 19 operations when Object Lock is included: adding `PutObjectRetention`, `GetObjectRetention`, `PutObjectLegalHold`, `GetObjectLegalHold`), URL presigning for delegation, version-scoped Object Lock WORM compliance mode, single-defect negative fixtures, strict `BadDigest`/`InvalidDigest` error dispatch, and path-style addressing.
 
 ### 2. Offline Installation & Update Manifest (`contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md`)
-* **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
-* **Open Item:** `OPEN-1` (`OFFLINE_INSTALL_UPDATE_CONTRACT`)
+* **Status:** `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only)
+* **Open Item:** `OPEN-1` (`OFFLINE_INSTALL_UPDATE_CONTRACT`) — **RESOLVED**
 * **Slot:** Slot 13 (`artifact_update_mechanism`)
 * **Normative Schema:** `contracts/json-schema/cybrik.offline-install-update-manifest.v1.schema.json`
 * **Coverage:** Air-gapped bundle archive packaging, detached Ed25519 signatures over RFC 8785 JCS canonical manifest, manifest_sequence anti-rollback, zero symlink pax archive, operator root trust store, exact SHA-256 artifact pinning, and deterministic four-phase update workflow with atomic rollback.
 
 ### 3. Provider Capability Negotiation Protocol (`contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md`)
-* **Status:** `PROPOSED (Open-Item Elaboration) — NOT ACCEPTED`
-* **Open Item:** `OPEN-5` (`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`)
+* **Status:** `ACCEPTED FOR IMPLEMENTATION` (Founder, 2026-08-29; Architecture Contract Authority Only)
+* **Open Item:** `OPEN-5` (`OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION`) — **RESOLVED**
 * **Placement:** Platform Contract Proposal §6
 * **Normative Schema:** `contracts/json-schema/cybrik.provider-capability-negotiation.v1.schema.json`
 * **Coverage:** Dynamic capability advertisement, discovery, negotiation, graceful degradation, and agreed capability lease handshake with fail-closed enforcement on all mandatory capability slots.

@@ -5,6 +5,8 @@
 - Decision date: **2026-08-29**
 - Recorded: 2026-08-29, transcribed under explicit Founder directive by an AI agent acting solely as recording agent. No Founder signature, cryptographic signature, or acceptance receipt is synthesized or implied; the Git commit containing this file is its durable identity.
 - Scope: `ARCHITECTURE_CONTRACT_AUTHORITY_ONLY`
+- Accepted Merge-Base (main ancestor): `0349c01bc76882be3c4d3868155f7f6a50006fb4`
+- Direct Parent Commit of Accepted Subject: `93f7d216102650f2c2190fe47465f53029c3258c`
 - Accepted Subject Commit: `fbfe5a6e016c467fe565249cdb69691ca57bb7b4`
 - Accepted Subject Tree: `91962176aa00fe9c5ab94df7e093eaab3e30ee65`
 - Pull Request: **#75**
@@ -52,11 +54,11 @@ This transitions all three contracts to `ACCEPTED FOR IMPLEMENTATION` and resolv
 
 ---
 
-## 3. Open-Item Post-Acceptance States
+## 3. Open Item Post-Acceptance States
 
 - `OPEN-1`: `OFFLINE_INSTALL_UPDATE_CONTRACT` $\to$ **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`**
 - `OPEN-2`: `S3_COMPATIBILITY_MINIMUM_CONTRACT` $\to$ **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`**
-- `OPEN-3`: `AI_DNS_TOCTOU_EGRESS_GUARD` $\to$ **`RESOLVED`** (Verified implementation and integration)
+- `OPEN-3`: `AI_DNS_TOCTOU_EGRESS_GUARD` $\to$ `OPEN / UNAFFECTED_BY_THIS_PACKET (Separately Tracked)`
 - `OPEN-4`: `CANONICAL_T0_T1_T2_SEMANTICS` $\to$ **`RESOLVED`** (Platform Contract acceptance)
 - `OPEN-5`: `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` $\to$ **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`**
 - `OPEN-6`: `VIRTUALIZATION_SUBSTRATE_SELECTION` $\to$ `OPEN / REQUIRES_SEPARATE_FOUNDER_DECISION`
@@ -64,7 +66,7 @@ This transitions all three contracts to `ACCEPTED FOR IMPLEMENTATION` and resolv
 - `OPEN-8`: `PROVIDER_SELECTION_AUTHORITY_MODEL` $\to$ `OPEN / REQUIRES_SEPARATE_FOUNDER_DECISION`
 - `OPEN-9`: `LEGAL_INTERPRETATION_OF_DEPLOYMENT_LOCATION_AND_CROSS_DOMAIN` $\to$ `OPEN / REQUIRES_SEPARATE_LEGAL_TRACK`
 - `OPEN-10`: `PLATFORM_CONTRACT_SLOT_SEMANTICS` $\to$ **`RESOLVED`** (Platform Contract acceptance)
-- `OPEN-11`: `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` $\to$ **`RESOLVED`** (Accepted architecture application and verified evidence)
+- `OPEN-11`: `PRODUCT_CORE_MODULE_VS_IMPLEMENTATION_ADAPTER_BOUNDARY` $\to$ `OPEN / PER_MODULE_CLASSIFICATION_REMAINS_OPEN (ADR-0015 §14)`
 
 ---
 

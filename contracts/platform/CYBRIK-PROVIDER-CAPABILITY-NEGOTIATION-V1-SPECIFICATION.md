@@ -334,9 +334,9 @@ To be deemed valid, any capability negotiation document or runtime handshake exc
 
 ### 7.1 Acceptance Scope
 This document operates under **ARCHITECTURE CONTRACT AUTHORITY ONLY**.
-In accordance with `ADR-0015` §14 and Platform Contract Proposal §9, authoring this specification:
-* **DOES NOT** constitute final Founder acceptance of the negotiation protocol.
-* **DOES NOT** grant product, runtime, or deployment implementation authority.
+Accepted by Founder decision on 2026-08-29. In accordance with `ADR-0015` §14 and Platform Contract Proposal §9, this acceptance:
+* **GRANTS** Architecture Contract Authority for the capability negotiation protocol.
+* **DOES NOT** grant production deployment or release authority.
 * **DOES NOT** select or endorse any specific infrastructure vendor or public cloud provider.
 
 ### 7.2 Open-Item Traceability Matrix
