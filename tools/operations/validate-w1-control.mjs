@@ -173,6 +173,10 @@ const CI_ACTION_PINS = new Map([
     "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
     1,
   ],
+  [
+    "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9",
+    1,
+  ],
 ]);
 
 const W1_RECONCILIATION_GOVERNANCE = {
@@ -3604,11 +3608,11 @@ export function validateW1CiWiring({
   // ever taken it must be an acknowledged increment, not a second claim of termination.
   for (const pattern of [
     /REVIEW-BASELINE\.json/,
-    /uv==0\.11\.16/,
-    /ruff==0\.16\.0/,
+    /setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9/,
+    /version: "0\.11\.16"/,
     /uv sync --frozen --group test/,
     /uv run --frozen --offline --group test python -m pytest/,
-    /ruff check --no-cache/,
+    /uv run --frozen --offline --group test ruff check --no-cache/,
     /uv run --frozen --offline python -m compileall/,
     /baseline\["pytest"\]\["composition"\]/,
     /declared_reds/,
@@ -3732,9 +3736,9 @@ export function validateW1CiWiring({
   // lower bound, so an additive action use is still refused. uv is installed from
   // PyPI in a run: step and is deliberately not counted here, because it is not a
   // GitHub Action and does not widen the action supply chain this rule governs.
-  if (actionUses.length !== 4) {
+  if (actionUses.length !== 5) {
     throw new Error(
-      `CI3 workflow must contain exactly 4 reviewed GitHub action uses; found ${actionUses.length}`,
+      `CI3 workflow must contain exactly 5 reviewed GitHub action uses; found ${actionUses.length}`,
     );
   }
   for (const [action, expectedCount] of CI_ACTION_PINS) {

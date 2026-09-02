@@ -110,30 +110,10 @@ jobs:
       - name: Checkout topology rehearsal suite
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)
 
-      # No new GitHub Action enters the reviewed supply chain here. uv is already a
-      # project dependency, so installing it from PyPI at a pinned version in a run:
-      # step adds no supplier the trusted set does not already carry. 0.11.16 is the
-      # version the local collector measures with.
-      # ruff is installed here beside uv, and NOT through the project environment,
-      # because it is not a project dependency: pyproject.toml declares no runtime
-      # dependencies and the single `test` group is pytest alone, so the protected
-      # uv.lock does not pin ruff and may not be regenerated to add it. 0.16.0 is
-      # the version the declared bar of 12 at .github/REVIEW-BASELINE.json was
-      # measured with; pinning it is what makes that number mean the same thing on
-      # THIS side. Only the hosted side is pinned: ruff is absent from pyproject.toml
-      # and from the protected uv.lock, so the local collector resolves it from PATH
-      # and equal versions across the two gates is a convention, not a pin. An
-      # unpinned ruff would let the measurement move with no change to the tree — the
-      # drift the baseline says is impossible — and that remains reachable locally,
-      # so a disagreement between the two numbers should be diagnosed at the
-      # measuring host's ruff before it is diagnosed at the tree.
-      - name: Install uv 0.11.16 and ruff 0.16.0 (pinned, from PyPI — deliberately not actions)
-        run: |
-          set -euo pipefail
-          python3 -m pip install --disable-pip-version-check --no-input \
-            "uv==0.11.16" "ruff==0.16.0"
-          uv --version
-          ruff --version
+      - name: Setup uv 0.11.16
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.11.16"
 
       # Install may reach the network; measurement may not. --frozen never rewrites
       # the committed uv.lock, and the three measuring steps below add --offline so
@@ -148,7 +128,7 @@ jobs:
           set -euo pipefail
           uv run --frozen --offline --group test python -m pytest -q \
             --junit-xml="${RUNNER_TEMP}/pytest.xml" || true
-          ruff check --no-cache \
+          uv run --frozen --offline --group test ruff check --no-cache \
             --output-format=json src tests > "${RUNNER_TEMP}/ruff.json" || true
           uv run --frozen --offline python -m compileall -q src tests
 
