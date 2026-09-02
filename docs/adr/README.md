@@ -59,7 +59,7 @@ independent review `PASS`, `FOUNDER_ACCEPTANCE_SAFE = YES`, no findings); the fl
 docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is
 architecture/governance authority only: it grants no implementation, provider, substrate,
 Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`
-remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`. Platform Contract acceptance
+remains `CLOSED`, and at the time of ADR-0015 acceptance Kubernetes and virtualization remained `UNDECIDED` (prior to subsequent open-item resolutions). Platform Contract acceptance
 (2026-08-24, [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md))
 resolved `OPEN-4` and `OPEN-10`. Founder open-item contract acceptance on 2026-08-29
 ([FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md))

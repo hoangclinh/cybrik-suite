@@ -4531,7 +4531,7 @@ const ADR_README_ADR0015_ADDITIONS = [
     'docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is\n' +
     'architecture/governance authority only: it grants no implementation, provider, substrate,\n' +
     'Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`\n' +
-    'remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`. Platform Contract acceptance\n' +
+    'remains `CLOSED`, and at the time of ADR-0015 acceptance Kubernetes and virtualization remained `UNDECIDED` (prior to subsequent open-item resolutions). Platform Contract acceptance\n' +
     '(2026-08-24, [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md))\n' +
     'resolved `OPEN-4` and `OPEN-10`. Founder open-item contract acceptance on 2026-08-29\n' +
     '([FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md))\n' +
@@ -4577,7 +4577,7 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
     ...ADR_README_ADR0015_ADDITIONS,
   ]) {
     const occurrences = normalized.split(addition).length - 1;
-    assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
+    assert.equal(occurrences, 1, `P2-3: registered addition must occur exactly once:\n${addition}`);
     normalized = normalized.replace(addition, '');
   }
   assert.equal(
