@@ -265,7 +265,7 @@ A capability negotiation handshake document captures the complete tripartite int
 
 | Path | Type | Constraints / Invariant | Description |
 |---|---|---|---|
-| `/handshake_id` | `string` | Min length 1, pattern `^[a-z0-9_-]+$` | Unique correlation ID for the handshake session. |
+| `/handshake_id` | `string` | Min length 3, pattern `^[a-z0-9_-]+$` | Unique correlation ID for the handshake session. |
 | `/protocol_version` | `string` | Const `"1.0.0"` | Semver version of the negotiation protocol. |
 | `/provider_namespace` | `string` | Pattern `^[a-z0-9][a-z0-9-_]*[a-z0-9]$` | Authoritative namespace identifier of the provider. |
 | `/target_profile_id` | `string` | Enum `["onprem-standard-v1", "onprem-airgap-v1", "private-cloud-v1", "hybrid-sovereign-v1"]` | Target deployment profile being negotiated against. |

@@ -4531,13 +4531,26 @@ const ADR_README_ADR0015_ADDITIONS = [
     'docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is\n' +
     'architecture/governance authority only: it grants no implementation, provider, substrate,\n' +
     'Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`\n' +
-    'remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`, and ADR-0015\'s eleven open\n' +
-    'questions `OPEN-1` … `OPEN-11` remain open. The Founder deployment-priority policy itself remains\n' +
-    'rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)\n' +
+    'remains `CLOSED`, and at the time of ADR-0015 acceptance Kubernetes and virtualization remained `UNDECIDED` (prior to subsequent open-item resolutions). Platform Contract acceptance\n' +
+    '(2026-08-24, [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md))\n' +
+    'resolved `OPEN-4` and `OPEN-10`. Founder open-item contract acceptance on 2026-08-29\n' +
+    '([FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md))\n' +
+    'formally resolved `OPEN-1` (offline install/update manifest), `OPEN-2` (S3 compatibility subset),\n' +
+    'and `OPEN-5` (optional provider capability negotiation) under Architecture Contract Authority.\n' +
+    'Founder infrastructure architecture standards acceptance on 2026-09-02\n' +
+    '([FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md](FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md))\n' +
+    'resolved `OPEN-6` (tiered virtualization substrate model), `OPEN-7` (tier-differentiated Kubernetes profile),\n' +
+    'and `OPEN-8` (hierarchical sovereign authority model) under Architecture Governance Authority;\n' +
+    '`OPEN-3`, `OPEN-9`, and `OPEN-11` remain open. The Founder deployment-priority policy itself\n' +
+    'remains rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)\n' +
     'and is not created by this acceptance. Every earlier statement on this page about the ten-ADR base\n' +
     'catalog describes that catalog before these additive records and flips no existing ADR status.\n',
-  '\n| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1` … `OPEN-11` remain open |',
+  '\n| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1`, `OPEN-2`, `OPEN-4`, `OPEN-5`, `OPEN-6`, `OPEN-7`, `OPEN-8`, `OPEN-10` resolved; `OPEN-3`, `OPEN-9`, `OPEN-11` remain open |',
   '\n| [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md) | Founder deployment-priority and provider policy of 2026-08-23; authoritative provenance for that policy | `DECIDED — RECORDED` (Founder, 2026-08-23) — records policy only; accepts no ADR, selects no technology, authorizes no implementation or production rollout |',
+  '\n| [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md) | Founder acceptance of CYBRIK Platform Contract v0.1.0-proposed; resolves OPEN-4 and OPEN-10 | `DECIDED — RECORDED` (Founder, 2026-08-24) — architecture contract authority only |',
+  '\n| [FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md) | Founder acceptance of open-item contracts (OPEN-1, OPEN-2, OPEN-5); transitions specifications and schemas to ACCEPTED FOR IMPLEMENTATION | `DECIDED — RECORDED` (Founder, 2026-08-29) — architecture contract authority only |',
+  '\n| [FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md) | Founder acceptance of OPEN-1/2/5 editorial alignment and semantic validator reconciliation | `DECIDED — RECORDED` (Founder, 2026-09-01) — architecture contract authority only |',
+  '\n| [FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md](FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md) | Founder acceptance of sovereign infrastructure architecture standards (OPEN-6 virtualization, OPEN-7 Kubernetes, OPEN-8 authority model) | `DECIDED — RECORDED` (Founder, 2026-09-02) — architecture governance authority only |',
   '\n| [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md) | Docs-only application of the ADR-0015 Founder acceptance status flip (exact reviewed R6) | `APPLIED 2026-08-23` — decision record only, architecture/governance authority, no implementation authority |',
 ];
 const ADR_README_DELEGATION_RECONCILIATION = {
@@ -4564,7 +4577,7 @@ test(`P2-3: ${ADR_README_REL} preserves every byte outside exact registered addi
     ...ADR_README_ADR0015_ADDITIONS,
   ]) {
     const occurrences = normalized.split(addition).length - 1;
-    assert.ok(occurrences <= 1, `P2-3: duplicate registered addition:\n${addition}`);
+    assert.equal(occurrences, 1, `P2-3: registered addition must occur exactly once:\n${addition}`);
     normalized = normalized.replace(addition, '');
   }
   assert.equal(

@@ -4060,6 +4060,14 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
     ).length,
     1,
   );
+  assert.equal(
+    (
+      workflowText.match(
+        /astral-sh\/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9/g,
+      ) ?? []
+    ).length,
+    1,
+  );
   assert.doesNotMatch(
     workflowText,
     /actions\/(?:checkout@11bd71901bbe5b1630ceea73d27597364c9af683|setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af)/,
@@ -4109,7 +4117,7 @@ test("pins CI actions to reviewed Node 24 runtime commits", async () => {
         packageText,
         orchestratorText,
       }),
-    /must contain exactly 4 reviewed GitHub action uses; found 5/,
+    /must contain exactly 5 reviewed GitHub action uses; found 6/,
   );
 
   const trailingWhitespaceBypass = workflowText.replace(

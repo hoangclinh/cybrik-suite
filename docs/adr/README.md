@@ -59,9 +59,18 @@ independent review `PASS`, `FOUNDER_ACCEPTANCE_SAFE = YES`, no findings); the fl
 docs-only [ADR-0015-STATUS-FLIP-APPLICATION.md](ADR-0015-STATUS-FLIP-APPLICATION.md). Acceptance is
 architecture/governance authority only: it grants no implementation, provider, substrate,
 Platform Contract, deployment, release or production authority; `PRODUCTION_DEPLOYMENT_AUTHORITY`
-remains `CLOSED`, Kubernetes and virtualization remain `UNDECIDED`, and ADR-0015's eleven open
-questions `OPEN-1` … `OPEN-11` remain open. The Founder deployment-priority policy itself remains
-rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)
+remains `CLOSED`, and at the time of ADR-0015 acceptance Kubernetes and virtualization remained `UNDECIDED` (prior to subsequent open-item resolutions). Platform Contract acceptance
+(2026-08-24, [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md))
+resolved `OPEN-4` and `OPEN-10`. Founder open-item contract acceptance on 2026-08-29
+([FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md))
+formally resolved `OPEN-1` (offline install/update manifest), `OPEN-2` (S3 compatibility subset),
+and `OPEN-5` (optional provider capability negotiation) under Architecture Contract Authority.
+Founder infrastructure architecture standards acceptance on 2026-09-02
+([FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md](FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md))
+resolved `OPEN-6` (tiered virtualization substrate model), `OPEN-7` (tier-differentiated Kubernetes profile),
+and `OPEN-8` (hierarchical sovereign authority model) under Architecture Governance Authority;
+`OPEN-3`, `OPEN-9`, and `OPEN-11` remain open. The Founder deployment-priority policy itself
+remains rooted in [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md)
 and is not created by this acceptance. Every earlier statement on this page about the ten-ADR base
 catalog describes that catalog before these additive records and flips no existing ADR status.
 
@@ -81,7 +90,7 @@ catalog describes that catalog before these additive records and flips no existi
 | [ADR-0012](ADR-0012-resource-bounds-contract-profile.md) | Conserved resource-bounds contract profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-H accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0013](ADR-0013-transport-peer-evidence-adapter-profile.md) | Transport peer-evidence adapter profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; Gate W2-K accepts the exact v0.1.0 packet for implementation only |
 | [ADR-0014](ADR-0014-receipt-trust-and-durability-profile.md) | Receipt signer trust and durability profile | `ACCEPTED FOR IMPLEMENTATION — NOT IMPLEMENTED`; design floor only, runtime and production remain unauthorized |
-| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1` … `OPEN-11` remain open |
+| [ADR-0015](ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md) | Deployment priority, data sovereignty and provider-neutral platform boundary | `ACCEPTED` (Founder, 2026-08-23) — Decider `FOUNDER`; decision record only, exact reviewed R6 `6580a4fc…`; architecture/governance authority, no implementation, provider, substrate, deployment or production authority; `OPEN-1`, `OPEN-2`, `OPEN-4`, `OPEN-5`, `OPEN-6`, `OPEN-7`, `OPEN-8`, `OPEN-10` resolved; `OPEN-3`, `OPEN-9`, `OPEN-11` remain open |
 
 Lifecycle: `PROPOSED` → `ACCEPTED` / `REJECTED` → (`SUPERSEDED`). Only the Founder or a
 specifically delegated Governor decision moves an ADR out of `PROPOSED`; production remains
@@ -103,6 +112,10 @@ authoritative on ADR status.**
 | Document | Purpose | Status |
 |---|---|---|
 | [FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md](FOUNDER-DECISION-PACKET-DEPLOYMENT-PRIORITY-2026-08-23.md) | Founder deployment-priority and provider policy of 2026-08-23; authoritative provenance for that policy | `DECIDED — RECORDED` (Founder, 2026-08-23) — records policy only; accepts no ADR, selects no technology, authorizes no implementation or production rollout |
+| [FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md) | Founder acceptance of CYBRIK Platform Contract v0.1.0-proposed; resolves OPEN-4 and OPEN-10 | `DECIDED — RECORDED` (Founder, 2026-08-24) — architecture contract authority only |
+| [FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md) | Founder acceptance of open-item contracts (OPEN-1, OPEN-2, OPEN-5); transitions specifications and schemas to ACCEPTED FOR IMPLEMENTATION | `DECIDED — RECORDED` (Founder, 2026-08-29) — architecture contract authority only |
+| [FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md) | Founder acceptance of OPEN-1/2/5 editorial alignment and semantic validator reconciliation | `DECIDED — RECORDED` (Founder, 2026-09-01) — architecture contract authority only |
+| [FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md](FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md) | Founder acceptance of sovereign infrastructure architecture standards (OPEN-6 virtualization, OPEN-7 Kubernetes, OPEN-8 authority model) | `DECIDED — RECORDED` (Founder, 2026-09-02) — architecture governance authority only |
 | [ADR-DECISION-SPRINT-2026-07.md](ADR-DECISION-SPRINT-2026-07.md) | Sprint plan: dependency graph, wave board, exit criteria, evidence rules | `DRAFT` — GATE A2/A3 closed 2026-07-24; GATE A4 closed 2026-07-26 |
 | [evidence/README.md](evidence/README.md) | Evidence-packet format and catalog | `DRAFT` |
 | [evidence/ADR-0001-EVIDENCE.md](evidence/ADR-0001-EVIDENCE.md) | Evidence + recommendation for ADR-0001 | `DRAFT` — ADR-0001 since `ACCEPTED` (2026-07-24) |
