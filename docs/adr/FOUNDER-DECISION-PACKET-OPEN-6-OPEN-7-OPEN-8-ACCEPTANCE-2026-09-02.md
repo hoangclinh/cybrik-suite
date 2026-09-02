@@ -10,7 +10,7 @@
   - [`FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md`](FOUNDER-DECISION-PACKET-PLATFORM-CONTRACT-2026-08-24.md)
   - [`FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md`](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md)
   - [`FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md`](FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-EDITORIAL-AND-SEMANTIC-RECONCILIATION-2026-09-01.md)
-- **Supporting Evidence**: `evidence/OPEN-6-VIRTUALIZATION-SUBSTRATE-DECISION-EVIDENCE.md`
+- **Supporting Evidence**: OPEN-6 Virtualization Substrate Decision Evidence Synthesis (ADR Decision Sprint 2026-09)
 - **Release Impact**: None. `NEW_RC_SUBJECT_REQUIRED = YES`, `RC1_TAGS = IMMUTABLE`.
 - **Production Authority**: `CLOSED` (`PRODUCTION_DEPLOYED = NO`).
 
@@ -96,10 +96,13 @@ The Founder resolves `OPEN-7` by defining a deployment-topology-aligned Kubernet
    - Where Kubernetes is selected for clustered enterprise or private cloud deployments, the primary standard distribution is **`RKE2`** (Rancher Kubernetes Engine Government).
    - Selected for strict compliance alignment: DISA STIG / CIS hardening benchmarks, FIPS 140-2 cryptographic module support, air-gapped container image bundling, offline registry workflows, and cryptographically signed release artifacts.
 
-4. **Optional Compatibility Profiles & Non-Goals**:
-   - **Upstream `kubeadm`**: Recognized as a supported baseline reference, but not the primary enterprise private cloud standard;
-   - **Talos Linux, Red Hat OpenShift, Canonical MicroK8s**: Retained as optional downstream compatibility adapters; none is designated as a global platform standard;
-   - **Foreign Public Cloud Managed Control Planes** (AWS EKS-Anywhere, Google GKE Enterprise, Azure Arc): Classified as **Deferred Optional** integration adapters, never baseline dependencies.
+4. **Optional Compatibility & Non-Goals (Explicit Bounded Semantics)**:
+   - `UPSTREAM_KUBERNETES_COMPATIBILITY = DESIRABLE`
+   - `UPSTREAM_KUBEADM = NOT_PRIMARY_SELECTED_DISTRIBUTION`
+   - `TALOS_LINUX = NOT_SELECTED_AS_GLOBAL_STANDARD`
+   - `OPENSHIFT = NOT_SELECTED_AS_GLOBAL_STANDARD`
+   - `MICROK8S = NOT_SELECTED_AS_GLOBAL_STANDARD`
+   - `FOREIGN_PUBLIC_CLOUD_MANAGED_CONTROL_PLANES = DEFERRED_OPTIONAL_PROFILE`
 
 ---
 
@@ -129,10 +132,10 @@ flowchart TD
 
 2. **Tier 2 — `OPERATOR_SIGNED_DEPLOYMENT_POLICY` (Explicit Local Selection)**:
    - Grants designated on-premise, enterprise, or site operators the explicit authority to select and configure infrastructure providers, hypervisors (KVM, Proxmox, bare-metal), Kubernetes distributions (k3s, RKE2, none), and storage backends strictly within Tier 1 boundaries.
-   - Must be explicit, cryptographically signed, versioned, and verifiable using the [OPEN-1](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open-contracts-consolidation/contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md) operator trust-root infrastructure.
+   - Must be explicit, cryptographically signed, versioned, and verifiable using the [OPEN-1](../../contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md) operator trust-root infrastructure.
 
 3. **Tier 3 — `OPEN5_EPHEMERAL_CAPABILITY_LEASE` (Dynamic Runtime Negotiation)**:
-   - Operates strictly under [OPEN-5](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open-contracts-consolidation/contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md) protocol semantics at runtime. Discovers host compute, virtualization, storage, and accelerator capabilities, dynamically leases active capabilities, or transitions to graceful degradation.
+   - Operates strictly under [OPEN-5](../../contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md) protocol semantics at runtime. Discovers host compute, virtualization, storage, and accelerator capabilities, dynamically leases active capabilities, or transitions to graceful degradation.
    - Operates with bounded ephemeral Time-To-Live (TTL); **never synthesizes new authority** or overrides Tier 1 / Tier 2 constraints.
 
 4. **Fail-Closed Authority Resolution Rule**:
@@ -150,7 +153,7 @@ flowchart TD
    - **Foreign Public Cloud**: Classified as **Deferred Optional** downstream adapters only.
 
 2. **Strict Provider Neutrality**:
-   - Product core code across all CYBRIK Suite, Cyber AI, SOC Command Center, and Security Tool Fabric repositories remains strictly provider-neutral. Hypervisor, Kubernetes, and storage interactions are mediated exclusively through versioned contract adapters ([OPEN-1](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open-contracts-consolidation/contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md), [OPEN-2](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open-contracts-consolidation/contracts/platform/CYBRIK-S3-STORAGE-ADAPTER-V1-SPECIFICATION.md), [OPEN-5](file:///Users/hoanglinh/Claude/Projects/soc-autonomous-state/worktrees/wt-open-contracts-consolidation/contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md)).
+   - Product core code across all CYBRIK Suite, Cyber AI, SOC Command Center, and Security Tool Fabric repositories remains strictly provider-neutral. Hypervisor, Kubernetes, and storage interactions are mediated exclusively through versioned contract adapters ([OPEN-1](../../contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md), [OPEN-2](../../contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md), [OPEN-5](../../contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md)).
 
 ---
 
@@ -163,7 +166,7 @@ flowchart TD
   - `PRODUCTION_DEPLOYED = NO`
   - `RELEASE_CANDIDATE_TAG = NOT_GRANTED` (RC1 tags remain immutable)
   - `FINAL_RELEASE_TAG = NOT_GRANTED`
-  - `LEGAL_INTERPRETATION = NOT_GRANTED` (`OPEN-9` remains a separate legal track)
+  - `LEGAL_INTERPRETATION = NOT_GRANTED` (`OPEN-9` is explicitly `LEGAL_REVIEW_REQUIRED`, governed under a separate legal track)
 
 ---
 
@@ -171,15 +174,15 @@ flowchart TD
 
 | Open Item ID | Title | Status Post-Packet | Resolution Artifact / Reference |
 | :--- | :--- | :--- | :--- |
-| `OPEN-1` | `OFFLINE_INSTALL_UPDATE_CONTRACT` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md` |
-| `OPEN-2` | `S3_COMPATIBILITY_MINIMUM_CONTRACT` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `CYBRIK-S3-STORAGE-ADAPTER-V1-SPECIFICATION.md` |
+| `OPEN-1` | `OFFLINE_INSTALL_UPDATE_CONTRACT` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `contracts/lifecycle/CYBRIK-OFFLINE-INSTALL-UPDATE-V1-SPECIFICATION.md` |
+| `OPEN-2` | `S3_COMPATIBILITY_MINIMUM_CONTRACT` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `contracts/storage/CYBRIK-S3-COMPATIBILITY-SUBSET-V1-SPECIFICATION.md` |
 | `OPEN-3` | `AI_DNS_TOCTOU_EGRESS_GUARD` | `OPEN / UNAFFECTED_BY_THIS_PACKET` | Separately tracked AI model-seam guard |
 | `OPEN-4` | `CANONICAL_T0_T1_T2_SEMANTICS` | **`RESOLVED`** | Platform Contract v1 Proposal Acceptance |
-| `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md` |
+| `OPEN-5` | `OPTIONAL_PROVIDER_CAPABILITY_NEGOTIATION` | **`RESOLVED_BY_FOUNDER_ACCEPTED_CONTRACT`** | `contracts/platform/CYBRIK-PROVIDER-CAPABILITY-NEGOTIATION-V1-SPECIFICATION.md` |
 | `OPEN-6` | `VIRTUALIZATION_SUBSTRATE_SELECTION` | **`RESOLVED_BY_FOUNDER_ACCEPTED_DECISION`** | `TIERED_SOVEREIGN_VIRTUALIZATION_SUBSTRATE_MODEL` (This Packet) |
 | `OPEN-7` | `KUBERNETES_DISTRIBUTION_SELECTION` | **`RESOLVED_BY_FOUNDER_ACCEPTED_DECISION`** | `TIER_DIFFERENTIATED_KUBERNETES_PROFILE` (This Packet) |
 | `OPEN-8` | `PROVIDER_SELECTION_AUTHORITY_MODEL` | **`RESOLVED_BY_FOUNDER_ACCEPTED_DECISION`** | `HIERARCHICAL_SOVEREIGN_AUTHORITY_MODEL` (This Packet) |
-| `OPEN-9` | `LEGAL_INTERPRETATION_OF_DEPLOYMENT_LOCATION` | `OPEN / REQUIRES_SEPARATE_LEGAL_TRACK` | Separate legal counsel track |
+| `OPEN-9` | `LEGAL_INTERPRETATION_OF_DEPLOYMENT_LOCATION` | `OPEN / LEGAL_REVIEW_REQUIRED` | Separate legal track, governed separately from architecture |
 | `OPEN-10` | `PLATFORM_CONTRACT_SLOT_SEMANTICS` | **`RESOLVED`** | Platform Contract v1 Proposal Acceptance |
 | `OPEN-11` | `PRODUCT_CORE_MODULE_VS_ADAPTER_BOUNDARY` | `OPEN / PER_MODULE_CLASSIFICATION_REMAINS_OPEN` | Definition resolved; per-module pass ongoing |
 

@@ -17179,3 +17179,71 @@ test('OPEN-1, OPEN-2, OPEN-5 schema lifecycle invariants and Founder acceptance 
   }
 });
 
+test('governance: FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md and ADR-0015 R6 immutability', () => {
+  const packetPath = join(ROOT, 'docs/adr/FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md');
+  assert.ok(existsSync(packetPath), 'Founder decision packet OPEN-6/7/8 must exist on disk');
+  const packetText = readFileSync(packetPath, 'utf8');
+  assert.ok(packetText.length > 0, 'Founder decision packet OPEN-6/7/8 must be non-empty');
+
+  // Exact token assertions
+  assert.ok(
+    packetText.includes('TIERED_SOVEREIGN_VIRTUALIZATION_SUBSTRATE_MODEL'),
+    'Packet must contain TIERED_SOVEREIGN_VIRTUALIZATION_SUBSTRATE_MODEL',
+  );
+  assert.ok(
+    packetText.includes('TIER_DIFFERENTIATED_KUBERNETES_PROFILE'),
+    'Packet must contain TIER_DIFFERENTIATED_KUBERNETES_PROFILE',
+  );
+  assert.ok(
+    packetText.includes('HIERARCHICAL_SOVEREIGN_AUTHORITY_MODEL'),
+    'Packet must contain HIERARCHICAL_SOVEREIGN_AUTHORITY_MODEL',
+  );
+
+  // OPEN-9 legal track assertion
+  assert.ok(
+    packetText.includes('LEGAL_REVIEW_REQUIRED'),
+    'Packet must contain LEGAL_REVIEW_REQUIRED for OPEN-9',
+  );
+
+  // Production authority boundaries
+  assert.ok(
+    packetText.includes('PRODUCTION_DEPLOYMENT_AUTHORITY = CLOSED'),
+    'Packet must declare PRODUCTION_DEPLOYMENT_AUTHORITY = CLOSED',
+  );
+  assert.ok(
+    packetText.includes('PRODUCTION_DEPLOYED = NO'),
+    'Packet must declare PRODUCTION_DEPLOYED = NO',
+  );
+
+  // Machine-local link prohibition
+  assert.ok(
+    !packetText.includes('file:///Users/'),
+    'Packet must not contain machine-local file:///Users/ links',
+  );
+
+  // ADR-0015 R6 immutability assertion
+  const adr0015Path = join(ROOT, 'docs/adr/ADR-0015-deployment-priority-sovereignty-and-provider-neutral-boundary.md');
+  assert.ok(existsSync(adr0015Path), 'ADR-0015 must exist on disk');
+  const adr0015Text = readFileSync(adr0015Path, 'utf8');
+  const adr0015Digest = createHash('sha256').update(adr0015Text).digest('hex');
+  assert.equal(
+    adr0015Digest,
+    'a64ed748af7b53e575cfd9573923be14496f1f3f24b92104d67ce859a757a406',
+    'ADR-0015 must remain byte-identical to accepted R6 (hash a64ed748...)',
+  );
+
+  // Verify that ADR-0015 keeps open-items table with original R6 statuses (OPEN-6..8 as OPEN)
+  assert.ok(
+    adr0015Text.includes('| `OPEN-6` | `VIRTUALIZATION_SUBSTRATE_SELECTION` | **OPEN** — VMware/Proxmox/OpenStack all `NOT_SELECTED` |'),
+    'ADR-0015 R6 must preserve OPEN-6 open status',
+  );
+  assert.ok(
+    adr0015Text.includes('| `OPEN-7` | `KUBERNETES_DISTRIBUTION_SELECTION` | **OPEN** — Kubernetes itself `UNDECIDED`; RKE2/K3s/OpenShift all `NOT_SELECTED` |'),
+    'ADR-0015 R6 must preserve OPEN-7 open status',
+  );
+  assert.ok(
+    adr0015Text.includes('| `OPEN-8` | `PROVIDER_SELECTION_AUTHORITY_MODEL` — who holds delegated selection authority, and under what bound | **OPEN** |'),
+    'ADR-0015 R6 must preserve OPEN-8 open status',
+  );
+});
+
