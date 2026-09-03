@@ -10,12 +10,16 @@
     },
     "isolation_substrate": {
       "constraints": [
+        "linux-kvm-qemu",
+        "bare-metal",
         "gvisor-syscall-filter",
         "disposable-sandbox"
       ]
     },
     "orchestration_capability": {
       "constraints": [
+        "k3s",
+        "bare-metal-direct",
         "k8s-api-v1.28-compatible"
       ]
     },
@@ -26,6 +30,7 @@
     },
     "storage": {
       "constraints": [
+        "s3-compliant",
         "s3-api-v1.0",
         "posix-filesystem"
       ]

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "0.1.0",
+  "$comment": "CYBRIK Suite Contract Specification v0.1.0",
+  "title": "CYBRIK Operator Deployment Policy v1",
+  "description": "CYBRIK Operator Deployment Policy v1 under Hierarchical Sovereign Authority Model (OPEN-8)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "policy_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-_]+$"
+    },
+    "policy_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+    },
+    "operator_trust_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,64}$"
+        },
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "public_key_hex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "key_id",
+        "algorithm",
+        "public_key_hex",
+        "issuer"
+      ]
+    },
+    "envelope_intersection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tier1_envelope_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sovereignty_class": {
+          "type": "string",
+          "enum": [
+            "SOVEREIGN_CUSTOMER_CONTROLLED",
+            "CONTROLLED_CROSS_DOMAIN",
+            "OPTIONAL_HYBRID"
+          ]
+        },
+        "data_sovereignty_enforced": {
+          "const": true
+        },
+        "telemetry_call_home_prohibited": {
+          "const": true
+        },
+        "airgap_lifecycle_supported": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tier1_envelope_reference",
+        "sovereignty_class",
+        "data_sovereignty_enforced",
+        "telemetry_call_home_prohibited"
+      ]
+    },
+    "permitted_virtualization_substrates": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "linux-kvm-qemu",
+          "bare-metal",
+          "proxmox-ve",
+          "firecracker-microvm",
+          "cloud-hypervisor-microvm"
+        ]
+      }
+    },
+    "permitted_kubernetes_distributions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "k3s",
+          "rke2",
+          "none",
+          "upstream-kubeadm"
+        ]
+      }
+    },
+    "permitted_storage_profiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-_]+$"
+      }
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{128}$"
+    }
+  },
+  "required": [
+    "policy_id",
+    "policy_version",
+    "operator_trust_root",
+    "envelope_intersection",
+    "permitted_virtualization_substrates",
+    "permitted_kubernetes_distributions",
+    "permitted_storage_profiles",
+    "signature"
+  ],
+  "x-cybrik-lifecycle": "ACCEPTED FOR IMPLEMENTATION"
+}

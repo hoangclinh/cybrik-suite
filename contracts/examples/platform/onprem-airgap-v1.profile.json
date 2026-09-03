@@ -10,13 +10,18 @@
     },
     "isolation_substrate": {
       "constraints": [
+        "linux-kvm-qemu",
+        "bare-metal",
+        "proxmox-ve",
         "gvisor-syscall-filter",
         "disposable-sandbox"
       ]
     },
     "orchestration_capability": {
       "constraints": [
-        "k8s-api-v1.28-compatible"
+        "rke2",
+        "k8s-api-v1.28-compatible",
+        "cis-hardened"
       ]
     },
     "network_segmentation": {
@@ -26,6 +31,7 @@
     },
     "storage": {
       "constraints": [
+        "s3-compliant-object-lock",
         "s3-api-v1.0",
         "posix-filesystem"
       ]
