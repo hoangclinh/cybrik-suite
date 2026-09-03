@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json",
+  "$id": "https://schema.cybrik.io/v1/cybrik.operator-deployment-policy.v1.schema.json",
   "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
   "x-cybrik-not-accepted": false,
   "x-cybrik-contract-version": "0.1.0",
@@ -10,6 +10,14 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "allowed_provider_namespaces": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-_]*$"
+      }
+    },
     "policy_id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-_]+$"

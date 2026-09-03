@@ -173,7 +173,7 @@ test('validate positive platform fixtures', () => {
     else if (file.includes('offline-bundle-manifest')) schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform-contract')) schemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
     else if (file.includes('storage-s3-subset')) schemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
-    else if (file.includes('operator-deployment-policy')) schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
+    else if (file.includes('operator-deployment-policy')) schemaId = 'https://schema.cybrik.io/v1/cybrik.operator-deployment-policy.v1.schema.json';
 
     assert.ok(schemaId, `Could not determine schemaId for ${file}`);
 
@@ -17355,7 +17355,7 @@ test('governance: FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-0
 
 test('lifecycle & governance: OPEN-6, OPEN-7, OPEN-8 schema and canonical profile formalization', () => {
   const schemaName = 'cybrik.operator-deployment-policy.v1.schema.json';
-  const schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
+  const schemaId = 'https://schema.cybrik.io/v1/cybrik.operator-deployment-policy.v1.schema.json';
   const p = join(JSON_SCHEMA_DIR, schemaName);
   assert.ok(existsSync(p), `Schema file must exist: ${p}`);
   const doc = JSON.parse(readFileSync(p, 'utf8'));
@@ -17399,7 +17399,7 @@ test('lifecycle & governance: OPEN-6, OPEN-7, OPEN-8 schema and canonical profil
 });
 
 test('in-memory & adversarial validation: cybrik.operator-deployment-policy.v1.schema.json (OPEN-8)', () => {
-  const schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
+  const schemaId = 'https://schema.cybrik.io/v1/cybrik.operator-deployment-policy.v1.schema.json';
   const samplePath = join(EXAMPLES_DIR, 'sample-operator-deployment-policy.json');
   assert.ok(existsSync(samplePath), 'sample-operator-deployment-policy.json must exist');
   const validPolicy = JSON.parse(readFileSync(samplePath, 'utf8'));
@@ -17407,6 +17407,11 @@ test('in-memory & adversarial validation: cybrik.operator-deployment-policy.v1.s
   // Positive: sample validates against schema and semantic validator
   assert.ok(ajv.validate(schemaId, validPolicy), 'sample policy must validate against schema: ' + ajv.errorsText());
   assert.doesNotThrow(() => validatePlatformSemantics(validPolicy, schemaId), 'sample policy must pass semantic validation');
+
+  // Positive: with allowed_provider_namespaces
+  const policyWithNamespaces = JSON.parse(JSON.stringify(validPolicy));
+  policyWithNamespaces.allowed_provider_namespaces = ['cybrik', 'local-soc'];
+  assert.ok(ajv.validate(schemaId, policyWithNamespaces), 'Policy with allowed_provider_namespaces validates against schema');
 
   // Negative Adversarial 1: Bad/corrupted signature fails cryptographic verification
   const badSigPolicy = JSON.parse(JSON.stringify(validPolicy));
@@ -17530,5 +17535,14 @@ test('in-memory & adversarial validation: cybrik.operator-deployment-policy.v1.s
   const emptyStorage = JSON.parse(JSON.stringify(validPolicy));
   emptyStorage.permitted_storage_profiles = [];
   assert.equal(ajv.validate(schemaId, emptyStorage), false, 'Empty permitted_storage_profiles must fail schema');
+
+  // Negative Adversarial 13: Malformed allowed_provider_namespaces
+  const badNamespacesPolicy = JSON.parse(JSON.stringify(validPolicy));
+  badNamespacesPolicy.allowed_provider_namespaces = ['INVALID UPPERCASE'];
+  assert.equal(ajv.validate(schemaId, badNamespacesPolicy), false, 'Uppercase namespace must fail schema');
+
+  const duplicateNamespacesPolicy = JSON.parse(JSON.stringify(validPolicy));
+  duplicateNamespacesPolicy.allowed_provider_namespaces = ['cybrik', 'cybrik'];
+  assert.equal(ajv.validate(schemaId, duplicateNamespacesPolicy), false, 'Duplicate namespaces must fail schema');
 });
 
