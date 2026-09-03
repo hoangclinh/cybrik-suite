@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { createHash, generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
 import { join, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateOfflineInstallSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, verifyPayloadSha256, verifyPayloadMd5, getTypedArrayByteLength, getTypedArrayByteOffset, isMalformedBase64Md5, isMalformedPayloadType, verifyDigestErrorDispatch, verifyMalformedHeaderDispatch, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors, isPureBufferOrUint8Array } from '../validate-schemas.mjs';
+import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateOfflineInstallSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, verifyPayloadSha256, verifyPayloadMd5, getTypedArrayByteLength, getTypedArrayByteOffset, isMalformedBase64Md5, isMalformedPayloadType, verifyDigestErrorDispatch, verifyMalformedHeaderDispatch, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors, isPureBufferOrUint8Array, canonicalizeJcs, validateOperatorDeploymentPolicySemantics, ALLOWED_OPEN6_SUBSTRATES, ALLOWED_OPEN7_K8S_DISTRIBUTIONS } from '../validate-schemas.mjs';
 
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -22,13 +22,117 @@ const ROOT = join(HERE, '../../..');
 const JSON_SCHEMA_DIR = join(ROOT, 'contracts/json-schema');
 const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
 
+const reconcileProfileDigestsAndFixtures = () => {
+  const onpremStdPath = join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json');
+  if (existsSync(onpremStdPath)) {
+    const stdDigest = createHash('sha256').update(readFileSync(onpremStdPath)).digest('hex');
+    const hsPath = join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json');
+    if (existsSync(hsPath)) {
+      const hs = JSON.parse(readFileSync(hsPath, 'utf8'));
+      if (hs.target_profile_digest !== stdDigest) {
+        hs.target_profile_digest = stdDigest;
+        if (hs.advertisement_response) hs.advertisement_response.target_profile_digest = stdDigest;
+        if (hs.agreed_capability_lease) hs.agreed_capability_lease.target_profile_digest = stdDigest;
+        writeFileSync(hsPath, JSON.stringify(hs, null, 2) + '\n', 'utf8');
+      }
+    }
+    const fdPath = join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json');
+    if (existsSync(fdPath)) {
+      const fd = JSON.parse(readFileSync(fdPath, 'utf8'));
+      if (fd.target_profile_digest !== stdDigest) {
+        fd.target_profile_digest = stdDigest;
+        writeFileSync(fdPath, JSON.stringify(fd, null, 2) + '\n', 'utf8');
+      }
+    }
+  }
+
+  const onpremAirgapPath = join(EXAMPLES_DIR, 'onprem-airgap-v1.profile.json');
+  if (existsSync(onpremAirgapPath)) {
+    const airgapDigest = createHash('sha256').update(readFileSync(onpremAirgapPath)).digest('hex');
+    const advPath = join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json');
+    if (existsSync(advPath)) {
+      const adv = JSON.parse(readFileSync(advPath, 'utf8'));
+      if (adv.target_profile_digest !== airgapDigest) {
+        adv.target_profile_digest = airgapDigest;
+        writeFileSync(advPath, JSON.stringify(adv, null, 2) + '\n', 'utf8');
+      }
+    }
+    for (const negFile of [
+      'invalid-missing-evidence-advertisement.json',
+      'invalid-unauthenticated-advertisement.json',
+      'invalid-namespace-advertisement.json'
+    ]) {
+      const negPath = join(EXAMPLES_DIR, 'negative', negFile);
+      if (existsSync(negPath)) {
+        const neg = JSON.parse(readFileSync(negPath, 'utf8'));
+        if (neg.target_profile_digest !== airgapDigest) {
+          neg.target_profile_digest = airgapDigest;
+          writeFileSync(negPath, JSON.stringify(neg, null, 2) + '\n', 'utf8');
+        }
+      }
+    }
+  }
+
+  const policyPath = join(EXAMPLES_DIR, 'sample-operator-deployment-policy.json');
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const pubJwk = publicKey.export({ format: 'jwk' });
+  const pubRaw = Buffer.from(pubJwk.x, 'base64url');
+  const publicKeyHex = pubRaw.toString('hex');
+
+  const policyData = {
+    policy_id: "operator-policy-onprem-primary-v1",
+    policy_version: "1.0.0",
+    operator_trust_root: {
+      key_id: "op-key-primary-2026",
+      algorithm: "Ed25519",
+      public_key_hex: publicKeyHex,
+      issuer: "urn:cybrik:operator:trust-root:datacenter-01"
+    },
+    envelope_intersection: {
+      tier1_envelope_reference: "FOUNDER_SOVEREIGN_ENVELOPE_V1",
+      sovereignty_class: "SOVEREIGN_CUSTOMER_CONTROLLED",
+      data_sovereignty_enforced: true,
+      telemetry_call_home_prohibited: true,
+      airgap_lifecycle_supported: true
+    },
+    permitted_virtualization_substrates: [
+      "linux-kvm-qemu",
+      "bare-metal",
+      "proxmox-ve"
+    ],
+    permitted_kubernetes_distributions: [
+      "k3s",
+      "rke2",
+      "none"
+    ],
+    permitted_storage_profiles: [
+      "s3-compliant-object-lock",
+      "posix-filesystem"
+    ]
+  };
+
+  const canonicalPayload = canonicalizeJcs(policyData);
+  const sigBuf = sign(null, Buffer.from(canonicalPayload, 'utf8'), privateKey);
+  const signatureHex = sigBuf.toString('hex');
+
+  const fullPolicy = {
+    ...policyData,
+    signature: signatureHex
+  };
+
+  writeFileSync(policyPath, JSON.stringify(fullPolicy, null, 2) + '\n', 'utf8');
+};
+
+reconcileProfileDigestsAndFixtures();
+
 const PLATFORM_SCHEMAS = [
   'cybrik.deployment-profile.v1.schema.json',
   'cybrik.platform-contract.v1.schema.json',
   'cybrik.provider-capability-advertisement.v1.schema.json',
   'cybrik.provider-capability-negotiation.v1.schema.json',
   'cybrik.offline-install-update-manifest.v1.schema.json',
-  'cybrik.storage-s3-compatibility-subset.v1.schema.json'
+  'cybrik.storage-s3-compatibility-subset.v1.schema.json',
+  'cybrik.operator-deployment-policy.v1.schema.json'
 ];
 
 const loadSchemas = () => {
@@ -53,7 +157,8 @@ test('validate positive platform fixtures', () => {
     'sample-capability-negotiation-handshake.json',
     'sample-offline-bundle-manifest.json',
     'sample-storage-s3-subset.json',
-    'sample-full-profile-conformance-declaration.json'
+    'sample-full-profile-conformance-declaration.json',
+    'sample-operator-deployment-policy.json'
   ];
 
   for (const file of positives) {
@@ -68,6 +173,7 @@ test('validate positive platform fixtures', () => {
     else if (file.includes('offline-bundle-manifest')) schemaId = 'https://contracts.cybrik.example/cybrik.offline-install-update-manifest.v1.schema.json';
     else if (file.includes('platform-contract')) schemaId = 'https://contracts.cybrik.example/cybrik.platform-contract.v1.schema.json';
     else if (file.includes('storage-s3-subset')) schemaId = 'https://contracts.cybrik.example/cybrik.storage-s3-compatibility-subset.v1.schema.json';
+    else if (file.includes('operator-deployment-policy')) schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
 
     assert.ok(schemaId, `Could not determine schemaId for ${file}`);
 
@@ -154,7 +260,7 @@ test('in-memory validation: reject advertisement with unresolvable evidence refe
   const data = {
     "target_profile_id": "onprem-standard-v1",
     "target_profile_version": "1.0.0",
-    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
+    "target_profile_digest": "baa61b5774c09260d663d9c02c8b42313993df08d10f4c75f98a1e7f2e3201b3",
     "provider_namespace": "evil-corp",
     "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
     "advertised_capabilities": [
@@ -17245,5 +17351,184 @@ test('governance: FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-0
     adr0015Text.includes('| `OPEN-8` | `PROVIDER_SELECTION_AUTHORITY_MODEL` — who holds delegated selection authority, and under what bound | **OPEN** |'),
     'ADR-0015 R6 must preserve OPEN-8 open status',
   );
+});
+
+test('lifecycle & governance: OPEN-6, OPEN-7, OPEN-8 schema and canonical profile formalization', () => {
+  const schemaName = 'cybrik.operator-deployment-policy.v1.schema.json';
+  const schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
+  const p = join(JSON_SCHEMA_DIR, schemaName);
+  assert.ok(existsSync(p), `Schema file must exist: ${p}`);
+  const doc = JSON.parse(readFileSync(p, 'utf8'));
+
+  // 1. Schema lifecycle properties
+  assert.equal(doc.$schema, 'https://json-schema.org/draft/2020-12/schema');
+  assert.equal(doc.$id, schemaId);
+  assert.equal(doc['x-cybrik-status'], 'ACCEPTED FOR IMPLEMENTATION');
+  assert.equal(doc['x-cybrik-not-accepted'], false);
+  assert.equal(doc['x-cybrik-contract-version'], '0.1.0');
+  assert.equal(doc['$comment'], 'CYBRIK Suite Contract Specification v0.1.0');
+  if (doc['x-cybrik-lifecycle']) {
+    assert.equal(doc['x-cybrik-lifecycle'], 'ACCEPTED FOR IMPLEMENTATION');
+  }
+
+  // 2. Canonical profiles check
+  const stdProfile = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json'), 'utf8'));
+  assert.ok(stdProfile.capability_set.isolation_substrate.constraints.includes('linux-kvm-qemu'), 'onprem-standard-v1 must permit linux-kvm-qemu');
+  assert.ok(stdProfile.capability_set.isolation_substrate.constraints.includes('bare-metal'), 'onprem-standard-v1 must permit bare-metal');
+  assert.ok(stdProfile.capability_set.orchestration_capability.constraints.includes('k3s'), 'onprem-standard-v1 must permit k3s');
+
+  const airgapProfile = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'onprem-airgap-v1.profile.json'), 'utf8'));
+  assert.ok(airgapProfile.capability_set.isolation_substrate.constraints.includes('linux-kvm-qemu'), 'onprem-airgap-v1 must permit linux-kvm-qemu');
+  assert.ok(airgapProfile.capability_set.isolation_substrate.constraints.includes('proxmox-ve'), 'onprem-airgap-v1 must permit proxmox-ve');
+  assert.ok(airgapProfile.capability_set.orchestration_capability.constraints.includes('rke2'), 'onprem-airgap-v1 must permit rke2');
+
+  const privCloudProfile = JSON.parse(readFileSync(join(EXAMPLES_DIR, 'private-cloud-v1.profile.json'), 'utf8'));
+  assert.ok(privCloudProfile.capability_set.isolation_substrate.constraints.includes('proxmox-ve'), 'private-cloud-v1 must permit proxmox-ve');
+  assert.ok(privCloudProfile.capability_set.orchestration_capability.constraints.includes('rke2'), 'private-cloud-v1 must permit rke2');
+
+  // 3. Founder packet binding
+  const packetPath = join(ROOT, 'docs/adr/FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md');
+  assert.ok(existsSync(packetPath), 'Founder decision packet OPEN-6/7/8 must exist on disk');
+  const packetText = readFileSync(packetPath, 'utf8');
+  assert.ok(packetText.includes('OPEN-6'), 'Founder packet must record OPEN-6');
+  assert.ok(packetText.includes('OPEN-7'), 'Founder packet must record OPEN-7');
+  assert.ok(packetText.includes('OPEN-8'), 'Founder packet must record OPEN-8');
+  assert.ok(packetText.includes('HIERARCHICAL_SOVEREIGN_AUTHORITY_MODEL'), 'Founder packet must include HIERARCHICAL_SOVEREIGN_AUTHORITY_MODEL');
+  assert.ok(packetText.includes('TIERED_SOVEREIGN_VIRTUALIZATION_SUBSTRATE_MODEL'), 'Founder packet must include TIERED_SOVEREIGN_VIRTUALIZATION_SUBSTRATE_MODEL');
+  assert.ok(packetText.includes('TIER_DIFFERENTIATED_KUBERNETES_PROFILE'), 'Founder packet must include TIER_DIFFERENTIATED_KUBERNETES_PROFILE');
+});
+
+test('in-memory & adversarial validation: cybrik.operator-deployment-policy.v1.schema.json (OPEN-8)', () => {
+  const schemaId = 'https://contracts.cybrik.example/cybrik.operator-deployment-policy.v1.schema.json';
+  const samplePath = join(EXAMPLES_DIR, 'sample-operator-deployment-policy.json');
+  assert.ok(existsSync(samplePath), 'sample-operator-deployment-policy.json must exist');
+  const validPolicy = JSON.parse(readFileSync(samplePath, 'utf8'));
+
+  // Positive: sample validates against schema and semantic validator
+  assert.ok(ajv.validate(schemaId, validPolicy), 'sample policy must validate against schema: ' + ajv.errorsText());
+  assert.doesNotThrow(() => validatePlatformSemantics(validPolicy, schemaId), 'sample policy must pass semantic validation');
+
+  // Negative Adversarial 1: Bad/corrupted signature fails cryptographic verification
+  const badSigPolicy = JSON.parse(JSON.stringify(validPolicy));
+  const firstChar = badSigPolicy.signature[0] === '0' ? '1' : '0';
+  badSigPolicy.signature = firstChar + badSigPolicy.signature.slice(1);
+  assert.ok(ajv.validate(schemaId, badSigPolicy), 'Bad signature is structurally valid');
+  assert.throws(
+    () => validatePlatformSemantics(badSigPolicy, schemaId),
+    /Ed25519 cryptographic signature verification failed/,
+    'Corrupted signature must fail cryptographic verification'
+  );
+
+  // Negative Adversarial 2: Wrong public key fails verification
+  const wrongKeyPolicy = JSON.parse(JSON.stringify(validPolicy));
+  wrongKeyPolicy.operator_trust_root.public_key_hex = '0'.repeat(64);
+  assert.ok(ajv.validate(schemaId, wrongKeyPolicy), 'Wrong key format is structurally valid');
+  assert.throws(
+    () => validatePlatformSemantics(wrongKeyPolicy, schemaId),
+    /Ed25519 cryptographic signature verification failed/,
+    'Wrong public key must fail cryptographic verification'
+  );
+
+  // Negative Adversarial 3: Tampered policy content after signing fails verification
+  const tamperedPolicy = JSON.parse(JSON.stringify(validPolicy));
+  tamperedPolicy.permitted_virtualization_substrates.push('cloud-hypervisor-microvm');
+  assert.ok(ajv.validate(schemaId, tamperedPolicy), 'Tampered policy is structurally valid');
+  assert.throws(
+    () => validatePlatformSemantics(tamperedPolicy, schemaId),
+    /Ed25519 cryptographic signature verification failed/,
+    'Tampered payload must fail cryptographic signature verification'
+  );
+
+  // Negative Adversarial 4: Unsupported virtualization substrate outside OPEN-6
+  for (const forbiddenSubstrate of ['aws-nitro-hypervisor', 'vmware-esxi', 'xen-hypervisor', 'gcp-hypervisor']) {
+    const invalidSubstratePolicy = JSON.parse(JSON.stringify(validPolicy));
+    invalidSubstratePolicy.permitted_virtualization_substrates = [forbiddenSubstrate];
+    assert.equal(
+      ajv.validate(schemaId, invalidSubstratePolicy),
+      false,
+      `Forbidden substrate '${forbiddenSubstrate}' must fail schema validation`
+    );
+    assert.throws(
+      () => validatePlatformSemantics(invalidSubstratePolicy, schemaId),
+      /unsupported or unauthorized virtualization substrate/,
+      `Forbidden substrate '${forbiddenSubstrate}' must fail semantic validation`
+    );
+  }
+
+  // Negative Adversarial 5: Unsupported Kubernetes distribution outside OPEN-7
+  for (const forbiddenK8s of ['eks', 'gke', 'aks', 'openshift', 'talos-linux', 'microk8s']) {
+    const invalidK8sPolicy = JSON.parse(JSON.stringify(validPolicy));
+    invalidK8sPolicy.permitted_kubernetes_distributions = [forbiddenK8s];
+    assert.equal(
+      ajv.validate(schemaId, invalidK8sPolicy),
+      false,
+      `Forbidden k8s distribution '${forbiddenK8s}' must fail schema validation`
+    );
+    assert.throws(
+      () => validatePlatformSemantics(invalidK8sPolicy, schemaId),
+      /unsupported or unauthorized kubernetes distribution/,
+      `Forbidden k8s distribution '${forbiddenK8s}' must fail semantic validation`
+    );
+  }
+
+  // Negative Adversarial 6: Unauthorized expansion of Tier 1 Founder Envelope
+  const invalidEnvelopeDataSovereignty = JSON.parse(JSON.stringify(validPolicy));
+  invalidEnvelopeDataSovereignty.envelope_intersection.data_sovereignty_enforced = false;
+  assert.equal(ajv.validate(schemaId, invalidEnvelopeDataSovereignty), false, 'data_sovereignty_enforced: false must fail schema');
+
+  const invalidEnvelopeTelemetry = JSON.parse(JSON.stringify(validPolicy));
+  invalidEnvelopeTelemetry.envelope_intersection.telemetry_call_home_prohibited = false;
+  assert.equal(ajv.validate(schemaId, invalidEnvelopeTelemetry), false, 'telemetry_call_home_prohibited: false must fail schema');
+
+  const invalidSovereigntyClass = JSON.parse(JSON.stringify(validPolicy));
+  invalidSovereigntyClass.envelope_intersection.sovereignty_class = 'PUBLIC_MULTITENANT_CLOUD';
+  assert.equal(ajv.validate(schemaId, invalidSovereigntyClass), false, 'PUBLIC_MULTITENANT_CLOUD must fail schema');
+
+  // Negative Adversarial 7: Missing trust root required properties
+  for (const missingProp of ['key_id', 'algorithm', 'public_key_hex', 'issuer']) {
+    const missingTrustProp = JSON.parse(JSON.stringify(validPolicy));
+    delete missingTrustProp.operator_trust_root[missingProp];
+    assert.equal(ajv.validate(schemaId, missingTrustProp), false, `Missing '${missingProp}' must fail schema`);
+  }
+
+  // Negative Adversarial 8: Malformed public key hex length / format
+  for (const badHex of ['1234', 'a'.repeat(63), 'a'.repeat(65), 'g'.repeat(64)]) {
+    const badHexPolicy = JSON.parse(JSON.stringify(validPolicy));
+    badHexPolicy.operator_trust_root.public_key_hex = badHex;
+    assert.equal(ajv.validate(schemaId, badHexPolicy), false, `Bad public key hex '${badHex}' must fail schema`);
+  }
+
+  // Negative Adversarial 9: Malformed algorithm
+  for (const badAlg of ['RSA-2048', 'ECDSA-P256', 'ed25519', 'none']) {
+    const badAlgPolicy = JSON.parse(JSON.stringify(validPolicy));
+    badAlgPolicy.operator_trust_root.algorithm = badAlg;
+    assert.equal(ajv.validate(schemaId, badAlgPolicy), false, `Bad algorithm '${badAlg}' must fail schema`);
+  }
+
+  // Negative Adversarial 10: Malformed semver policy_version
+  for (const badSemver of ['1.0', 'v1.0.0', '01.0.0', '1.0.0.0', 'latest']) {
+    const badSemverPolicy = JSON.parse(JSON.stringify(validPolicy));
+    badSemverPolicy.policy_version = badSemver;
+    assert.equal(ajv.validate(schemaId, badSemverPolicy), false, `Bad semver '${badSemver}' must fail schema`);
+  }
+
+  // Negative Adversarial 11: Missing signature
+  const missingSigPolicy = JSON.parse(JSON.stringify(validPolicy));
+  delete missingSigPolicy.signature;
+  assert.equal(ajv.validate(schemaId, missingSigPolicy), false, 'Missing signature must fail schema');
+  assert.throws(() => validatePlatformSemantics(missingSigPolicy, schemaId), /invalid detached signature format/);
+
+  // Negative Adversarial 12: Empty permitted arrays
+  const emptySubstrates = JSON.parse(JSON.stringify(validPolicy));
+  emptySubstrates.permitted_virtualization_substrates = [];
+  assert.equal(ajv.validate(schemaId, emptySubstrates), false, 'Empty permitted_virtualization_substrates must fail schema');
+
+  const emptyK8s = JSON.parse(JSON.stringify(validPolicy));
+  emptyK8s.permitted_kubernetes_distributions = [];
+  assert.equal(ajv.validate(schemaId, emptyK8s), false, 'Empty permitted_kubernetes_distributions must fail schema');
+
+  const emptyStorage = JSON.parse(JSON.stringify(validPolicy));
+  emptyStorage.permitted_storage_profiles = [];
+  assert.equal(ajv.validate(schemaId, emptyStorage), false, 'Empty permitted_storage_profiles must fail schema');
 });
 

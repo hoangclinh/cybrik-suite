@@ -1,0 +1,32 @@
+{
+  "policy_id": "operator-policy-onprem-primary-v1",
+  "policy_version": "1.0.0",
+  "operator_trust_root": {
+    "key_id": "op-key-primary-2026",
+    "algorithm": "Ed25519",
+    "public_key_hex": "6db43691ca5aedb81ff8fe169c2b3a463a3d8c62884462ab47c2d7df9f9fdcf8",
+    "issuer": "urn:cybrik:operator:trust-root:datacenter-01"
+  },
+  "envelope_intersection": {
+    "tier1_envelope_reference": "FOUNDER_SOVEREIGN_ENVELOPE_V1",
+    "sovereignty_class": "SOVEREIGN_CUSTOMER_CONTROLLED",
+    "data_sovereignty_enforced": true,
+    "telemetry_call_home_prohibited": true,
+    "airgap_lifecycle_supported": true
+  },
+  "permitted_virtualization_substrates": [
+    "linux-kvm-qemu",
+    "bare-metal",
+    "proxmox-ve"
+  ],
+  "permitted_kubernetes_distributions": [
+    "k3s",
+    "rke2",
+    "none"
+  ],
+  "permitted_storage_profiles": [
+    "s3-compliant-object-lock",
+    "posix-filesystem"
+  ],
+  "signature": "502b2f48919a7bd7169c73379d41190427e82e939e0654a02b950a846b0090ecea32259bc510235706ebc64004d0cd92e61c4bd3da67399f754be7df1ef39104"
+}

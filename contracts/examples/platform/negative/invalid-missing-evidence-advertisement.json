@@ -1,7 +1,7 @@
 {
   "target_profile_id": "onprem-airgap-v1",
   "target_profile_version": "1.0.0",
-  "target_profile_digest": "8f75583bfa23316e5116f3e7d3efbe6999dd9a4a2a0eb3ab90af4070606262d4",
+  "target_profile_digest": "c5996905146fa113b91be5ab3f55d5051a8f3d2d7237e983881553fe3fb6f2e7",
   "provider_namespace": "cybrik-aws",
   "claim_type": "PARTIAL_CAPABILITY_ADVERTISEMENT",
   "advertised_capabilities": [

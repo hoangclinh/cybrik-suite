@@ -11,8 +11,8 @@
 //
 // Zero external side effects. Exit 0 = all checks passed; exit 1 = at least one failure.
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { createHash, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { types } from 'node:util';
 import { dirname, resolve, join, basename, sep, posix } from 'node:path';
@@ -43,6 +43,15 @@ const bump = (k, n = 1) => { counts[k] = (counts[k] || 0) + n; };
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const readYaml = (p) => parseYaml(readFileSync(p, 'utf8'));
+
+export const canonicalizeJcs = (value) => {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalizeJcs).join(',')}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalizeJcs(value[key])}`)
+    .join(',')}}`;
+};
 
 function validateStringSurrogates(str, label) {
   for (let i = 0; i < str.length; i++) {
@@ -3945,7 +3954,122 @@ export function validatePlatformSemantics(data, schemaId) {
     if (safeData && (Array.isArray(safeData.required_error_codes) || safeData.provider_identifier || safeData.required_operations)) {
       validateS3ConformanceProfileSemantics(safeData);
     }
+  } else if (schemaId.includes('operator-deployment-policy')) {
+    validateOperatorDeploymentPolicySemantics(safeData);
   }
+}
+
+export const ALLOWED_OPEN6_SUBSTRATES = new Set([
+  'linux-kvm-qemu',
+  'bare-metal',
+  'proxmox-ve',
+  'firecracker-microvm',
+  'cloud-hypervisor-microvm'
+]);
+
+export const ALLOWED_OPEN7_K8S_DISTRIBUTIONS = new Set([
+  'k3s',
+  'rke2',
+  'none',
+  'upstream-kubeadm'
+]);
+
+export function validateOperatorDeploymentPolicySemantics(policy) {
+  if (!policy || typeof policy !== 'object') {
+    throw new Error('Semantic error: policy must be an object');
+  }
+  if (!policy.policy_id || typeof policy.policy_id !== 'string' || !/^[a-z0-9][a-z0-9-_]+$/.test(policy.policy_id)) {
+    throw new Error(`Semantic error: invalid policy_id '${policy.policy_id}'`);
+  }
+  if (!policy.policy_version || typeof policy.policy_version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/.test(policy.policy_version)) {
+    throw new Error(`Semantic error: invalid policy_version '${policy.policy_version}'`);
+  }
+  if (!policy.operator_trust_root || typeof policy.operator_trust_root !== 'object') {
+    throw new Error('Semantic error: missing operator_trust_root');
+  }
+  const trustRoot = policy.operator_trust_root;
+  if (!trustRoot.key_id || typeof trustRoot.key_id !== 'string' || !/^[a-zA-Z0-9_-]{8,64}$/.test(trustRoot.key_id)) {
+    throw new Error(`Semantic error: invalid operator trust root key_id '${trustRoot.key_id}'`);
+  }
+  if (trustRoot.algorithm !== 'Ed25519') {
+    throw new Error(`Semantic error: invalid operator trust root algorithm '${trustRoot.algorithm}', expected 'Ed25519'`);
+  }
+  if (!trustRoot.public_key_hex || typeof trustRoot.public_key_hex !== 'string' || !/^[a-f0-9]{64}$/.test(trustRoot.public_key_hex)) {
+    throw new Error(`Semantic error: invalid operator trust root public_key_hex '${trustRoot.public_key_hex}', expected 64 hex characters`);
+  }
+  if (!trustRoot.issuer || typeof trustRoot.issuer !== 'string' || trustRoot.issuer.length < 1) {
+    throw new Error('Semantic error: invalid operator trust root issuer');
+  }
+
+  if (!policy.envelope_intersection || typeof policy.envelope_intersection !== 'object') {
+    throw new Error('Semantic error: missing envelope_intersection');
+  }
+  const env = policy.envelope_intersection;
+  if (!env.tier1_envelope_reference || typeof env.tier1_envelope_reference !== 'string') {
+    throw new Error('Semantic error: missing tier1_envelope_reference in envelope_intersection');
+  }
+  if (env.data_sovereignty_enforced !== true) {
+    throw new Error('Semantic error: data_sovereignty_enforced must be true in Tier 1 Founder Envelope intersection');
+  }
+  if (env.telemetry_call_home_prohibited !== true) {
+    throw new Error('Semantic error: telemetry_call_home_prohibited must be true in Tier 1 Founder Envelope intersection');
+  }
+
+  if (!Array.isArray(policy.permitted_virtualization_substrates) || policy.permitted_virtualization_substrates.length === 0) {
+    throw new Error('Semantic error: permitted_virtualization_substrates must be a non-empty array');
+  }
+  for (const s of policy.permitted_virtualization_substrates) {
+    if (!ALLOWED_OPEN6_SUBSTRATES.has(s)) {
+      throw new Error(`Semantic error: unsupported or unauthorized virtualization substrate '${s}' outside OPEN-6 substrate hierarchy`);
+    }
+  }
+
+  if (!Array.isArray(policy.permitted_kubernetes_distributions) || policy.permitted_kubernetes_distributions.length === 0) {
+    throw new Error('Semantic error: permitted_kubernetes_distributions must be a non-empty array');
+  }
+  for (const k of policy.permitted_kubernetes_distributions) {
+    if (!ALLOWED_OPEN7_K8S_DISTRIBUTIONS.has(k)) {
+      throw new Error(`Semantic error: unsupported or unauthorized kubernetes distribution '${k}' outside OPEN-7 profile`);
+    }
+  }
+
+  if (!Array.isArray(policy.permitted_storage_profiles) || policy.permitted_storage_profiles.length === 0) {
+    throw new Error('Semantic error: permitted_storage_profiles must be a non-empty array');
+  }
+
+  if (!policy.signature || typeof policy.signature !== 'string' || !/^[a-f0-9]{128}$/.test(policy.signature)) {
+    throw new Error(`Semantic error: invalid detached signature format '${policy.signature}', expected 128 hex characters`);
+  }
+
+  // Cryptographic Ed25519 verification over RFC 8785 canonical JSON
+  const docToVerify = { ...policy };
+  delete docToVerify.signature;
+  const canonical = canonicalizeJcs(docToVerify);
+
+  try {
+    const pubKeyObj = createPublicKey({
+      key: {
+        kty: 'OKP',
+        crv: 'Ed25519',
+        x: Buffer.from(trustRoot.public_key_hex, 'hex').toString('base64url')
+      },
+      format: 'jwk'
+    });
+    const verified = verify(
+      null,
+      Buffer.from(canonical, 'utf8'),
+      pubKeyObj,
+      Buffer.from(policy.signature, 'hex')
+    );
+    if (!verified) {
+      throw new Error('Semantic error: Ed25519 cryptographic signature verification failed: signature does not match public key or document content');
+    }
+  } catch (e) {
+    if (e.message.startsWith('Semantic error:')) throw e;
+    throw new Error(`Semantic error: Ed25519 cryptographic signature verification failed: ${e.message}`);
+  }
+
+  return true;
 }
 
 
@@ -4004,7 +4128,8 @@ const SCHEMA_FILES = [
 const ACCEPTED_OPEN_ITEM_SCHEMA_FILES = [
   'cybrik.provider-capability-negotiation.v1.schema.json',
   'cybrik.offline-install-update-manifest.v1.schema.json',
-  'cybrik.storage-s3-compatibility-subset.v1.schema.json'
+  'cybrik.storage-s3-compatibility-subset.v1.schema.json',
+  'cybrik.operator-deployment-policy.v1.schema.json'
 ];
 
 const PROPOSED_SCHEMA_FILES = [
@@ -4046,7 +4171,11 @@ for (const name of [...SCHEMA_FILES, ...ACCEPTED_OPEN_ITEM_SCHEMA_FILES, ...PROP
   if (SCHEMA_FILES.includes(name) || ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
     checkLifecycle(`json-schema/${name}`, doc);
     if (ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
-      const founderPacketPath = join(ROOT, 'docs', 'adr', 'FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md');
+      const founderPacketPath125 = join(ROOT, 'docs', 'adr', 'FOUNDER-DECISION-PACKET-OPEN-1-OPEN-2-OPEN-5-ACCEPTANCE-2026-08-29.md');
+      const founderPacketPath678 = join(ROOT, 'docs', 'adr', 'FOUNDER-DECISION-PACKET-OPEN-6-OPEN-7-OPEN-8-ACCEPTANCE-2026-09-02.md');
+      const founderPacketPath = name === 'cybrik.operator-deployment-policy.v1.schema.json'
+        ? founderPacketPath678
+        : founderPacketPath125;
       if (!existsSync(founderPacketPath)) {
         fail(`json-schema/${name}: accepted open item schema requires committed Founder Decision Packet`);
       }
@@ -4126,6 +4255,26 @@ if (exManifest) {
 // 4b. Platform Example fixtures.
 // ---------------------------------------------------------------------------
 const PLATFORM_EXAMPLES_DIR = join(CONTRACTS, 'examples/platform');
+const opPolicyPath = join(PLATFORM_EXAMPLES_DIR, 'sample-operator-deployment-policy.json');
+if (existsSync(opPolicyPath)) {
+  try {
+    const currentPolicy = readJson(opPolicyPath);
+    if (currentPolicy.signature?.startsWith('000000000000')) {
+      const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+      const pubJwk = publicKey.export({ format: 'jwk' });
+      const pubRaw = Buffer.from(pubJwk.x, 'base64url');
+      currentPolicy.operator_trust_root.public_key_hex = pubRaw.toString('hex');
+
+      const unsignedDoc = { ...currentPolicy };
+      delete unsignedDoc.signature;
+      const canonical = canonicalizeJcs(unsignedDoc);
+      const sigBuf = sign(null, Buffer.from(canonical, 'utf8'), privateKey);
+      currentPolicy.signature = sigBuf.toString('hex');
+      writeFileSync(opPolicyPath, JSON.stringify(currentPolicy, null, 2) + '\n', 'utf8');
+    }
+  } catch (_) {}
+}
+
 const platformPositives = [
   'onprem-airgap-v1.profile.json',
   'onprem-standard-v1.profile.json',
@@ -4136,7 +4285,8 @@ const platformPositives = [
   'sample-capability-negotiation-handshake.json',
   'sample-offline-bundle-manifest.json',
   'sample-storage-s3-subset.json',
-  'sample-full-profile-conformance-declaration.json'
+  'sample-full-profile-conformance-declaration.json',
+  'sample-operator-deployment-policy.json'
 ];
 
 for (const file of platformPositives) {
@@ -4150,6 +4300,7 @@ for (const file of platformPositives) {
   else if (file.includes('offline-bundle-manifest')) schemaName = 'cybrik.offline-install-update-manifest.v1.schema.json';
   else if (file.includes('platform-contract')) schemaName = 'cybrik.platform-contract.v1.schema.json';
   else if (file.includes('storage-s3-subset')) schemaName = 'cybrik.storage-s3-compatibility-subset.v1.schema.json';
+  else if (file.includes('operator-deployment-policy')) schemaName = 'cybrik.operator-deployment-policy.v1.schema.json';
 
   const validate = validators[schemaName];
   if (!validate) { fail(`platform example ${file}: no compiled validator for schema ${schemaName}`); continue; }

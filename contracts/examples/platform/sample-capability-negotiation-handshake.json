@@ -4,7 +4,7 @@
   "provider_namespace": "cybrik-reference",
   "target_profile_id": "onprem-standard-v1",
   "target_profile_version": "1.0.0",
-  "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
+  "target_profile_digest": "baa61b5774c09260d663d9c02c8b42313993df08d10f4c75f98a1e7f2e3201b3",
   "negotiation_status": "DEGRADED_LEASE_GRANTED",
   "negotiation_request": {
     "request_id": "req-onprem-init-01",
@@ -52,7 +52,7 @@
     "timestamp": "2026-08-27T12:00:01Z",
     "server_nonce": "s-nonce-1234567890fedcba1234567890fedcba",
     "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
-    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
+    "target_profile_digest": "baa61b5774c09260d663d9c02c8b42313993df08d10f4c75f98a1e7f2e3201b3",
     "advertised_capabilities": [
       {
         "capability_name": "cap-oci",
@@ -396,7 +396,7 @@
   "agreed_capability_lease": {
     "lease_id": "lease-onprem-std-20260827-01",
     "target_profile_id": "onprem-standard-v1",
-    "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
+    "target_profile_digest": "baa61b5774c09260d663d9c02c8b42313993df08d10f4c75f98a1e7f2e3201b3",
     "issued_at": "2026-08-27T12:00:02Z",
     "valid_until": "2026-08-27T13:00:02Z",
     "ttl_seconds": 3600,

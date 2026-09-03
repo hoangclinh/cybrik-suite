@@ -1,7 +1,7 @@
 {
   "target_profile_id": "onprem-standard-v1",
   "target_profile_version": "1.0.0",
-  "target_profile_digest": "5be09c271422654a281dcf14d0dbb4968d23337157bd38e39f52d1cf3c4b5050",
+  "target_profile_digest": "baa61b5774c09260d663d9c02c8b42313993df08d10f4c75f98a1e7f2e3201b3",
   "provider_namespace": "cybrik-reference",
   "claim_type": "FULL_PROFILE_CONFORMANCE_DECLARATION",
   "advertised_capabilities": [
