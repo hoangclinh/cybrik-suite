@@ -1,0 +1,62 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for Merkle Audit Proof contract fixtures (Pillars 5, 9, 10).",
+  "fixtures": [
+    {
+      "file": "positive/merkle-proof.64-leaf-epoch-inclusion.json",
+      "kind": "positive",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "description": "Cryptographic Merkle inclusion proof for leaf 42 in a 64-leaf epoch tree with valid 6-step audit path and Ed25519 notary signature."
+    },
+    {
+      "file": "positive/merkle-proof.ledger-audit-trail.json",
+      "kind": "positive",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "description": "Merkle inclusion proof binding a specific security policy modification event to the ledger epoch root."
+    },
+    {
+      "file": "negative-schema/merkle-malformed-audit-path.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "position diagonal_upper_left is not in allowed enum (left, right)."
+    },
+    {
+      "file": "negative-schema/merkle-invalid-hash-length.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "leaf_digest does not match 64-hex SHA-256 pattern."
+    },
+    {
+      "file": "negative-schema/merkle-negative-tree-size.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "tree_size (0) violates minimum constraint (>= 1)."
+    },
+    {
+      "file": "negative-schema/merkle-missing-required-fields.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "Missing mandatory fields (epoch_root, signature_envelope, audit_path)."
+    },
+    {
+      "file": "negative-semantic/merkle-mismatched-leaf-index.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "MISMATCHED LEAF INDEX: audit path recomputation for index 15 does not converge to declared epoch root."
+    },
+    {
+      "file": "negative-semantic/merkle-forged-sibling-hash.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "FORGED SIBLING HASH: intermediate audit path sibling hash has been altered, invalidating inclusion proof."
+    },
+    {
+      "file": "negative-semantic/merkle-invalid-ed25519-signature.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.merkle-audit-proof.v1.schema.json",
+      "invariant": "CRYPTOGRAPHIC SIGNATURE FORGERY: Ed25519 signature fails verification against notary public key."
+    }
+  ]
+}

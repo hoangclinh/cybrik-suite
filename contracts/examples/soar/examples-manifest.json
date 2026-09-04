@@ -1,0 +1,68 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for SOAR Playbook contract fixtures (Pillars 5, 8, 9, 10).",
+  "fixtures": [
+    {
+      "file": "positive/soar-playbook.phishing-triage-rollback.json",
+      "kind": "positive",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "description": "Phishing triage playbook with DAG dependencies, conditional branch, retry backoff, and inverse rollback step."
+    },
+    {
+      "file": "positive/soar-playbook.ioc-quarantine-dag.json",
+      "kind": "positive",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "description": "Parallel IOC enrichment DAG with fanout fork, multi-source joins, and firewall quarantine action."
+    },
+    {
+      "file": "positive/soar-playbook.credential-revocation.json",
+      "kind": "positive",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "description": "High-risk R3 credential revocation playbook gated by Four-Eyes manual approval requirement."
+    },
+    {
+      "file": "negative-schema/soar-invalid-step-type.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "step_type execute_unauthorized_exploit is not a valid enum value."
+    },
+    {
+      "file": "negative-schema/soar-missing-entry-step.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "Missing mandatory entry_step_id defining playbook initial execution entrypoint."
+    },
+    {
+      "file": "negative-schema/soar-negative-retry-count.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "max_retries (-5) violates minimum constraint (>= 0)."
+    },
+    {
+      "file": "negative-schema/soar-missing-required-fields.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "Missing required top-level fields (risk_tier, author, data_marking)."
+    },
+    {
+      "file": "negative-schema/soar-invalid-risk-tier.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "risk_tier R99_CRITICAL_OVERFLOW is not a valid riskClass enum (must be R0, R1, R2, or R3)."
+    },
+    {
+      "file": "negative-semantic/soar-cyclic-dependency.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "CYCLIC DEPENDENCY: DAG contains directed cycle step-a -> step-b -> step-c -> step-a."
+    },
+    {
+      "file": "negative-semantic/soar-cross-tenant-action.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.soar-playbook.v1.schema.json",
+      "invariant": "CROSS-TENANT VIOLATION: step action target_tenant_id (tenant-globex-adversary) does not match playbook tenant_id (tenant-acme-cyber)."
+    }
+  ]
+}

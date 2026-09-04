@@ -1,0 +1,110 @@
+{
+  "playbook_id": "pb_ioc_quarantine_dag_v1",
+  "name": "Automated Multi-Source IOC Quarantine and Firewall Rule Sync",
+  "version": "1.1.0",
+  "description": "Parallel enrichment of threat indicators followed by synchronized firewall perimeter updates.",
+  "tenant_id": "tenant-acme-cyber",
+  "author": {
+    "type": "user",
+    "id": "usr_soc_engineer_carol",
+    "tenant_id": "tenant-acme-cyber"
+  },
+  "risk_tier": "R2",
+  "entry_step_id": "step-00-fanout-fork",
+  "timeout_seconds": 1200,
+  "concurrency_limit": 8,
+  "tags": [
+    "ioc",
+    "firewall",
+    "dag",
+    "automation"
+  ],
+  "steps": [
+    {
+      "step_id": "step-00-fanout-fork",
+      "name": "Fork Enrichment Branches",
+      "step_type": "parallel_fork",
+      "risk_tier": "R0",
+      "next_step_id": "step-01a-lookup-ip-reputation"
+    },
+    {
+      "step_id": "step-01a-lookup-ip-reputation",
+      "name": "Query IP Reputation Feeds",
+      "step_type": "action",
+      "risk_tier": "R0",
+      "depends_on": [
+        "step-00-fanout-fork"
+      ],
+      "action": {
+        "action_id": "lookup_ip_whois_vt",
+        "capability_id": "cap-cti-enricher",
+        "target": "cti://reputation/ip/198.51.100.77",
+        "parameters": {
+          "ip": "198.51.100.77"
+        },
+        "target_tenant_id": "tenant-acme-cyber"
+      }
+    },
+    {
+      "step_id": "step-01b-lookup-domain-whois",
+      "name": "Query Domain Registration and Passive DNS",
+      "step_type": "action",
+      "risk_tier": "R0",
+      "depends_on": [
+        "step-00-fanout-fork"
+      ],
+      "action": {
+        "action_id": "lookup_domain_pdns",
+        "capability_id": "cap-cti-enricher",
+        "target": "cti://reputation/domain/evil-c2-drop.example",
+        "parameters": {
+          "domain": "evil-c2-drop.example"
+        },
+        "target_tenant_id": "tenant-acme-cyber"
+      }
+    },
+    {
+      "step_id": "step-02-join-enrichment",
+      "name": "Join Parallel Enrichment Streams",
+      "step_type": "join",
+      "risk_tier": "R0",
+      "depends_on": [
+        "step-01a-lookup-ip-reputation",
+        "step-01b-lookup-domain-whois"
+      ],
+      "next_step_id": "step-03-block-perimeter-firewall"
+    },
+    {
+      "step_id": "step-03-block-perimeter-firewall",
+      "name": "Apply Firewall Ingress/Egress Drop Rule",
+      "step_type": "action",
+      "risk_tier": "R2",
+      "depends_on": [
+        "step-02-join-enrichment"
+      ],
+      "action": {
+        "action_id": "apply_firewall_drop_rule",
+        "capability_id": "cap-edge-firewall",
+        "target": "firewall://edge/cluster-us-east",
+        "parameters": {
+          "ip_cidr": "198.51.100.77/32",
+          "action": "DENY_LOG"
+        },
+        "target_tenant_id": "tenant-acme-cyber",
+        "idempotency_key": "idemp-block-198-51-100-77"
+      },
+      "retry_policy": {
+        "max_retries": 3,
+        "initial_backoff_seconds": 1.5,
+        "backoff_multiplier": 2.0,
+        "max_backoff_seconds": 60.0
+      }
+    }
+  ],
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN"
+  },
+  "created_at": "2026-09-05T02:05:00Z",
+  "digest": "sha256:466870459d2cb1fd526266225930fa62c1f58c3ba00d42d5b27597a2d3a7a8ba"
+}

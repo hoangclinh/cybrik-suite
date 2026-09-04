@@ -1,0 +1,56 @@
+{
+  "proof_id": "prf_epoch_1042_leaf_42",
+  "epoch_id": "epoch-1042",
+  "tenant_id": "tenant-acme-cyber",
+  "tree_size": 64,
+  "leaf_index": 42,
+  "leaf_digest": "sha256:d313d12dda1070cf7b11a8f93957492d9e6c064a158bdb6f612f5db38f0be9ce",
+  "epoch_root": "sha256:0e12060830915cd102ff076bfe79552ab7f1ca8327ca1f5d68bcd8c1c014de19",
+  "hash_algorithm": "sha256",
+  "audit_path": [
+    {
+      "position": "right",
+      "hash": "sha256:2ee52fa99d4f906902c32fb804d3ec26c360c393b2aab391a08325ee5070bf3a",
+      "level": 0
+    },
+    {
+      "position": "left",
+      "hash": "sha256:66419fce8eced184a3f14ecf3ec6a59c462983e6871230300cdb6eb2f81c2811",
+      "level": 1
+    },
+    {
+      "position": "right",
+      "hash": "sha256:cb8b4e5689ab0c7ce409cbc6b8d23858da496b89ee5b1fc98146eb30e2910751",
+      "level": 2
+    },
+    {
+      "position": "left",
+      "hash": "sha256:8c58ef30039c49fc90760a09f482d7aa1037c08aad00208782133bbed74cdba5",
+      "level": 3
+    },
+    {
+      "position": "right",
+      "hash": "sha256:1c5e6208b336d1e00348d8150d80b8cbae79245643a3be281febe2c45a718e86",
+      "level": 4
+    },
+    {
+      "position": "left",
+      "hash": "sha256:b9808b2cfa7c10e9bbbfddda44c9222338447d29e1892ac7d86cfdd918c85001",
+      "level": 5
+    }
+  ],
+  "signature_envelope": {
+    "algorithm": "Ed25519",
+    "key_id": "key-notary-epoch-root-2026",
+    "public_key_hex": "09c31b086cd41f0d22431ddc4b7b196b7e81c88c23e2dc12b42f13fc5c64d204",
+    "signature_hex": "0ebbca321f650057857e448959deb01b57a4a91c37dd75c01c4237dc422c30455c9bcbee34dc55c5bac20fe60d299cb60b72c48513be4b98844cf3ecbf528708",
+    "signed_at": "2026-09-05T02:00:00Z",
+    "signer_identity": "urn:cybrik:ledger:notary:datacenter-alpha"
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-09-05T02:00:01Z",
+  "digest": "sha256:481a80c6b594e5ce5ab75a2090c00f2e5ec8ec5bd54a4ab0833ee8b9f58a3fd7"
+}

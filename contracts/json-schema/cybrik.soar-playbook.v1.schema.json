@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.soar-playbook.v1.schema.json",
+  "title": "CYBRIK SOAR Playbook Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining SOAR playbooks, step definitions, DAG dependencies, risk tiers (R0-R3), retry/backoff parameters, conditional expressions, and rollback compensation steps (Pillars 5, 8, 9, 10). Governs autonomous and human-guided orchestration playbooks, automated remediation, containment sequences, and failure recovery.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "playbook_id",
+    "name",
+    "version",
+    "tenant_id",
+    "author",
+    "risk_tier",
+    "entry_step_id",
+    "steps",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "playbook_id": {
+      "type": "string",
+      "description": "Canonical SOAR playbook identifier.",
+      "pattern": "^(pb|soar)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the playbook.",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "version": {
+      "type": "string",
+      "description": "SemVer version of the playbook definition.",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Operational description of the playbook workflow and objectives."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing playbook execution."
+    },
+    "author": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "Author or engineering entity that published this playbook."
+    },
+    "risk_tier": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+      "description": "Overall risk classification of the playbook (R0-R3)."
+    },
+    "entry_step_id": {
+      "type": "string",
+      "description": "Identifier of the initial entrypoint step in the playbook DAG.",
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "description": "Total maximum execution timeout for the playbook in seconds.",
+      "minimum": 1,
+      "maximum": 86400
+    },
+    "concurrency_limit": {
+      "type": "integer",
+      "description": "Maximum number of parallel step branches executing concurrently.",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "rollback_policy": {
+      "$ref": "#/$defs/rollbackPolicy"
+    },
+    "tags": {
+      "type": "array",
+      "description": "Categorization tags (e.g. 'phishing', 'ransomware', 'containment').",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "default": []
+    },
+    "variables": {
+      "type": "object",
+      "description": "Input parameter schema and default variable declarations."
+    },
+    "steps": {
+      "type": "array",
+      "description": "Ordered or DAG-connected step definitions comprising the playbook.",
+      "items": { "$ref": "#/$defs/playbookStep" },
+      "minItems": 1
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative data marking and TLP classification."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest over the canonical JSON representation of the playbook."
+    }
+  },
+  "$defs": {
+    "rollbackPolicy": {
+      "type": "object",
+      "description": "Playbook-level rollback and compensation execution policy.",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["always", "on_failure", "manual", "disabled"]
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "max_rollback_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      }
+    },
+    "playbookStep": {
+      "type": "object",
+      "description": "Single discrete workflow step within the SOAR playbook DAG.",
+      "additionalProperties": false,
+      "required": ["step_id", "name", "step_type", "risk_tier"],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "description": "Unique identifier for this step within the playbook.",
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Descriptive step name.",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string"
+        },
+        "step_type": {
+          "type": "string",
+          "description": "Type of execution node.",
+          "enum": [
+            "action",
+            "condition",
+            "manual_approval",
+            "sub_playbook",
+            "parallel_fork",
+            "join",
+            "transform",
+            "notification",
+            "delay"
+          ]
+        },
+        "risk_tier": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+          "description": "Risk tier of this specific step."
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "List of prerequisite step_ids that must complete before this step executes.",
+          "items": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,64}$" },
+          "uniqueItems": true,
+          "default": []
+        },
+        "action": {
+          "$ref": "#/$defs/stepAction"
+        },
+        "condition": {
+          "$ref": "#/$defs/stepCondition"
+        },
+        "approval_requirement": {
+          "$ref": "#/$defs/stepApprovalRequirement"
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/retryPolicy"
+        },
+        "rollback_step": {
+          "$ref": "#/$defs/rollbackCompensationStep"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Step execution timeout in seconds.",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "next_step_id": {
+          "type": "string",
+          "description": "Target step_id for sequential execution progression.",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        },
+        "on_failure_step_id": {
+          "type": "string",
+          "description": "Target step_id to transition to upon step failure.",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      }
+    },
+    "stepAction": {
+      "type": "object",
+      "description": "Tool or capability invocation parameters for an action step.",
+      "additionalProperties": false,
+      "required": ["action_id", "capability_id", "target"],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "target_tenant_id": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+          "description": "Tenant id of target resource, must match playbook tenant_id."
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 16
+        }
+      }
+    },
+    "stepCondition": {
+      "type": "object",
+      "description": "Conditional branch expression evaluated against playbook execution state.",
+      "additionalProperties": false,
+      "required": ["expression", "dialect"],
+      "properties": {
+        "expression": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dialect": {
+          "type": "string",
+          "enum": ["cel", "jsonpath", "expr", "rego"]
+        },
+        "on_true_step_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        },
+        "on_false_step_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      }
+    },
+    "stepApprovalRequirement": {
+      "type": "object",
+      "description": "Human approval gate constraints for manual_approval step.",
+      "additionalProperties": false,
+      "required": ["required_role", "timeout_seconds"],
+      "properties": {
+        "required_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimum_approvers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "default": 1
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 604800
+        },
+        "escalation_step_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      }
+    },
+    "retryPolicy": {
+      "type": "object",
+      "description": "Exponential backoff and retry policy for transient failures.",
+      "additionalProperties": false,
+      "required": ["max_retries", "initial_backoff_seconds", "backoff_multiplier"],
+      "properties": {
+        "max_retries": {
+          "type": "integer",
+          "description": "Maximum number of retry attempts.",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "initial_backoff_seconds": {
+          "type": "number",
+          "description": "Initial backoff interval in seconds.",
+          "minimum": 0.1,
+          "maximum": 300.0
+        },
+        "backoff_multiplier": {
+          "type": "number",
+          "description": "Multiplier applied to backoff duration after each failure.",
+          "minimum": 1.0,
+          "maximum": 10.0
+        },
+        "max_backoff_seconds": {
+          "type": "number",
+          "description": "Maximum ceiling for backoff delay interval.",
+          "minimum": 0.1,
+          "maximum": 3600.0
+        },
+        "retryable_errors": {
+          "type": "array",
+          "description": "Error codes or exception patterns eligible for automatic retry.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "rollbackCompensationStep": {
+      "type": "object",
+      "description": "Automated compensation or rollback step invoked when action fails.",
+      "additionalProperties": false,
+      "required": ["step_id", "action_id", "compensation_type"],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        },
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compensation_type": {
+          "type": "string",
+          "enum": ["inverse_action", "checkpoint_restore", "custom_script", "alert_operator"]
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
+    }
+  }
+}
