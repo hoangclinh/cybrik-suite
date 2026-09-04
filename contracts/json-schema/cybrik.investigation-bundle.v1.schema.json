@@ -1,59 +1,469 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://contracts.cybrik.example/json-schema/cybrik.investigation-bundle.v1.schema.json",
-  "title": "CYBRIK investigation evidence bundle v1",
-  "description": "The response SOC receives for an investigation (roadmap W0 demo: 'SOC gửi một investigation request giả lập và nhận bundle schema-valid'; ADR-0002 'Investigation Graph/Bundle'). A manifest of digest-bound references to the investigation's cybrik.claim.v1 and cybrik.evidence.v1 entries plus its own content digest — never an inlined copy of their content — so a bundle can be replayed/verified from its `digest` alone (roadmap W2: 'Structural replay từ bundle/version/digests'). `claims` MUST be non-empty: an investigation with nothing to assert MUST still surface at least one 'abstained' claim (roadmap Week 2 'Abstention/missing-evidence output') rather than an empty, silent bundle. A runtime invariant (schema cannot express it) additionally requires data_marking to be >= the union of the markings of every referenced claim/evidence (marking non-downgrade — same TR-1 stance as the accepted W2-D inference packet). Status: ACCEPTED FOR IMPLEMENTATION (v0.1.0; not stable v1/GA) by explicit Founder Option A and G-W0I01-1..5=yes on 2026-07-26.",
+  "title": "CYBRIK Investigation Evidence Bundle Contract v1",
+  "description": "The authoritative response schema for security investigations in CYBRIK Suite (Pillars 3, 4, & 10). Represents the complete Investigation Graph and Evidence Bundle comprising nodes (entities, alerts, IOCs, artifacts, claims), directed edges (causal, correlation, attribution, derivation), citations with cryptographic excerpts, evaluated hypotheses, grounded evidence, policy-governed decisions/action proposals, and sub-component integrity digests for deterministic structural replay. Status: ACCEPTED FOR IMPLEMENTATION (v1.0.0; Pillar 3 & 4 contract).",
   "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
   "x-cybrik-not-accepted": false,
-  "x-cybrik-contract-version": "0.1.0",
+  "x-cybrik-contract-version": "1.0.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["bundle_id", "investigation_id", "tenant_id", "status", "claims", "generated_by", "generated_at", "data_marking", "digest"],
+  "required": [
+    "bundle_id",
+    "investigation_id",
+    "tenant_id",
+    "status",
+    "claims",
+    "generated_by",
+    "generated_at",
+    "data_marking",
+    "digest"
+  ],
   "properties": {
-    "bundle_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid" },
+    "bundle_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Unique UUID identifying this specific immutable investigation bundle."
+    },
     "investigation_id": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
-      "description": "Parent cybrik.investigation.v1.investigation_id. Required — a bundle is always investigation-scoped (ADR-0006 E6)."
+      "description": "Parent cybrik.investigation.v1.investigation_id. Required — every bundle is strictly investigation-scoped (ADR-0006 E6)."
     },
-    "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing this investigation."
+    },
     "status": {
       "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/investigationStatus",
-      "description": "Snapshot of the parent investigation's status at bundle-generation time."
+      "description": "Snapshot of the parent investigation lifecycle status at bundle generation time (open, in_progress, completed, abstained, closed)."
     },
     "claims": {
       "type": "array",
-      "description": "Digest-bound references to this investigation's cybrik.claim.v1 entries. MUST be non-empty — an investigation with no grounded findings still yields at least one 'abstained' claim, never a silent empty bundle.",
-      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+      "description": "Digest-bound claims or references asserted by the investigation agents. MUST be non-empty — an investigation with no grounded findings still surfaces at least one 'abstained' claim (Roadmap Week 2), never an empty silent bundle.",
+      "items": {
+        "oneOf": [
+          { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+          { "$ref": "#/$defs/investigationClaim" }
+        ]
+      },
       "minItems": 1,
       "maxItems": 500
     },
+    "nodes": {
+      "type": "array",
+      "description": "Graph nodes representing entities, IOCs, assets, alerts, claims, artifacts, actors, techniques, and vulnerabilities within the investigation knowledge graph.",
+      "items": { "$ref": "#/$defs/graphNode" },
+      "maxItems": 2000,
+      "default": []
+    },
+    "edges": {
+      "type": "array",
+      "description": "Directed relational edges between graph nodes expressing causal links, correlations, derivations, support/refutation relations, and MITRE ATT&CK technique mappings.",
+      "items": { "$ref": "#/$defs/graphEdge" },
+      "maxItems": 5000,
+      "default": []
+    },
+    "citations": {
+      "type": "array",
+      "description": "Cryptographically verifiable source citations grounding findings in raw tool outputs, telemetry logs, CTI feeds, and sandbox reports.",
+      "items": { "$ref": "#/$defs/citationItem" },
+      "maxItems": 1000,
+      "default": []
+    },
+    "hypotheses": {
+      "type": "array",
+      "description": "Investigative hypotheses formulated and evaluated by orchestrator agents, including supporting evidence, counter-evidence, and contradiction detection states.",
+      "items": { "$ref": "#/$defs/investigationHypothesis" },
+      "maxItems": 200,
+      "default": []
+    },
     "evidence": {
       "type": "array",
-      "description": "Digest-bound references to this investigation's cybrik.evidence.v1 entries.",
-      "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
-      "maxItems": 500,
+      "description": "Digest-bound references or structured items representing concrete evidence collected during tool executions and sensory intake.",
+      "items": {
+        "oneOf": [
+          { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+          { "$ref": "#/$defs/evidenceRecord" }
+        ]
+      },
+      "maxItems": 2000,
+      "default": []
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Action proposals, case verdicts, mitigation recommendations, and containment decisions generated by investigation agents under strict policy constraints.",
+      "items": { "$ref": "#/$defs/investigationDecision" },
+      "maxItems": 100,
       "default": []
     },
     "limitations": {
       "type": "string",
-      "description": "Free-text scope/coverage gaps for this bundle (evidence-first triage instead of summary prose — roadmap Week 2).",
+      "description": "Explicit statement of data coverage gaps, unavailable telemetry, tool timeouts, or scope limitations (evidence-first triage over ungrounded prose).",
       "maxLength": 4000
     },
     "generated_by": {
       "allOf": [
         { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
-        { "required": ["tenant_id"] }
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" }
+          }
+        }
       ],
-      "description": "Authenticated actor (typically a service) that generated the bundle. Written only by authenticated service code."
+      "description": "Authenticated actor (workload identity or service) that assembled the bundle. Written strictly by authenticated platform code."
     },
-    "generated_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+    "generated_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "UTC ISO 8601 timestamp when the bundle was sealed."
+    },
     "data_marking": {
       "$ref": "cybrik.data-marking.v1.schema.json",
-      "description": "Authoritative marking of the bundle. MUST be >= the union of the markings of every referenced claim/evidence (control-enforced non-downgrade)."
+      "description": "Authoritative security data marking of the bundle. MUST be >= the union of all referenced items (control-enforced non-downgrade)."
     },
     "digest": {
       "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
-      "description": "Content digest of this bundle's own (claims, evidence, status, generated_at) tuple, enabling structural replay/integrity verification (roadmap W2)."
+      "description": "Cryptographic SHA-256 digest over the canonical serialization of this bundle (excluding digest itself), ensuring tamper-evident structural replay."
+    },
+    "digests": {
+      "type": "object",
+      "description": "Granular component digests enabling sub-graph verification and targeted differential replay.",
+      "additionalProperties": false,
+      "properties": {
+        "nodes_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "edges_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "claims_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "evidence_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "citations_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "hypotheses_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "decisions_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    }
+  },
+  "$defs": {
+    "graphNode": {
+      "type": "object",
+      "description": "Discrete entity or conceptual node within the investigation knowledge graph.",
+      "additionalProperties": false,
+      "required": ["node_id", "type", "label", "digest"],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "Unique identifier for this node within the bundle graph (e.g. node--<uuid> or typed ID).",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "type": {
+          "type": "string",
+          "description": "Canonical entity type of the graph node.",
+          "enum": [
+            "entity",
+            "ioc",
+            "asset",
+            "alert",
+            "claim",
+            "artifact",
+            "actor",
+            "technique",
+            "vulnerability",
+            "process",
+            "file",
+            "network_socket",
+            "user_account",
+            "hypothesis",
+            "decision"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for UI graph visualization.",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "properties": {
+          "type": "object",
+          "description": "Structured typed attributes of the node (e.g. IPv4/IPv6, SHA256, MITRE ID, hostname).",
+          "default": {}
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Calibrated confidence score between 0.0 and 1.0.",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "source_refs": {
+          "type": "array",
+          "description": "References to source objects or raw telemetry grounding this node.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "data_marking": {
+          "$ref": "cybrik.data-marking.v1.schema.json"
+        },
+        "digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of node content."
+        }
+      }
+    },
+    "graphEdge": {
+      "type": "object",
+      "description": "Directed relationship linking two graph nodes with typed causal or contextual semantics.",
+      "additionalProperties": false,
+      "required": ["edge_id", "source_node_id", "target_node_id", "relationship_type", "digest"],
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "description": "Unique identifier for the edge within the bundle graph.",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_node_id": {
+          "type": "string",
+          "description": "node_id of the originating graph node.",
+          "minLength": 1
+        },
+        "target_node_id": {
+          "type": "string",
+          "description": "node_id of the destination graph node.",
+          "minLength": 1
+        },
+        "relationship_type": {
+          "type": "string",
+          "description": "Causal or contextual relationship predicate.",
+          "enum": [
+            "correlates_with",
+            "causes",
+            "derived_from",
+            "supports",
+            "refutes",
+            "targets",
+            "exploits",
+            "communicates_with",
+            "executes",
+            "contains",
+            "mitigates",
+            "attributed_to",
+            "spawns",
+            "drops_file",
+            "connects_to"
+          ]
+        },
+        "weight": {
+          "type": "number",
+          "description": "Relative importance or relationship strength (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence in the validity of this relationship (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "citation_refs": {
+          "type": "array",
+          "description": "Citations providing factual backing for this edge.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "properties": {
+          "type": "object",
+          "description": "Additional edge metadata (e.g. timestamps, port numbers, protocol).",
+          "default": {}
+        },
+        "digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+        }
+      }
+    },
+    "citationItem": {
+      "type": "object",
+      "description": "Verifiable reference to external evidence, tool logs, or knowledge base entries.",
+      "additionalProperties": false,
+      "required": ["citation_id", "source_type", "locator", "timestamp", "digest"],
+      "properties": {
+        "citation_id": {
+          "type": "string",
+          "description": "Unique citation reference key.",
+          "minLength": 1
+        },
+        "source_type": {
+          "type": "string",
+          "description": "Classification of the cited data source.",
+          "enum": [
+            "tool_execution",
+            "log_record",
+            "cti_feed",
+            "stix_object",
+            "asset_inventory",
+            "telemetry",
+            "kb_article",
+            "sandbox_report"
+          ]
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Pointer to specific entity or record ID within the source system."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "Concise, verbatim excerpt or structured snippet demonstrating the finding.",
+          "maxLength": 4000
+        },
+        "locator": {
+          "type": "string",
+          "description": "Internal URI or owner locator (e.g. cybrik://soc/alert/123). MUST NOT be public untrusted URL.",
+          "minLength": 1
+        },
+        "timestamp": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of the cited raw record content."
+        }
+      }
+    },
+    "investigationHypothesis": {
+      "type": "object",
+      "description": "Hypothesis tested during agent reasoning with supporting and refuting evidence.",
+      "additionalProperties": false,
+      "required": ["hypothesis_id", "title", "statement", "status", "created_at"],
+      "properties": {
+        "hypothesis_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "statement": {
+          "type": "string",
+          "description": "Formal propositional claim to be verified by investigation steps.",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "status": {
+          "type": "string",
+          "description": "Current validation state of the hypothesis.",
+          "enum": ["proposed", "supported", "refuted", "inconclusive", "accepted", "rejected"]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "supporting_evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "refuting_evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "contradiction_notes": {
+          "type": "string",
+          "description": "Explicit analysis of conflicting evidence or competing hypotheses.",
+          "maxLength": 2000
+        },
+        "created_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "updated_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        }
+      }
+    },
+    "investigationClaim": {
+      "type": "object",
+      "description": "Inline claim structure representing a grounded assertion or recorded abstention.",
+      "additionalProperties": false,
+      "required": ["claim_id", "status", "statement", "digest"],
+      "properties": {
+        "claim_id": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/claimStatus" },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "confidence": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/confidenceLevel" },
+        "abstention_reason": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/abstentionReason" },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    },
+    "evidenceRecord": {
+      "type": "object",
+      "description": "Structured evidence record capturing tool execution results, logs, or artifact analysis.",
+      "additionalProperties": false,
+      "required": ["evidence_id", "kind", "source_ref", "summary", "digest"],
+      "properties": {
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "cybrik.investigation-common-defs.v1.schema.json#/$defs/evidenceKind" },
+        "source_ref": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    },
+    "investigationDecision": {
+      "type": "object",
+      "description": "Action proposal, triage verdict, or response recommendation formulated by the investigation.",
+      "additionalProperties": false,
+      "required": ["decision_id", "decision_type", "rationale", "risk_class", "decided_at", "digest"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1 },
+        "decision_type": {
+          "type": "string",
+          "enum": [
+            "verdict",
+            "risk_mitigation",
+            "containment_recommendation",
+            "detection_proposal",
+            "escalation",
+            "close_case",
+            "abstention"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "true_positive",
+            "false_positive",
+            "benign_positive",
+            "undetermined",
+            "inconclusive",
+            "abstained"
+          ]
+        },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "risk_class": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass" },
+        "policy_approval_required": { "type": "boolean", "default": false },
+        "proposed_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["action_type", "target"],
+            "properties": {
+              "action_type": { "type": "string", "minLength": 1 },
+              "target": { "type": "string", "minLength": 1 },
+              "parameters": { "type": "object", "default": {} },
+              "reversible": { "type": "boolean", "default": true },
+              "rollback_plan": { "type": "string" }
+            }
+          },
+          "default": []
+        },
+        "actor": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        "decided_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
     }
   }
 }

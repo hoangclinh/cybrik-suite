@@ -1,0 +1,411 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.stix-cti-bundle.v1.schema.json",
+  "title": "CYBRIK STIX 2.1 Threat Intelligence Bundle Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining STIX 2.1 compliant Cyber Threat Intelligence (CTI) bundles enriched with MITRE ATT&CK tactics and techniques, CVE vulnerability definitions, CISA Known Exploited Vulnerabilities (KEV) catalog mappings, confidence scoring, and TLP data markings (Pillars 3 & 6). Enables deterministic ingestion, offline bundle distribution, and multi-source CTI fusion across the CYBRIK Suite.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "id",
+    "spec_version",
+    "objects",
+    "tenant_id",
+    "created_at",
+    "data_marking",
+    "digest"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "bundle",
+      "description": "STIX 2.1 Bundle container type discriminator."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^bundle--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "Canonical STIX 2.1 Bundle identifier matching bundle--<UUIDv4> format."
+    },
+    "spec_version": {
+      "type": "string",
+      "const": "2.1",
+      "description": "STIX specification version, pinned to 2.1."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing access and isolation of this CTI bundle."
+    },
+    "source": {
+      "type": "object",
+      "description": "Metadata regarding the CTI provider, feed, or TAXII 2.1 collection origin.",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Provider name (e.g. CISA, MISP, OpenCTI, MITRE, Recorded Future).",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "feed_id": {
+          "type": "string",
+          "description": "Feed identifier or collection name.",
+          "minLength": 1
+        },
+        "taxii_collection_id": {
+          "type": "string",
+          "description": "TAXII 2.1 collection UUID or URN."
+        },
+        "reliability": {
+          "type": "string",
+          "description": "Admiralty Code source reliability rating (A: Completely reliable to F: Cannot be judged).",
+          "enum": ["A", "B", "C", "D", "E", "F"]
+        },
+        "url": {
+          "type": "string",
+          "description": "Origin URL or feed endpoint reference."
+        }
+      }
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Bundle-level calibrated confidence score (0-100) per STIX 2.1 confidence scale."
+    },
+    "tlp": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tlpMarking",
+      "description": "Traffic Light Protocol 2.0 marking (TLP:CLEAR, TLP:GREEN, TLP:AMBER, TLP:AMBER+STRICT, TLP:RED)."
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "CYBRIK unified data marking contract defining clearance, classification, and retention policies."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "UTC timestamp when the CTI bundle was assembled and ingested."
+    },
+    "valid_until": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "Expiration timestamp for intelligence indicators within this bundle."
+    },
+    "enrichment_summary": {
+      "type": "object",
+      "description": "Aggregated summary of ATT&CK techniques, CVEs, KEV items, and IOC counts contained in this bundle.",
+      "additionalProperties": false,
+      "properties": {
+        "attack_technique_count": { "type": "integer", "minimum": 0 },
+        "cve_count": { "type": "integer", "minimum": 0 },
+        "cisa_kev_count": { "type": "integer", "minimum": 0 },
+        "indicator_count": { "type": "integer", "minimum": 0 },
+        "malware_count": { "type": "integer", "minimum": 0 },
+        "threat_actor_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "description": "Ordered collection of STIX 2.1 Domain Objects (SDOs), Relationship Objects (SROs), and Marking Definitions (SMDs).",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "anyOf": [
+          { "$ref": "#/$defs/attackPatternObject" },
+          { "$ref": "#/$defs/vulnerabilityObject" },
+          { "$ref": "#/$defs/indicatorObject" },
+          { "$ref": "#/$defs/malwareObject" },
+          { "$ref": "#/$defs/threatActorObject" },
+          { "$ref": "#/$defs/relationshipObject" },
+          { "$ref": "#/$defs/markingDefinitionObject" },
+          { "$ref": "#/$defs/genericStixObject" }
+        ]
+      }
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Cryptographic SHA-256 digest over the canonical JSON serialization of the bundle (excluding digest itself)."
+    }
+  },
+  "$defs": {
+    "stixCommonProperties": {
+      "type": "object",
+      "required": ["type", "id", "spec_version", "created", "modified"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "created_by_ref": { "type": "string" },
+        "revoked": { "type": "boolean", "default": false },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "lang": { "type": "string" },
+        "external_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_name"],
+            "properties": {
+              "source_name": { "type": "string", "minLength": 1 },
+              "description": { "type": "string" },
+              "url": { "type": "string" },
+              "external_id": { "type": "string" },
+              "hashes": { "type": "object" }
+            }
+          }
+        },
+        "object_marking_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "attackPatternObject": {
+      "type": "object",
+      "description": "STIX 2.1 Attack Pattern mapping to MITRE ATT&CK tactics, techniques, and sub-techniques.",
+      "required": ["type", "id", "spec_version", "created", "modified", "name"],
+      "properties": {
+        "type": { "type": "string", "const": "attack-pattern" },
+        "id": { "type": "string", "pattern": "^attack-pattern--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "name": { "type": "string", "minLength": 1, "description": "ATT&CK Technique Name (e.g. 'Command and Scripting Interpreter: PowerShell')." },
+        "description": { "type": "string" },
+        "kill_chain_phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kill_chain_name", "phase_name"],
+            "properties": {
+              "kill_chain_name": { "type": "string", "enum": ["mitre-attack", "mitre-enterprise-attack", "lockheed-martin-cyber-kill-chain"] },
+              "phase_name": { "type": "string", "description": "Tactic name (e.g. 'execution', 'persistence', 'initial-access')." }
+            }
+          }
+        },
+        "external_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_name"],
+            "properties": {
+              "source_name": { "type": "string" },
+              "external_id": { "type": "string", "description": "ATT&CK Technique ID (e.g. 'T1059.001')." },
+              "url": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "labels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "vulnerabilityObject": {
+      "type": "object",
+      "description": "STIX 2.1 Vulnerability object mapped to CVE and CISA Known Exploited Vulnerabilities (KEV).",
+      "required": ["type", "id", "spec_version", "created", "modified", "name"],
+      "properties": {
+        "type": { "type": "string", "const": "vulnerability" },
+        "id": { "type": "string", "pattern": "^vulnerability--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "name": {
+          "type": "string",
+          "description": "CVE identifier or common vulnerability name (e.g. 'CVE-2024-3400').",
+          "pattern": "^CVE-\\d{4}-\\d{4,}$"
+        },
+        "description": { "type": "string" },
+        "cvss_score": { "type": "number", "minimum": 0.0, "maximum": 10.0 },
+        "cvss_v3_vector": { "type": "string", "pattern": "^CVSS:3\\.[01]/.*$" },
+        "cisa_kev": {
+          "type": "object",
+          "description": "CISA Known Exploited Vulnerabilities catalog metadata.",
+          "required": ["known_exploited"],
+          "properties": {
+            "known_exploited": { "type": "boolean" },
+            "date_added": { "type": "string", "format": "date" },
+            "due_date": { "type": "string", "format": "date" },
+            "known_ransomware_campaign_use": { "type": "string", "enum": ["Known", "Unknown"] },
+            "notes": { "type": "string" }
+          }
+        },
+        "external_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_name"],
+            "properties": {
+              "source_name": { "type": "string" },
+              "external_id": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "indicatorObject": {
+      "type": "object",
+      "description": "STIX 2.1 Indicator representing actionable cyber threat patterns (hashes, IPs, domains, Sigma/YARA rules).",
+      "required": ["type", "id", "spec_version", "created", "modified", "pattern", "pattern_type", "valid_from"],
+      "properties": {
+        "type": { "type": "string", "const": "indicator" },
+        "id": { "type": "string", "pattern": "^indicator--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "indicator_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "malicious-activity",
+              "attribution",
+              "anomalous-activity",
+              "benign",
+              "compromised",
+              "unknown"
+            ]
+          }
+        },
+        "pattern": { "type": "string", "minLength": 1, "description": "The pattern expression (e.g. [file:hashes.'SHA-256' = '...'])." },
+        "pattern_type": { "type": "string", "enum": ["stix", "pcre", "sigma", "yara", "snort", "suricata"] },
+        "pattern_version": { "type": "string" },
+        "valid_from": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "valid_until": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "kill_chain_phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kill_chain_name", "phase_name"],
+            "properties": {
+              "kill_chain_name": { "type": "string" },
+              "phase_name": { "type": "string" }
+            }
+          }
+        },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "malwareObject": {
+      "type": "object",
+      "description": "STIX 2.1 Malware object characterizing malicious software families and variants.",
+      "required": ["type", "id", "spec_version", "created", "modified", "name", "is_family"],
+      "properties": {
+        "type": { "type": "string", "const": "malware" },
+        "id": { "type": "string", "pattern": "^malware--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "name": { "type": "string", "minLength": 1 },
+        "is_family": { "type": "boolean" },
+        "malware_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "architecture_execution_envs": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["x86", "x86-64", "arm", "arm-64", "mips", "powerpc"] }
+        },
+        "implementation_languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "threatActorObject": {
+      "type": "object",
+      "description": "STIX 2.1 Threat Actor object identifying adversary groups and campaigns.",
+      "required": ["type", "id", "spec_version", "created", "modified", "name"],
+      "properties": {
+        "type": { "type": "string", "const": "threat-actor" },
+        "id": { "type": "string", "pattern": "^threat-actor--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "name": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "threat_actor_types": { "type": "array", "items": { "type": "string" } },
+        "roles": { "type": "array", "items": { "type": "string" } },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "sophistication": { "type": "string", "enum": ["none", "minimal", "intermediate", "advanced", "expert", "innovator", "strategic"] },
+        "resource_level": { "type": "string", "enum": ["individual", "club", "contest", "team", "organization", "government"] },
+        "primary_motivation": { "type": "string" }
+      }
+    },
+    "relationshipObject": {
+      "type": "object",
+      "description": "STIX 2.1 Relationship linking two STIX objects with semantic relationships.",
+      "required": ["type", "id", "spec_version", "created", "modified", "relationship_type", "source_ref", "target_ref"],
+      "properties": {
+        "type": { "type": "string", "const": "relationship" },
+        "id": { "type": "string", "pattern": "^relationship--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "relationship_type": {
+          "type": "string",
+          "enum": [
+            "uses",
+            "indicates",
+            "targets",
+            "mitigates",
+            "attributed-to",
+            "variant-of",
+            "exploits",
+            "delivers",
+            "downloads",
+            "communicates-with",
+            "compromises"
+          ]
+        },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "target_ref": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "start_time": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "stop_time": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" }
+      }
+    },
+    "markingDefinitionObject": {
+      "type": "object",
+      "description": "STIX 2.1 Marking Definition object specifying TLP or statement data markings.",
+      "required": ["type", "id", "spec_version", "created", "definition_type", "definition"],
+      "properties": {
+        "type": { "type": "string", "const": "marking-definition" },
+        "id": { "type": "string", "pattern": "^marking-definition--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "definition_type": { "type": "string", "enum": ["tlp", "statement"] },
+        "definition": {
+          "type": "object",
+          "properties": {
+            "tlp": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tlpMarking" },
+            "statement": { "type": "string" }
+          }
+        }
+      }
+    },
+    "genericStixObject": {
+      "type": "object",
+      "description": "Open container for other standard STIX 2.1 Domain and Observables objects.",
+      "required": ["type", "id", "spec_version", "created", "modified"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "spec_version": { "type": "string", "const": "2.1" },
+        "created": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "modified": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" }
+      }
+    }
+  }
+}
