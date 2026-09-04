@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.merkle-audit-proof.v1.schema.json",
+  "title": "CYBRIK Merkle Audit Proof Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining binary Merkle tree inclusion proofs, epoch roots, leaf digests (sha256), audit path sequences, and Ed25519 signature envelopes (Pillars 5, 9, 10). Governs immutable ledger verification, cryptographic inclusion proofs, cross-epoch consistency, and sovereign non-repudiation.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proof_id",
+    "epoch_id",
+    "tenant_id",
+    "tree_size",
+    "leaf_index",
+    "leaf_digest",
+    "epoch_root",
+    "hash_algorithm",
+    "audit_path",
+    "signature_envelope",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "proof_id": {
+      "type": "string",
+      "description": "Canonical proof identifier.",
+      "pattern": "^(prf|proof)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "epoch_id": {
+      "type": "string",
+      "description": "Audit epoch or ledger block identifier to which the proof belongs.",
+      "pattern": "^(epoch-[0-9]+|ep_[a-zA-Z0-9_-]+|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing the ledger."
+    },
+    "tree_size": {
+      "type": "integer",
+      "description": "Total number of leaves committed to this epoch Merkle tree.",
+      "minimum": 1,
+      "maximum": 1073741824
+    },
+    "leaf_index": {
+      "type": "integer",
+      "description": "0-based index of the target leaf within the Merkle tree.",
+      "minimum": 0
+    },
+    "leaf_digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Cryptographic SHA-256 hash of the leaf record."
+    },
+    "epoch_root": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Root hash of the Merkle tree for this epoch."
+    },
+    "hash_algorithm": {
+      "type": "string",
+      "description": "Cryptographic hash algorithm used for node computation.",
+      "enum": ["sha256"]
+    },
+    "audit_path": {
+      "type": "array",
+      "description": "Ordered sequence of sibling hashes and positions from leaf to epoch root.",
+      "items": { "$ref": "#/$defs/auditPathNode" },
+      "minItems": 1
+    },
+    "signature_envelope": {
+      "$ref": "#/$defs/ed25519SignatureEnvelope",
+      "description": "Cryptographic Ed25519 signature certifying the epoch root."
+    },
+    "ledger_event_ref": {
+      "$ref": "#/$defs/ledgerEventRef",
+      "description": "Optional reference to the underlying ledger transaction or security event."
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative data marking and classification."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest over the canonical JSON representation of the inclusion proof manifest."
+    }
+  },
+  "$defs": {
+    "auditPathNode": {
+      "type": "object",
+      "description": "A single sibling node in the Merkle audit path.",
+      "additionalProperties": false,
+      "required": ["position", "hash"],
+      "properties": {
+        "position": {
+          "type": "string",
+          "description": "Relative position of the sibling node ('left' or 'right').",
+          "enum": ["left", "right"]
+        },
+        "hash": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of the sibling node."
+        },
+        "level": {
+          "type": "integer",
+          "description": "Tree level of this node (0 = leaf sibling level).",
+          "minimum": 0,
+          "maximum": 64
+        }
+      }
+    },
+    "ed25519SignatureEnvelope": {
+      "type": "object",
+      "description": "Ed25519 digital signature envelope binding the epoch root to the sovereign notary authority.",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "key_id",
+        "public_key_hex",
+        "signature_hex",
+        "signed_at",
+        "signer_identity"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "Ed25519"
+        },
+        "key_id": {
+          "type": "string",
+          "description": "Identifier of the signing key.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "public_key_hex": {
+          "type": "string",
+          "description": "64-character lowercase hex string representing the 32-byte Ed25519 public key.",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "signature_hex": {
+          "type": "string",
+          "description": "128-character lowercase hex string representing the 64-byte Ed25519 signature.",
+          "pattern": "^[0-9a-fA-F]{128}$"
+        },
+        "signed_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "signer_identity": {
+          "type": "string",
+          "description": "URI or name identifying the sovereign notary service or signer.",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "ledgerEventRef": {
+      "type": "object",
+      "description": "Contextual reference to the source ledger event.",
+      "additionalProperties": false,
+      "required": ["event_id", "event_type", "event_digest"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+        },
+        "sequence_number": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

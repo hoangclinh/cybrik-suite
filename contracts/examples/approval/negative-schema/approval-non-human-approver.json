@@ -1,0 +1,68 @@
+{
+  "approval_id": "appr_fw_block_host_8819",
+  "tenant_id": "tenant-acme-cyber",
+  "action_request": {
+    "action_id": "act_firewall_block_ip",
+    "capability_id": "cap-edge-firewall",
+    "target_resource": "firewall://edge/cluster-us-east",
+    "risk_tier": "R2",
+    "justification": "Host 192.168.1.105 confirmed beaconing to APT C2 infrastructure 198.51.100.42.",
+    "parameters_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "requested_by": {
+      "type": "agent",
+      "id": "spiffe://cybrik.io/soc/containment-agent",
+      "tenant_id": "tenant-acme-cyber"
+    },
+    "requested_at": "2026-09-05T01:50:00Z",
+    "proposed_parameters": {
+      "ip_address": "198.51.100.42",
+      "action": "DROP_ALL"
+    }
+  },
+  "approval_policy": {
+    "policy_id": "pol-four-eyes-containment-v1",
+    "minimum_approvers": 1,
+    "require_separation_of_duties": true,
+    "required_roles": [
+      "soc_lead",
+      "secops_manager"
+    ],
+    "max_lease_duration_seconds": 7200
+  },
+  "decision_record": {
+    "status": "approved",
+    "approver": {
+      "type": "agent",
+      "id": "usr_soc_analyst_bob",
+      "tenant_id": "tenant-acme-cyber"
+    },
+    "decided_at": "2026-09-05T01:55:00Z",
+    "reason": "Validated active C2 callback in Zeek logs; approved temporary 1-hour containment lease.",
+    "role_verified": "soc_lead",
+    "signature": {
+      "algorithm": "Ed25519",
+      "key_id": "key-bob-secops-2026",
+      "public_key_hex": "ba0b8858335f79139dacfabd3ae5d3a5a232b97d8e19c073a628846ec951612c",
+      "signature_hex": "feaea1ce71cc5c827fd77047ce1eaa5516ab07be54c02b3b584606ceb818fac47cf157566bfaad3457c342e7d925859f5bec5a3c6c3243f209c9cce473de2a05",
+      "signed_at": "2026-09-05T01:55:00Z"
+    }
+  },
+  "ephemeral_lease": {
+    "lease_id": "lease_fw_block_8819",
+    "valid_from": "2026-09-05T01:55:00Z",
+    "valid_until": "2026-09-05T02:55:00Z",
+    "ttl_seconds": 3600,
+    "max_invocations": 1,
+    "lease_status": "active",
+    "remaining_invocations": 1
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER",
+    "handling": [
+      "secops-internal-only"
+    ]
+  },
+  "created_at": "2026-09-05T01:55:01Z",
+  "digest": "sha256:d76a70d747cf8bd232862a0358a8b6721e54d14f2d65f58361b35d4096b3e540"
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for Four-Eyes Action Approval contract fixtures (Pillars 5, 8, 9, 10).",
+  "fixtures": [
+    {
+      "file": "positive/action-approval.containment-firewall-block.json",
+      "kind": "positive",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "description": "Four-Eyes approval for edge firewall isolation action with human approver signature and 1-hour active lease."
+    },
+    {
+      "file": "positive/action-approval.privileged-account-disable.json",
+      "kind": "positive",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "description": "Dual-custody authorization for high-risk R3 Domain Admin account disablement with signed ephemeral lease."
+    },
+    {
+      "file": "negative-schema/approval-missing-decision-status.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "Missing required field status in decision_record."
+    },
+    {
+      "file": "negative-schema/approval-malformed-ttl.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "ttl_seconds (-3600) violates minimum constraint (>= 1)."
+    },
+    {
+      "file": "negative-schema/approval-non-human-approver.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "approver type agent violates human-in-the-loop schema constraint (type must be user)."
+    },
+    {
+      "file": "negative-schema/approval-missing-required-fields.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "Missing mandatory top-level fields (ephemeral_lease, action_request, approval_policy)."
+    },
+    {
+      "file": "negative-semantic/approval-self-approval-violation.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "SEPARATION OF DUTIES VIOLATION: requester (usr_soc_analyst_bob) cannot approve their own high-risk action request."
+    },
+    {
+      "file": "negative-semantic/approval-expired-ephemeral-lease.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "EXPIRED LEASE: ephemeral lease valid_until (2026-09-01T01:00:00Z) is in the past relative to execution/decision timestamp."
+    },
+    {
+      "file": "negative-semantic/approval-cross-tenant-approver.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.action-approval.v1.schema.json",
+      "invariant": "CROSS-TENANT AUTHORIZATION VIOLATION: approver tenant (tenant-globex-adversary) does not match approval tenant (tenant-acme-cyber)."
+    }
+  ]
+}

@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.action-approval.v1.schema.json",
+  "title": "CYBRIK Four-Eyes Action Approval Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining four-eyes action approval requests, approver decision records, digital signatures, and ephemeral lease constraints (Pillars 5, 8, 9, 10). Governs dual-custody authorization, separation of duties, temporary capability delegation, and time-bounded execution grants.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_id",
+    "tenant_id",
+    "action_request",
+    "approval_policy",
+    "decision_record",
+    "ephemeral_lease",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "approval_id": {
+      "type": "string",
+      "description": "Canonical approval workflow identifier.",
+      "pattern": "^(appr|act)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing the action approval."
+    },
+    "action_request": {
+      "$ref": "#/$defs/actionRequest",
+      "description": "The proposed high-risk security action awaiting approval."
+    },
+    "approval_policy": {
+      "$ref": "#/$defs/approvalPolicy",
+      "description": "Policy rules specifying minimum quorum and role requirements."
+    },
+    "decision_record": {
+      "$ref": "#/$defs/decisionRecord",
+      "description": "Authenticated human approver decision and cryptographic signature."
+    },
+    "ephemeral_lease": {
+      "$ref": "#/$defs/ephemeralLease",
+      "description": "Time-bounded cryptographic execution grant issued upon approval."
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative data marking and TLP classification."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest over the canonical JSON representation of the action approval."
+    }
+  },
+  "$defs": {
+    "actionRequest": {
+      "type": "object",
+      "description": "Details of the action proposed for four-eyes authorization.",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "capability_id",
+        "target_resource",
+        "risk_tier",
+        "justification",
+        "parameters_digest",
+        "requested_by",
+        "requested_at"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_resource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "risk_tier": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+          "description": "Risk tier of the proposed action (typically R2 or R3)."
+        },
+        "justification": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "parameters_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of the canonical action parameters."
+        },
+        "requested_by": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+          "description": "Entity (user, agent, or service) requesting action execution."
+        },
+        "requested_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "proposed_parameters": {
+          "type": "object",
+          "description": "Optional inline representation of action arguments."
+        }
+      }
+    },
+    "approvalPolicy": {
+      "type": "object",
+      "description": "Governance constraints and quorum rules for this action.",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "minimum_approvers",
+        "require_separation_of_duties",
+        "required_roles"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimum_approvers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "require_separation_of_duties": {
+          "type": "boolean",
+          "description": "When true, approver cannot be the same entity as requester."
+        },
+        "required_roles": {
+          "type": "array",
+          "description": "Roles authorized to approve this action (e.g. ['soc_lead', 'secops_manager']).",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "max_lease_duration_seconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 604800
+        }
+      }
+    },
+    "decisionRecord": {
+      "type": "object",
+      "description": "Explicit approver decision record.",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "approver",
+        "decided_at",
+        "reason",
+        "signature"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["approved", "rejected", "expired", "revoked"]
+        },
+        "approver": {
+          "type": "object",
+          "description": "Authenticated human approver. Must be type 'user' and include tenant_id.",
+          "allOf": [
+            { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+            {
+              "required": ["tenant_id"],
+              "properties": {
+                "type": { "const": "user" }
+              }
+            }
+          ]
+        },
+        "decided_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "signature": {
+          "$ref": "#/$defs/digitalSignature"
+        },
+        "role_verified": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "digitalSignature": {
+      "type": "object",
+      "description": "Cryptographic signature certifying the decision record.",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "key_id",
+        "public_key_hex",
+        "signature_hex",
+        "signed_at"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["Ed25519", "ECDSA_P256_SHA256"]
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "public_key_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64,130}$"
+        },
+        "signature_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{128,144}$"
+        },
+        "signed_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        }
+      }
+    },
+    "ephemeralLease": {
+      "type": "object",
+      "description": "Time-bounded execution lease granting one or more action invocations.",
+      "additionalProperties": false,
+      "required": [
+        "lease_id",
+        "valid_from",
+        "valid_until",
+        "ttl_seconds",
+        "max_invocations",
+        "lease_status"
+      ],
+      "properties": {
+        "lease_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(lease|tok)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "valid_from": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "valid_until": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "description": "Lease duration in seconds.",
+          "minimum": 1,
+          "maximum": 604800
+        },
+        "max_invocations": {
+          "type": "integer",
+          "description": "Maximum number of times the action can be executed under this lease.",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "lease_status": {
+          "type": "string",
+          "enum": ["active", "consumed", "expired", "revoked"]
+        },
+        "remaining_invocations": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
