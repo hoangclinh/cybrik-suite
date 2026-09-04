@@ -163,13 +163,18 @@ def test_schema_itself_is_valid_draft_2020_12(schema_file: str):
     schema = load_schema(schema_file)
     Draft202012Validator.check_schema(schema)
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert schema["x-cybrik-status"] == "ACCEPTED FOR IMPLEMENTATION"
-    assert schema["x-cybrik-not-accepted"] is False
-    if schema_file == "cybrik.investigation-bundle.v1.schema.json":
-        assert schema["x-cybrik-contract-version"] == "0.1.0"
-    elif schema_file == "cybrik.investigation-bundle.v2.schema.json":
+    if schema_file == "cybrik.investigation-bundle.v2.schema.json":
+        assert "PROPOSED (CANDIDATE_V2_SCHEMA_FOR_COHORT_2026_01)" in schema["description"]
+        assert schema["x-cybrik-status"] == "PROPOSED (CANDIDATE_V2_SCHEMA_FOR_COHORT_2026_01)"
+        assert schema["x-cybrik-not-accepted"] is True
         assert schema["x-cybrik-contract-version"] == "2.0.0"
+    elif schema_file == "cybrik.investigation-bundle.v1.schema.json":
+        assert schema["x-cybrik-status"] == "ACCEPTED FOR IMPLEMENTATION"
+        assert schema["x-cybrik-not-accepted"] is False
+        assert schema["x-cybrik-contract-version"] == "0.1.0"
     else:
+        assert schema["x-cybrik-status"] == "ACCEPTED FOR IMPLEMENTATION"
+        assert schema["x-cybrik-not-accepted"] is False
         assert schema["x-cybrik-contract-version"] == "1.0.0"
 
 
@@ -1497,9 +1502,13 @@ def test_aibom_invalid_parameter_count_too_small(
 
 @pytest.mark.parametrize("algorithm,sample_digest", [
     ("sha256", "sha256:1111111111111111111111111111111111111111111111111111111111111111"),
+    ("sha256", "sha256:4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B"),
     ("sha384", "sha384:222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"),
+    ("sha384", "sha384:" + "ABCDEF0123456789" * 6),
     ("sha512", "sha512:33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
+    ("sha512", "sha512:" + "AbCdEf0123456789" * 8),
     ("blake3", "blake3:4444444444444444444444444444444444444444444444444444444444444444"),
+    ("blake3", "blake3:4A5B6C7D8E9F0A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B"),
 ])
 def test_aibom_valid_multi_algorithm_digests(
     aibom_validator: Draft202012Validator,
@@ -1507,7 +1516,7 @@ def test_aibom_valid_multi_algorithm_digests(
     algorithm: str,
     sample_digest: str,
 ):
-    """Verify AI-BOM supports multi-algorithm digest patterns: sha256, sha384, sha512, blake3."""
+    """Verify AI-BOM supports multi-algorithm digest patterns with exact lengths: sha256, sha384, sha512, blake3."""
     payload = copy.deepcopy(base_valid_aibom)
     payload["weights_digest"]["algorithm"] = algorithm
     payload["weights_digest"]["digest"] = sample_digest
@@ -1518,6 +1527,62 @@ def test_aibom_valid_multi_algorithm_digests(
     payload["supply_chain_security"]["certificate_fingerprint"] = sample_digest
     payload["digest"] = sample_digest
     aibom_validator.validate(payload)
+
+
+@pytest.mark.parametrize("algorithm,mismatched_digest", [
+    ("sha256", "blake3:4444444444444444444444444444444444444444444444444444444444444444"),
+    ("sha256", "sha384:" + "a" * 96),
+    ("sha256", "sha512:" + "a" * 128),
+    ("sha384", "sha256:" + "a" * 64),
+    ("sha384", "blake3:" + "a" * 64),
+    ("sha384", "sha512:" + "a" * 128),
+    ("sha512", "sha256:" + "a" * 64),
+    ("sha512", "sha384:" + "a" * 96),
+    ("sha512", "blake3:" + "a" * 64),
+    ("blake3", "sha256:" + "a" * 64),
+    ("blake3", "sha384:" + "a" * 96),
+    ("blake3", "sha512:" + "a" * 128),
+])
+def test_aibom_invalid_algorithm_digest_mismatch(
+    aibom_validator: Draft202012Validator,
+    base_valid_aibom: dict[str, Any],
+    algorithm: str,
+    mismatched_digest: str,
+):
+    """Negative test: weights_digest algorithm and digest algorithm prefix mismatch triggers validation error."""
+    payload = copy.deepcopy(base_valid_aibom)
+    payload["weights_digest"]["algorithm"] = algorithm
+    payload["weights_digest"]["digest"] = mismatched_digest
+    with pytest.raises(ValidationError):
+        aibom_validator.validate(payload)
+
+
+@pytest.mark.parametrize("algorithm,bad_length_digest", [
+    ("sha256", "sha256:a"),
+    ("sha256", "sha256:" + "a" * 63),
+    ("sha256", "sha256:" + "a" * 65),
+    ("sha384", "sha384:a"),
+    ("sha384", "sha384:" + "a" * 95),
+    ("sha384", "sha384:" + "a" * 97),
+    ("sha512", "sha512:a"),
+    ("sha512", "sha512:" + "a" * 127),
+    ("sha512", "sha512:" + "a" * 129),
+    ("blake3", "blake3:a"),
+    ("blake3", "blake3:" + "a" * 63),
+    ("blake3", "blake3:" + "a" * 65),
+])
+def test_aibom_invalid_digest_bad_length(
+    aibom_validator: Draft202012Validator,
+    base_valid_aibom: dict[str, Any],
+    algorithm: str,
+    bad_length_digest: str,
+):
+    """Negative test: digest with incorrect length for the algorithm fails validation."""
+    payload = copy.deepcopy(base_valid_aibom)
+    payload["weights_digest"]["algorithm"] = algorithm
+    payload["weights_digest"]["digest"] = bad_length_digest
+    with pytest.raises(ValidationError):
+        aibom_validator.validate(payload)
 
 
 @pytest.mark.parametrize("bad_digest", [

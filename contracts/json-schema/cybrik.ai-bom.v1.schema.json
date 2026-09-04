@@ -144,7 +144,57 @@
           "items": { "$ref": "#/$defs/multiAlgorithmDigest" },
           "default": []
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha256" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha256:[0-9a-fA-F]{64}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha384" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha384:[0-9a-fA-F]{96}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha512" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha512:[0-9a-fA-F]{128}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "blake3" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^blake3:[0-9a-fA-F]{64}$" }
+            }
+          }
+        }
+      ]
     },
     "license": {
       "type": "object",
@@ -374,8 +424,25 @@
   "$defs": {
     "multiAlgorithmDigest": {
       "type": "string",
-      "pattern": "^(sha256|sha384|sha512|blake3):[0-9a-fA-F]+$",
-      "description": "Cryptographic digest prefixed with supported algorithm (sha256, sha384, sha512, blake3) and hex-encoded digest value."
+      "oneOf": [
+        {
+          "pattern": "^sha256:[0-9a-fA-F]{64}$",
+          "description": "SHA-256 digest (64 hex characters)."
+        },
+        {
+          "pattern": "^sha384:[0-9a-fA-F]{96}$",
+          "description": "SHA-384 digest (96 hex characters)."
+        },
+        {
+          "pattern": "^sha512:[0-9a-fA-F]{128}$",
+          "description": "SHA-512 digest (128 hex characters)."
+        },
+        {
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "description": "BLAKE3 digest (64 hex characters)."
+        }
+      ],
+      "description": "Cryptographic digest prefixed with supported algorithm (sha256, sha384, sha512, blake3) and exact length hex-encoded digest value."
     },
     "dataLineage": {
       "type": "object",
