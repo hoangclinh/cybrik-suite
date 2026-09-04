@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.sandbox-execution.v1.schema.json",
+  "title": "CYBRIK Sandbox Execution Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining Sandbox Execution requests, sandbox tiers (S0, S1, S2), resource limits (CPU, memory, wall-clock timeout, output size), decompression bomb guards (max ratio, max size), execution receipts, and artifact manifests (Pillars 2, 5, 7, 10). Governs isolated code execution, dynamic malware analysis, and tool fabric sandbox runtimes.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "execution_id",
+    "tenant_id",
+    "actor",
+    "purpose",
+    "sandbox_tier",
+    "resource_limits",
+    "decompression_bomb_guard",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "execution_id": {
+      "type": "string",
+      "description": "Canonical sandbox execution identifier.",
+      "pattern": "^(sbx|exec)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "Originating request identifier.",
+      "minLength": 1
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing sandbox isolation."
+    },
+    "actor": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "Actor requesting sandbox execution."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Declared processing purpose (e.g. 'dynamic_analysis', 'detonation', 'script_eval').",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sandbox_tier": {
+      "$ref": "#/$defs/sandboxTier"
+    },
+    "command": {
+      "type": "array",
+      "description": "Command line execution arguments.",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "code_payload": {
+      "type": "object",
+      "description": "Inline code or script payload to be executed inside the sandbox.",
+      "additionalProperties": false,
+      "required": ["runtime", "code"],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": ["python3", "nodejs", "bash", "sh", "wasm", "powershell", "binary_elf"]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entrypoint": {
+          "type": "string"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "resource_limits": {
+      "$ref": "#/$defs/resourceLimits"
+    },
+    "decompression_bomb_guard": {
+      "$ref": "#/$defs/decompressionBombGuard"
+    },
+    "network_egress": {
+      "type": "object",
+      "description": "Network egress firewall and policy bounds inside the sandbox.",
+      "additionalProperties": false,
+      "required": ["policy"],
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": ["blocked", "loopback_only", "allowlist", "monitored"]
+        },
+        "allowed_destinations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "dns_servers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "input_artifacts": {
+      "type": "array",
+      "description": "Input files or samples mounted into the sandbox.",
+      "items": { "$ref": "#/$defs/artifactManifest" },
+      "default": []
+    },
+    "output_artifacts": {
+      "type": "array",
+      "description": "Artifacts generated during sandbox execution.",
+      "items": { "$ref": "#/$defs/artifactManifest" },
+      "default": []
+    },
+    "execution_receipt": {
+      "$ref": "#/$defs/executionReceipt"
+    },
+    "artifact_manifests": {
+      "type": "array",
+      "description": "Comprehensive manifest of all associated artifacts.",
+      "items": { "$ref": "#/$defs/artifactManifest" },
+      "default": []
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Security classification and TLP data marking."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Cryptographic digest over canonical sandbox execution manifest."
+    }
+  },
+  "$defs": {
+    "sandboxTier": {
+      "type": "string",
+      "description": "Sandbox isolation tier: S0 (pooled/read-only container), S1 (disposable container / gVisor), S2 (hardened microVM / Firecracker).",
+      "enum": ["S0", "S1", "S2"]
+    },
+    "resourceLimits": {
+      "type": "object",
+      "description": "Hard upper bounds for execution resource consumption.",
+      "additionalProperties": false,
+      "required": ["cpu_cores", "memory_mb", "wall_clock_timeout_seconds", "max_output_bytes"],
+      "properties": {
+        "cpu_cores": {
+          "type": "number",
+          "description": "Allocated CPU cores ceiling (0.1 to 64.0 cores).",
+          "minimum": 0.1,
+          "maximum": 64.0
+        },
+        "memory_mb": {
+          "type": "integer",
+          "description": "Allocated RAM memory ceiling in megabytes (16 MB to 65536 MB / 64 GB).",
+          "minimum": 16,
+          "maximum": 65536
+        },
+        "wall_clock_timeout_seconds": {
+          "type": "integer",
+          "description": "Strict execution deadline in seconds (1 to 3600 seconds).",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "max_output_bytes": {
+          "type": "integer",
+          "description": "Maximum allowed combined stdout/stderr output size (1 KB to 100 MB).",
+          "minimum": 1024,
+          "maximum": 104857600
+        },
+        "max_disk_mb": {
+          "type": "integer",
+          "description": "Maximum scratch disk space in megabytes.",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "max_processes": {
+          "type": "integer",
+          "description": "Maximum process count / fork bomb guard.",
+          "minimum": 1,
+          "maximum": 1024
+        }
+      }
+    },
+    "decompressionBombGuard": {
+      "type": "object",
+      "description": "Decompression bomb (zip bomb / gzip bomb / tar bomb) mitigation parameters.",
+      "additionalProperties": false,
+      "required": ["max_ratio", "max_uncompressed_bytes"],
+      "properties": {
+        "max_ratio": {
+          "type": "number",
+          "description": "Maximum allowed expansion ratio (uncompressed size / compressed size). Ceilings between 1.0 and 1000.0.",
+          "minimum": 1.0,
+          "maximum": 1000.0
+        },
+        "max_uncompressed_bytes": {
+          "type": "integer",
+          "description": "Maximum uncompressed data size in bytes (1 KB to 10 GB).",
+          "minimum": 1024,
+          "maximum": 10737418240
+        },
+        "max_file_count": {
+          "type": "integer",
+          "description": "Maximum number of files extracted from an archive.",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "max_recursion_depth": {
+          "type": "integer",
+          "description": "Maximum nested archive recursion depth.",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "block_nested_archives": {
+          "type": "boolean",
+          "description": "Whether nested archives are strictly prohibited.",
+          "default": false
+        }
+      }
+    },
+    "artifactManifest": {
+      "type": "object",
+      "description": "Immutable manifest describing an input or generated sandbox artifact.",
+      "additionalProperties": false,
+      "required": ["artifact_id", "name", "size_bytes", "digest", "media_type"],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+        },
+        "media_type": {
+          "type": "string",
+          "description": "MIME / IANA media type (e.g. application/octet-stream, text/plain, application/zip)."
+        },
+        "data_marking": {
+          "$ref": "cybrik.data-marking.v1.schema.json"
+        },
+        "storage_locator": {
+          "type": "string",
+          "description": "Internal S3 or CAS locator (e.g. s3://bucket/artifacts/..., cybrik://cas/...)."
+        }
+      }
+    },
+    "executionReceipt": {
+      "type": "object",
+      "description": "Cryptographically bound execution receipt documenting sandbox outcome and telemetry.",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "execution_id",
+        "tenant_id",
+        "status",
+        "exit_code",
+        "resource_usage",
+        "started_at",
+        "finished_at",
+        "receipt_digest"
+      ],
+      "properties": {
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "execution_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "timed_out",
+            "killed_resource_limit",
+            "oom_killed",
+            "rejected_decompression_bomb"
+          ]
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "resource_usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu_time_ms", "peak_memory_mb", "wall_clock_duration_ms", "output_bytes"],
+          "properties": {
+            "cpu_time_ms": { "type": "integer", "minimum": 0 },
+            "peak_memory_mb": { "type": "integer", "minimum": 0 },
+            "wall_clock_duration_ms": { "type": "integer", "minimum": 0 },
+            "output_bytes": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "stdout_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "stderr_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "started_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "finished_at": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc" },
+        "receipt_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+        "signature": { "type": "string" }
+      }
+    }
+  }
+}

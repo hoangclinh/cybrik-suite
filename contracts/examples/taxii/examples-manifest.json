@@ -1,0 +1,56 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for TAXII 2.1 Threat Feed Collection & Polling contract fixtures (Pillars 3, 6, 7, 10).",
+  "fixtures": [
+    {
+      "file": "positive/taxii-feed.cisa-kev-collection.json",
+      "kind": "positive",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "description": "CISA Known Exploited Vulnerabilities catalog feed collection with STIX 2.1 vulnerability objects."
+    },
+    {
+      "file": "positive/taxii-feed.misp-threat-indicators.json",
+      "kind": "positive",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "description": "MISP community threat indicators feed collection with read/write capability."
+    },
+    {
+      "file": "positive/taxii-feed.polling-envelope.json",
+      "kind": "positive",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "description": "Multi-page synchronized threat intelligence stream with cursor-based pagination."
+    },
+    {
+      "file": "negative-schema/taxii-negative-pagination-limit.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "invariant": "Pagination limit (-50) violates minimum positive integer constraint (>= 1)."
+    },
+    {
+      "file": "negative-schema/taxii-clock-skew-exceeded.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "invariant": "Clock skew (9999s) exceeds allowable schema ceiling (300s)."
+    },
+    {
+      "file": "negative-schema/taxii-missing-collection-id.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "invariant": "Collection manifest missing mandatory UUID 'id' field."
+    },
+    {
+      "file": "negative-schema/taxii-invalid-envelope-status.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "invariant": "Envelope status 'in_limbo' is not a valid enum value (pending, complete, failed, partial, rejected)."
+    },
+    {
+      "file": "negative-semantic/taxii-cross-tenant-poll.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.taxii-feed.v1.schema.json",
+      "invariant": "CROSS-TENANT: requester tenant (tenant-globex-corp) attempting to poll isolated tenant-acme collection."
+    }
+  ]
+}

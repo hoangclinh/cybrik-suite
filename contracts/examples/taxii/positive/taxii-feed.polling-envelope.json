@@ -1,0 +1,50 @@
+{
+  "feed_id": "taxii_feed_poll_003",
+  "tenant_id": "tenant-enterprise-cyber",
+  "collection": {
+    "id": "740a53c4-b81f-4c0a-a50c-3372f97b3dc2",
+    "title": "Air-Gapped Sovereign CTI Sync Stream",
+    "description": "Multi-page synchronized threat intelligence stream.",
+    "alias": "sovereign-cti",
+    "can_read": true,
+    "can_write": false,
+    "media_types": ["application/taxii+json;version=2.1"]
+  },
+  "polling_parameters": {
+    "added_after": "2026-09-04T00:00:00Z",
+    "limit": 10,
+    "next_cursor": "cursor_page_2_offset_10"
+  },
+  "clock_skew_bounds": {
+    "max_clock_skew_seconds": 15,
+    "client_timestamp": "2026-09-04T20:55:00Z",
+    "server_timestamp": "2026-09-04T20:55:01Z",
+    "max_forward_skew_seconds": 10,
+    "max_backward_skew_seconds": 15
+  },
+  "envelope_status": {
+    "status_id": "95bac5a1-56b9-4233-9467-0edf5c545b69",
+    "status": "partial",
+    "request_timestamp": "2026-09-04T20:55:00Z",
+    "total_count": 25,
+    "success_count": 10,
+    "failure_count": 0,
+    "pending_count": 15
+  },
+  "pagination": {
+    "limit": 10,
+    "page_size": 10,
+    "total_pages": 3,
+    "current_page": 1,
+    "has_more": true,
+    "next": "cursor_page_2_offset_10"
+  },
+  "objects": [],
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER+STRICT",
+    "handling": ["sovereign-only", "no-export"]
+  },
+  "created_at": "2026-09-04T20:55:00Z",
+  "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+}

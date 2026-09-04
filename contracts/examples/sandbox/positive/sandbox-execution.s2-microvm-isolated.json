@@ -1,0 +1,98 @@
+{
+  "execution_id": "sbx_s2_microvm_c3d4e5f6a1b2",
+  "request_id": "req_microvm_5555555555",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/rootkit-hunter",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "kernel_rootkit_analysis",
+  "sandbox_tier": "S2",
+  "command": ["/bin/bash", "-c", "/opt/analysis/run_rootkit_probe.sh"],
+  "code_payload": {
+    "runtime": "bash",
+    "code": "#!/bin/bash\n/opt/analysis/run_rootkit_probe.sh\n",
+    "entrypoint": "run_rootkit_probe.sh",
+    "dependencies": []
+  },
+  "resource_limits": {
+    "cpu_cores": 4.0,
+    "memory_mb": 8192,
+    "wall_clock_timeout_seconds": 300,
+    "max_output_bytes": 10485760,
+    "max_disk_mb": 4096,
+    "max_processes": 128
+  },
+  "decompression_bomb_guard": {
+    "max_ratio": 200.0,
+    "max_uncompressed_bytes": 1073741824,
+    "max_file_count": 5000,
+    "max_recursion_depth": 8,
+    "block_nested_archives": false
+  },
+  "network_egress": {
+    "policy": "blocked",
+    "allowed_destinations": [],
+    "dns_servers": []
+  },
+  "input_artifacts": [
+    {
+      "artifact_id": "art_kernel_module_001",
+      "name": "rootkit.ko",
+      "path": "/modules/rootkit.ko",
+      "size_bytes": 131072,
+      "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "media_type": "application/x-object",
+      "data_marking": {
+        "classification": "restricted",
+        "tlp": "TLP:RED",
+        "handling": ["high-risk-malware", "air-gap-only"]
+      },
+      "storage_locator": "s3://cybrik-isolated-vault/tenant-enterprise-cyber/rootkit.ko"
+    }
+  ],
+  "output_artifacts": [],
+  "execution_receipt": {
+    "receipt_id": "rcpt_sbx_003",
+    "execution_id": "sbx_s2_microvm_c3d4e5f6a1b2",
+    "tenant_id": "tenant-enterprise-cyber",
+    "status": "completed",
+    "exit_code": 0,
+    "resource_usage": {
+      "cpu_time_ms": 12400,
+      "peak_memory_mb": 2048,
+      "wall_clock_duration_ms": 125000,
+      "output_bytes": 16384
+    },
+    "stdout_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "stderr_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "started_at": "2026-09-04T20:20:00Z",
+    "finished_at": "2026-09-04T20:22:05Z",
+    "receipt_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "signature": "sig_ed25519_sample_signature_003"
+  },
+  "artifact_manifests": [
+    {
+      "artifact_id": "art_kernel_module_001",
+      "name": "rootkit.ko",
+      "path": "/modules/rootkit.ko",
+      "size_bytes": 131072,
+      "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "media_type": "application/x-object",
+      "data_marking": {
+        "classification": "restricted",
+        "tlp": "TLP:RED",
+        "handling": ["high-risk-malware", "air-gap-only"]
+      },
+      "storage_locator": "s3://cybrik-isolated-vault/tenant-enterprise-cyber/rootkit.ko"
+    }
+  ],
+  "data_marking": {
+    "classification": "restricted",
+    "tlp": "TLP:RED",
+    "handling": ["high-risk-malware", "air-gap-only"]
+  },
+  "created_at": "2026-09-04T20:20:00Z",
+  "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

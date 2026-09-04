@@ -1,0 +1,78 @@
+{
+  "request_id": "rag_req_hybrid_001",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/cti-fusion-engine",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "threat_intel_enrichment",
+  "query": {
+    "text": "Cobalt Strike beacon named pipe patterns lateral movement SMB",
+    "sparse_terms": [
+      { "term": "cobalt_strike", "weight": 2.5 },
+      { "term": "named_pipe", "weight": 2.0 },
+      { "term": "msse-", "weight": 1.5 },
+      { "term": "lateral_movement", "weight": 1.0 }
+    ],
+    "collections": ["mitre-attack", "sigma-rules", "cti-reports"]
+  },
+  "search_parameters": {
+    "dense": {
+      "enabled": true,
+      "model_id": "bge-m3-multilingual-large",
+      "top_k": 20,
+      "similarity_metric": "cosine",
+      "score_threshold": 0.65
+    },
+    "sparse": {
+      "enabled": true,
+      "algorithm": "bm25",
+      "top_k": 20,
+      "k1": 1.2,
+      "b": 0.75
+    },
+    "rrf": {
+      "enabled": true,
+      "k_constant": 60,
+      "dense_weight": 1.0,
+      "sparse_weight": 1.0,
+      "top_k_final": 10
+    }
+  },
+  "access_control": {
+    "tlp_marking_filter": ["TLP:CLEAR", "TLP:GREEN", "TLP:AMBER"],
+    "classification_clearance_bound": "confidential",
+    "tenant_isolation": {
+      "tenant_id": "tenant-enterprise-cyber",
+      "enforce_strict_tenant_boundary": true,
+      "allowed_cross_tenant_shares": []
+    },
+    "handling_caveats": ["no-export"]
+  },
+  "results": [
+    {
+      "chunk_id": "chk_attack_t1075_01",
+      "document_id": "doc_mitre_t1075",
+      "content": "Adversaries may use Pass the Hash (PtH) to authenticate to remote systems using the NTLM hash of a user password rather than the plaintext password.",
+      "score": 0.0327,
+      "dense_score": 0.88,
+      "sparse_score": 14.5,
+      "rrf_score": 0.0327,
+      "rank": 1,
+      "data_marking": {
+        "classification": "public",
+        "tlp": "TLP:CLEAR",
+        "handling": []
+      },
+      "metadata": {
+        "source": "mitre-attack-enterprise",
+        "technique_id": "T1075",
+        "title": "Pass the Hash"
+      },
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "created_at": "2026-09-04T20:30:00Z",
+  "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+}

@@ -1,0 +1,62 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for Sandbox Execution contract fixtures (Pillars 2, 5, 7, 10).",
+  "fixtures": [
+    {
+      "file": "positive/sandbox-execution.s0-python-eval.json",
+      "kind": "positive",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "description": "S0 pooled container python script evaluation with resource limits, receipt, and data marking."
+    },
+    {
+      "file": "positive/sandbox-execution.s1-malware-detonation.json",
+      "kind": "positive",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "description": "S1 disposable gVisor sandbox detonation of suspicious binary with network egress monitoring and pcap artifact generation."
+    },
+    {
+      "file": "positive/sandbox-execution.s2-microvm-isolated.json",
+      "kind": "positive",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "description": "S2 hardened microVM kernel module rootkit analysis with blocked egress and air-gapped data marking."
+    },
+    {
+      "file": "negative-schema/sandbox-cpu-ceiling-exceeded.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "CPU cores (128.0) exceeds allowable schema ceiling (64.0 cores)."
+    },
+    {
+      "file": "negative-schema/sandbox-memory-ceiling-exceeded.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "Memory limit (131072 MB) exceeds allowable schema ceiling (65536 MB)."
+    },
+    {
+      "file": "negative-schema/sandbox-invalid-tier.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "Sandbox tier S99 is not a valid enum value (must be S0, S1, or S2)."
+    },
+    {
+      "file": "negative-schema/sandbox-decompression-bomb-ratio-exceeded.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "Decompression expansion ratio (5000.0) exceeds allowable guard ceiling (1000.0)."
+    },
+    {
+      "file": "negative-schema/sandbox-missing-required-fields.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "Missing required fields (resource_limits, decompression_bomb_guard, data_marking)."
+    },
+    {
+      "file": "negative-semantic/sandbox-cross-tenant.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.sandbox-execution.v1.schema.json",
+      "invariant": "CROSS-TENANT: payload tenant_id (tenant-globex-corp) does not match actor tenant_id (tenant-acme-cyber)."
+    }
+  ]
+}

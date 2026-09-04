@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.taxii-feed.v1.schema.json",
+  "title": "CYBRIK TAXII 2.1 Threat Feed Collection & Polling Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining TAXII 2.1 feed collection manifests, polling requests, envelope status, clock-skew bounds, and pagination limits (Pillars 3, 6, 7, 10). Enables deterministic ingestion, offline synchronization, and interoperable CTI exchange.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "feed_id",
+    "tenant_id",
+    "collection",
+    "polling_parameters",
+    "clock_skew_bounds",
+    "envelope_status",
+    "pagination",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "feed_id": {
+      "type": "string",
+      "description": "Canonical TAXII feed transaction or manifest identifier.",
+      "pattern": "^(taxii|feed)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing TAXII feed ingestion."
+    },
+    "collection": {
+      "$ref": "#/$defs/collectionManifest"
+    },
+    "polling_parameters": {
+      "$ref": "#/$defs/pollingParameters"
+    },
+    "clock_skew_bounds": {
+      "$ref": "#/$defs/clockSkewBounds"
+    },
+    "envelope_status": {
+      "$ref": "#/$defs/envelopeStatus"
+    },
+    "pagination": {
+      "$ref": "#/$defs/paginationLimits"
+    },
+    "objects": {
+      "type": "array",
+      "description": "STIX 2.1 CTI objects carried within this TAXII envelope.",
+      "items": { "type": "object" },
+      "default": []
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Classification and TLP marking governing the TAXII envelope payload."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Cryptographic digest over the canonical TAXII feed manifest."
+    }
+  },
+  "$defs": {
+    "collectionManifest": {
+      "type": "object",
+      "description": "TAXII 2.1 collection metadata manifest per OASIS specification.",
+      "additionalProperties": false,
+      "required": ["id", "title", "can_read", "can_write", "media_types"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Canonical TAXII 2.1 collection UUID identifier.",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string"
+        },
+        "alias": {
+          "type": "string"
+        },
+        "can_read": {
+          "type": "boolean"
+        },
+        "can_write": {
+          "type": "boolean"
+        },
+        "media_types": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "pollingParameters": {
+      "type": "object",
+      "description": "TAXII 2.1 polling request filters and parameters.",
+      "additionalProperties": false,
+      "required": ["added_after", "limit"],
+      "properties": {
+        "added_after": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+          "description": "Retrieve STIX objects added to the collection after this timestamp."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of records requested per poll request (must be positive, 1 to 10000).",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "version": { "type": "string" },
+            "spec_version": { "type": "string" }
+          }
+        }
+      }
+    },
+    "clockSkewBounds": {
+      "type": "object",
+      "description": "Clock-skew bounds ensuring client and server timestamps remain synchronized within strict tolerances.",
+      "additionalProperties": false,
+      "required": ["max_clock_skew_seconds", "client_timestamp", "server_timestamp"],
+      "properties": {
+        "max_clock_skew_seconds": {
+          "type": "integer",
+          "description": "Maximum allowed timestamp divergence between client and TAXII server (0 to 300 seconds).",
+          "minimum": 0,
+          "maximum": 300
+        },
+        "client_timestamp": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "server_timestamp": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "max_forward_skew_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120,
+          "default": 30
+        },
+        "max_backward_skew_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 300,
+          "default": 60
+        }
+      }
+    },
+    "envelopeStatus": {
+      "type": "object",
+      "description": "Status and object delivery counts for the TAXII 2.1 envelope.",
+      "additionalProperties": false,
+      "required": ["status_id", "status", "request_timestamp", "total_count", "success_count"],
+      "properties": {
+        "status_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "complete", "failed", "partial", "rejected"]
+        },
+        "request_timestamp": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "total_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "success_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "pending_count": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "error_messages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "paginationLimits": {
+      "type": "object",
+      "description": "Pagination state and limits governing multi-page TAXII envelope streams.",
+      "additionalProperties": false,
+      "required": ["limit", "page_size", "current_page", "has_more"],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Requested upper bound for page capacity (must be positive integer, 1 to 10000).",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "page_size": {
+          "type": "integer",
+          "description": "Actual number of objects returned in this envelope page.",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "total_pages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "next": {
+          "type": "string",
+          "description": "Cursor identifier for fetching the subsequent page."
+        }
+      }
+    }
+  }
+}

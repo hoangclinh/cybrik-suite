@@ -1,0 +1,56 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for RAG Retrieval & CTI Fusion contract fixtures (Pillars 3, 4, 7, 10).",
+  "fixtures": [
+    {
+      "file": "positive/rag-retrieval.hybrid-cti-search.json",
+      "kind": "positive",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "description": "Hybrid dense and sparse retrieval with Reciprocal Rank Fusion, TLP filter, and MITRE ATT&CK result chunk."
+    },
+    {
+      "file": "positive/rag-retrieval.dense-embedding-query.json",
+      "kind": "positive",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "description": "Dense vector retrieval with pre-computed query embedding and strict restricted clearance bound."
+    },
+    {
+      "file": "positive/rag-retrieval.scored-results-bundle.json",
+      "kind": "positive",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "description": "Scored results bundle fusing CVE database and CISA KEV feeds with RRF scores."
+    },
+    {
+      "file": "negative-schema/rag-invalid-tlp-marking.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "invariant": "TLP:ULTRA_SECRET_COSMIC is not a valid TLP marking level enum value."
+    },
+    {
+      "file": "negative-schema/rag-missing-tenant-id.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "invariant": "Missing mandatory tenant_id for tenant isolation."
+    },
+    {
+      "file": "negative-schema/rag-negative-rrf-constant.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "invariant": "RRF k_constant (-5) violates minimum constraint (>= 1)."
+    },
+    {
+      "file": "negative-schema/rag-invalid-similarity-metric.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "invariant": "similarity_metric 'quantum_entanglement' is not in allowed enum (cosine, dot_product, euclidean, inner_product)."
+    },
+    {
+      "file": "negative-semantic/rag-clearance-exceeded.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.rag-retrieval.v1.schema.json",
+      "invariant": "CLEARANCE EXCEEDED: guest analyst actor lacks clearance for restricted air-gapped sovereign collection."
+    }
+  ]
+}

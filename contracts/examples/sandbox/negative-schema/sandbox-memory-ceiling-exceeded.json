@@ -1,0 +1,28 @@
+{
+  "execution_id": "sbx_s1_invalid_mem_001",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/adversary",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "dos_attempt",
+  "sandbox_tier": "S1",
+  "command": ["stress-ng", "--vm", "1", "--vm-bytes", "128G"],
+  "resource_limits": {
+    "cpu_cores": 4.0,
+    "memory_mb": 131072,
+    "wall_clock_timeout_seconds": 60,
+    "max_output_bytes": 65536
+  },
+  "decompression_bomb_guard": {
+    "max_ratio": 50.0,
+    "max_uncompressed_bytes": 10485760
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN"
+  },
+  "created_at": "2026-09-04T20:00:00Z",
+  "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}
