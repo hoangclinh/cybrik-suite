@@ -1,0 +1,56 @@
+{
+  "suite_id": "eval_missing-metrics-004",
+  "name": "Invalid Evaluation Suite Missing Metrics",
+  "version": "1.0.0",
+  "description": "Adversarial test: Missing mandatory benchmark_metrics object.",
+  "suite_type": "GOLDEN",
+  "tenant_id": "tenant-cybrik-secops-primary",
+  "evaluator": {
+    "type": "service",
+    "id": "spiffe://cybrik.io/eval-harness/agent-evaluator-v1",
+    "tenant_id": "tenant-cybrik-secops-primary"
+  },
+  "target_model": {
+    "model_id": "cybrik-soc-reasoner-large-2026",
+    "provider": "cybrik-inference-fabric"
+  },
+  "categories": ["TRIAGE_ACCURACY"],
+  "scenarios": [
+    {
+      "scenario_id": "scen-001",
+      "name": "Sample Scenario",
+      "category": "TRIAGE_ACCURACY",
+      "input": {
+        "scenario_id": "scen-001",
+        "name": "Sample Scenario",
+        "category": "TRIAGE_ACCURACY",
+        "prompt": "Analyze alert."
+      },
+      "ground_truth": {
+        "expected_verdict": "BENIGN",
+        "expected_actions": ["dismiss_alert"],
+        "disallowed_actions": ["isolate_host"]
+      }
+    }
+  ],
+  "report": {
+    "report_id": "rep_004",
+    "summary": "Report summary.",
+    "verdict": "PASS",
+    "completed_at": "2026-09-05T02:00:00Z",
+    "signature_envelope": {
+      "signer_id": "notary-eval-service-01@cybrik.io",
+      "algorithm": "Ed25519",
+      "public_key_hex": "4a5c6d7e8f90123456789abcdef0123456789abcdef0123456789abcdef01234",
+      "signature_hex": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "signed_digest": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "signed_at": "2026-09-05T02:00:05Z"
+    }
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:CLEAR"
+  },
+  "created_at": "2026-09-05T02:00:00Z",
+  "digest": "sha256:a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}

@@ -1,0 +1,179 @@
+{
+  "view_id": "view_phishing-lateral-movement-ws-001",
+  "investigation_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+  "tenant_id": "tenant-cybrik-secops-primary",
+  "title": "Phishing-Induced Lateral Movement and Active C2 Investigation",
+  "status": "ACTIVE",
+  "created_by": {
+    "type": "user",
+    "id": "soc:analyst:sarah.connor",
+    "tenant_id": "tenant-cybrik-secops-primary"
+  },
+  "timeline_events": [
+    {
+      "event_id": "tl-evt-001",
+      "timestamp": "2026-09-05T00:15:30Z",
+      "event_type": "ALERT_TRIGGERED",
+      "title": "Suspicious Macro-Enabled Document Opened",
+      "description": "User j.smith opened invoice_q3_report.docm containing macro execution.",
+      "severity": "HIGH",
+      "source": "EDR-Defender-Agent",
+      "entity_ids": ["host-ws-042", "user-jsmith", "file-invoice-docm"],
+      "evidence_citations": ["cit-001"]
+    },
+    {
+      "event_id": "tl-evt-002",
+      "timestamp": "2026-09-05T00:16:45Z",
+      "event_type": "PROCESS_EXECUTION",
+      "title": "PowerShell Spawning Cobalt Strike Beacon",
+      "description": "winword.exe spawned powershell.exe which injected into explorer.exe.",
+      "severity": "CRITICAL",
+      "source": "Sysmon-Log",
+      "entity_ids": ["host-ws-042", "proc-winword", "proc-powershell", "proc-explorer"],
+      "evidence_citations": ["cit-002"]
+    },
+    {
+      "event_id": "tl-evt-003",
+      "timestamp": "2026-09-05T00:18:10Z",
+      "event_type": "NETWORK_BEACON",
+      "title": "C2 HTTPS Beaconing Observed",
+      "description": "Outbound TLS connection to 198.51.100.42:443 with beacon jitter.",
+      "severity": "CRITICAL",
+      "source": "Zeek-Network-Sensor",
+      "entity_ids": ["host-ws-042", "ip-c2-198-51-100-42"],
+      "evidence_citations": ["cit-003"]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "node_id": "user-jsmith",
+        "node_type": "ENTITY_USER",
+        "label": "John Smith (Finance Dept)",
+        "risk_score": 75.0,
+        "properties": {
+          "email": "j.smith@corp.example",
+          "department": "Finance"
+        }
+      },
+      {
+        "node_id": "host-ws-042",
+        "node_type": "ENTITY_HOST",
+        "label": "WS-FINANCE-042",
+        "risk_score": 90.0,
+        "properties": {
+          "ip": "10.0.4.42",
+          "os": "Windows 11 Enterprise"
+        }
+      },
+      {
+        "node_id": "file-invoice-docm",
+        "node_type": "ENTITY_FILE",
+        "label": "invoice_q3_report.docm",
+        "risk_score": 95.0,
+        "properties": {
+          "sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+        }
+      },
+      {
+        "node_id": "ip-c2-198-51-100-42",
+        "node_type": "IOC",
+        "label": "198.51.100.42 (Cobalt Strike C2)",
+        "risk_score": 100.0,
+        "properties": {
+          "reputation": "malicious",
+          "asn": "AS64496"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-001",
+        "source_id": "user-jsmith",
+        "target_id": "host-ws-042",
+        "relation_type": "AUTHENTICATED_AS",
+        "weight": 1.0
+      },
+      {
+        "edge_id": "edge-002",
+        "source_id": "host-ws-042",
+        "target_id": "file-invoice-docm",
+        "relation_type": "MODIFIED",
+        "weight": 0.95
+      },
+      {
+        "edge_id": "edge-003",
+        "source_id": "host-ws-042",
+        "target_id": "ip-c2-198-51-100-42",
+        "relation_type": "COMMUNICATED_WITH",
+        "weight": 1.0
+      }
+    ]
+  },
+  "citations": [
+    {
+      "citation_id": "cit-001",
+      "source_type": "EDR_TELEMETRY",
+      "source_uri": "cybrik://edr/events/evt-edr-994182",
+      "content_digest": "sha256:11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff",
+      "raw_excerpt": "winword.exe PID 5102 loaded macro payload from file C:\\Users\\jsmith\\Downloads\\invoice_q3_report.docm",
+      "verified": true,
+      "verification_signature": {
+        "signer_id": "edr-agent-042@cybrik.io",
+        "algorithm": "Ed25519",
+        "signature_hex": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      }
+    },
+    {
+      "citation_id": "cit-002",
+      "source_type": "SIEM_LOG",
+      "source_uri": "cybrik://siem/opensearch/events/evt-os-sysmon-8812",
+      "content_digest": "sha256:22334455667788990011aabbccddeeff22334455667788990011aabbccddeeff",
+      "raw_excerpt": "Sysmon EventID 1: winword.exe created process powershell.exe with commandline arguments -enc SQBFAFgA...",
+      "verified": true
+    },
+    {
+      "citation_id": "cit-003",
+      "source_type": "PCAP_CAPTURE",
+      "source_uri": "cybrik://pcap/flows/flow-zeek-beacon-491",
+      "content_digest": "sha256:33445566778899001122aabbccddeeff33445566778899001122aabbccddeeff",
+      "raw_excerpt": "TLS session to 198.51.100.42:443 with JA3 fingerprint 72a589da586844d7f0818ce684948eea",
+      "verified": true
+    }
+  ],
+  "report_export": {
+    "export_id": "exp_phishing-lateral-findings-001",
+    "export_format": "MARKDOWN",
+    "executive_summary": "Targeted phishing campaign delivering Cobalt Strike beacon to Finance workstation WS-FINANCE-042 via weaponized Word macro. Fast isolation prevented further lateral traversal into corporate accounting database.",
+    "findings": [
+      "Initial access via phishing attachment invoice_q3_report.docm on WS-FINANCE-042.",
+      "Process execution chain winword.exe -> powershell.exe -> injection into explorer.exe.",
+      "Active C2 beaconing to external malicious IP 198.51.100.42 on port 443."
+    ],
+    "recommended_actions": [
+      "Isolate host WS-FINANCE-042 from corporate network.",
+      "Block C2 IP 198.51.100.42 across edge firewall and perimeter proxies.",
+      "Revoke John Smith's Kerberos TGT and reset credentials.",
+      "Scan all email inboxes for subject 'Urgent Invoice Q3'."
+    ],
+    "analyst_notes": "Immediate containment successful. No sensitive financial databases accessed prior to host isolation.",
+    "exported_at": "2026-09-05T01:00:00Z",
+    "exported_by": {
+      "type": "user",
+      "id": "soc:analyst:sarah.connor",
+      "tenant_id": "tenant-cybrik-secops-primary"
+    }
+  },
+  "layout": {
+    "active_tab": "graph",
+    "zoom_level": 1.2,
+    "selected_node_ids": ["host-ws-042", "ip-c2-198-51-100-42"]
+  },
+  "data_marking": {
+    "classification": "confidential",
+    "tlp": "TLP:AMBER"
+  },
+  "created_at": "2026-09-05T00:30:00Z",
+  "updated_at": "2026-09-05T01:00:00Z",
+  "digest": "sha256:f1a2b3c4d5e60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}

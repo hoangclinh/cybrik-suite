@@ -1,0 +1,64 @@
+{
+  "view_id": "view_invalid-risk-score-004",
+  "investigation_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+  "tenant_id": "tenant-cybrik-secops-primary",
+  "title": "Invalid Investigation View with Risk Score Exceeding 100",
+  "status": "ACTIVE",
+  "created_by": {
+    "type": "user",
+    "id": "soc:analyst:sarah.connor",
+    "tenant_id": "tenant-cybrik-secops-primary"
+  },
+  "timeline_events": [
+    {
+      "event_id": "tl-001",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "event_type": "ALERT_TRIGGERED",
+      "title": "Alert",
+      "severity": "LOW",
+      "source": "EDR",
+      "entity_ids": ["host-01"]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "node_id": "host-01",
+        "node_type": "ENTITY_HOST",
+        "label": "Host 01",
+        "risk_score": 999.0
+      }
+    ],
+    "edges": []
+  },
+  "citations": [
+    {
+      "citation_id": "cit-001",
+      "source_type": "EDR_TELEMETRY",
+      "source_uri": "cybrik://edr/1",
+      "content_digest": "sha256:11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff",
+      "raw_excerpt": "sample",
+      "verified": true
+    }
+  ],
+  "report_export": {
+    "export_id": "exp_001",
+    "export_format": "PDF",
+    "executive_summary": "Summary",
+    "findings": ["Finding 1"],
+    "recommended_actions": ["Action 1"],
+    "exported_at": "2026-09-05T01:00:00Z",
+    "exported_by": {
+      "type": "user",
+      "id": "soc:analyst:sarah.connor",
+      "tenant_id": "tenant-cybrik-secops-primary"
+    }
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:CLEAR"
+  },
+  "created_at": "2026-09-05T00:00:00Z",
+  "updated_at": "2026-09-05T01:00:00Z",
+  "digest": "sha256:a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}
