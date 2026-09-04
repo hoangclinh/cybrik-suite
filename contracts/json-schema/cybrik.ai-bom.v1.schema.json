@@ -121,11 +121,11 @@
       "properties": {
         "algorithm": {
           "type": "string",
-          "enum": ["sha256", "sha512", "blake3"]
+          "enum": ["sha256", "sha384", "sha512", "blake3"]
         },
         "digest": {
-          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
-          "description": "Root hash or manifest SHA-256 digest covering all model checkpoint files."
+          "$ref": "#/$defs/multiAlgorithmDigest",
+          "description": "Root hash or manifest digest covering all model checkpoint files."
         },
         "file_count": {
           "type": "integer",
@@ -141,7 +141,7 @@
         },
         "layer_manifest_digests": {
           "type": "array",
-          "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+          "items": { "$ref": "#/$defs/multiAlgorithmDigest" },
           "default": []
         }
       }
@@ -264,7 +264,7 @@
             ]
           },
           "digest": {
-            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+            "$ref": "#/$defs/multiAlgorithmDigest"
           },
           "template_variables": {
             "type": "array",
@@ -272,7 +272,7 @@
             "default": []
           },
           "system_prompt_digest": {
-            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+            "$ref": "#/$defs/multiAlgorithmDigest"
           }
         }
       }
@@ -355,6 +355,29 @@
       }
     },
     "data_lineage": {
+      "$ref": "#/$defs/dataLineage",
+      "description": "Training data cutoff, fine-tuning artifacts, and curation provenance."
+    },
+    "supply_chain_security": {
+      "$ref": "#/$defs/supplyChainSecurity",
+      "description": "Cryptographic signatures and CycloneDX/SPDX SBOM cross-references."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "UTC timestamp when this AI-BOM was published."
+    },
+    "digest": {
+      "$ref": "#/$defs/multiAlgorithmDigest",
+      "description": "Cryptographic digest over the AI-BOM serialization (excluding digest itself)."
+    }
+  },
+  "$defs": {
+    "multiAlgorithmDigest": {
+      "type": "string",
+      "pattern": "^(sha256|sha384|sha512|blake3):[0-9a-fA-F]+$",
+      "description": "Cryptographic digest prefixed with supported algorithm (sha256, sha384, sha512, blake3) and hex-encoded digest value."
+    },
+    "dataLineage": {
       "type": "object",
       "description": "Training data cutoff, fine-tuning artifacts, and curation provenance.",
       "additionalProperties": false,
@@ -370,7 +393,7 @@
             "required": ["name", "digest"],
             "properties": {
               "name": { "type": "string" },
-              "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+              "digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
               "license": { "type": "string" },
               "purpose": { "type": "string" }
             }
@@ -384,8 +407,8 @@
             "required": ["technique", "base_checkpoint_digest"],
             "properties": {
               "technique": { "type": "string", "enum": ["lora", "qlora", "dpo", "sft", "full"] },
-              "base_checkpoint_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
-              "adapter_digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" },
+              "base_checkpoint_digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
+              "adapter_digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
               "learning_rate": { "type": "number" },
               "epochs": { "type": "integer" }
             }
@@ -394,7 +417,7 @@
         }
       }
     },
-    "supply_chain_security": {
+    "supplyChainSecurity": {
       "type": "object",
       "description": "Cryptographic signatures and CycloneDX/SPDX SBOM cross-references.",
       "additionalProperties": false,
@@ -413,17 +436,9 @@
           "enum": ["Ed25519", "ECDSA-P256-SHA256", "RSA-PSS-SHA256"]
         },
         "certificate_fingerprint": {
-          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+          "$ref": "#/$defs/multiAlgorithmDigest"
         }
       }
-    },
-    "created_at": {
-      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
-      "description": "UTC timestamp when this AI-BOM was published."
-    },
-    "digest": {
-      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
-      "description": "Cryptographic SHA-256 digest over the AI-BOM serialization (excluding digest itself)."
     }
   }
 }

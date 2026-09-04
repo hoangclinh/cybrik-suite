@@ -36,9 +36,13 @@ def build_schema_registry() -> Registry:
             # Register by filename URI and by $id if present
             filename_uri = schema_file.name
             registry = registry.with_resource(filename_uri, resource)
+            registry = registry.with_resource(f"https://schema.cybrik.io/contracts/{filename_uri}", resource)
+            registry = registry.with_resource(f"https://schema.cybrik.io/v1/{filename_uri}", resource)
+            registry = registry.with_resource(f"https://contracts.cybrik.example/json-schema/{filename_uri}", resource)
             if "$id" in schema_json:
                 registry = registry.with_resource(schema_json["$id"], resource)
     return registry
+
 
 
 @pytest.fixture(scope="session")
@@ -146,6 +150,7 @@ def validate_investigation_bundle_semantics(bundle: dict[str, Any]) -> list[str]
 
 COMPETITIVE_SCHEMAS = [
     "cybrik.investigation-bundle.v1.schema.json",
+    "cybrik.investigation-bundle.v2.schema.json",
     "cybrik.execution-receipt-ledger.v1.schema.json",
     "cybrik.stix-cti-bundle.v1.schema.json",
     "cybrik.ai-bom.v1.schema.json",
@@ -160,17 +165,33 @@ def test_schema_itself_is_valid_draft_2020_12(schema_file: str):
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert schema["x-cybrik-status"] == "ACCEPTED FOR IMPLEMENTATION"
     assert schema["x-cybrik-not-accepted"] is False
-    assert schema["x-cybrik-contract-version"] == "1.0.0"
+    if schema_file == "cybrik.investigation-bundle.v1.schema.json":
+        assert schema["x-cybrik-contract-version"] == "0.1.0"
+    elif schema_file == "cybrik.investigation-bundle.v2.schema.json":
+        assert schema["x-cybrik-contract-version"] == "2.0.0"
+    else:
+        assert schema["x-cybrik-contract-version"] == "1.0.0"
 
 
 # ==============================================================================
-# SECTION 2: PILLARS 3 & 4: INVESTIGATION BUNDLE SCHEMA TESTS
+# SECTION 2: PILLARS 3 & 4: INVESTIGATION BUNDLE SCHEMA TESTS (v1 Legacy & v2 Graph)
 # ==============================================================================
 
 @pytest.fixture
-def investigation_bundle_validator(registry: Registry) -> Draft202012Validator:
+def investigation_bundle_v1_validator(registry: Registry) -> Draft202012Validator:
     schema = load_schema("cybrik.investigation-bundle.v1.schema.json")
     return Draft202012Validator(schema, registry=registry)
+
+
+@pytest.fixture
+def investigation_bundle_v2_validator(registry: Registry) -> Draft202012Validator:
+    schema = load_schema("cybrik.investigation-bundle.v2.schema.json")
+    return Draft202012Validator(schema, registry=registry)
+
+
+@pytest.fixture
+def investigation_bundle_validator(investigation_bundle_v2_validator: Draft202012Validator) -> Draft202012Validator:
+    return investigation_bundle_v2_validator
 
 
 @pytest.fixture
@@ -592,6 +613,98 @@ def test_investigation_bundle_invalid_generated_by_missing_tenant_id(
     }
     with pytest.raises(ValidationError):
         investigation_bundle_validator.validate(payload)
+
+
+def test_investigation_bundle_v1_legacy_valid(investigation_bundle_v1_validator: Draft202012Validator):
+    """Verify that legacy v0.1.0 investigation bundle schema validates conforming instances."""
+    legacy_bundle = {
+        "bundle_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "investigation_id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+        "tenant_id": "tenant-enterprise-cyber",
+        "status": "completed",
+        "claims": [
+            {
+                "type": "cybrik.claim",
+                "id": "claim-001",
+                "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+        ],
+        "evidence": [
+            {
+                "type": "cybrik.evidence",
+                "id": "ev-001",
+                "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            }
+        ],
+        "limitations": "None observed",
+        "generated_by": {
+            "type": "service",
+            "id": "spiffe://cybrik.internal/cyber-ai/orchestrator",
+            "tenant_id": "tenant-enterprise-cyber"
+        },
+        "generated_at": "2026-09-04T12:00:00Z",
+        "data_marking": {
+            "tlp": "TLP:CLEAR",
+            "classification": "internal"
+        },
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    }
+    investigation_bundle_v1_validator.validate(legacy_bundle)
+
+
+def test_investigation_bundle_v1_legacy_invalid_empty_claims(investigation_bundle_v1_validator: Draft202012Validator):
+    """Negative test: legacy v0.1.0 bundle requires at least one claim."""
+    legacy_bundle = {
+        "bundle_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "investigation_id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+        "tenant_id": "tenant-enterprise-cyber",
+        "status": "completed",
+        "claims": [],
+        "generated_by": {
+            "type": "service",
+            "id": "spiffe://cybrik.internal/cyber-ai/orchestrator",
+            "tenant_id": "tenant-enterprise-cyber"
+        },
+        "generated_at": "2026-09-04T12:00:00Z",
+        "data_marking": {
+            "tlp": "TLP:CLEAR",
+            "classification": "internal"
+        },
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    }
+    with pytest.raises(ValidationError):
+        investigation_bundle_v1_validator.validate(legacy_bundle)
+
+
+def test_investigation_bundle_v1_legacy_invalid_extra_properties(investigation_bundle_v1_validator: Draft202012Validator):
+    """Negative test: legacy v0.1.0 bundle rejects v2 graph fields (nodes, edges)."""
+    legacy_bundle = {
+        "bundle_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "investigation_id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+        "tenant_id": "tenant-enterprise-cyber",
+        "status": "completed",
+        "claims": [
+            {
+                "type": "cybrik.claim",
+                "id": "claim-001",
+                "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+            }
+        ],
+        "nodes": [],
+        "generated_by": {
+            "type": "service",
+            "id": "spiffe://cybrik.internal/cyber-ai/orchestrator",
+            "tenant_id": "tenant-enterprise-cyber"
+        },
+        "generated_at": "2026-09-04T12:00:00Z",
+        "data_marking": {
+            "tlp": "TLP:CLEAR",
+            "classification": "internal"
+        },
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    }
+    with pytest.raises(ValidationError):
+        investigation_bundle_v1_validator.validate(legacy_bundle)
 
 
 # ==============================================================================
@@ -1380,6 +1493,99 @@ def test_aibom_invalid_parameter_count_too_small(
     payload["model_identity"]["parameter_count_billions"] = 0.01
     with pytest.raises(ValidationError):
         aibom_validator.validate(payload)
+
+
+@pytest.mark.parametrize("algorithm,sample_digest", [
+    ("sha256", "sha256:1111111111111111111111111111111111111111111111111111111111111111"),
+    ("sha384", "sha384:222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"),
+    ("sha512", "sha512:33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
+    ("blake3", "blake3:4444444444444444444444444444444444444444444444444444444444444444"),
+])
+def test_aibom_valid_multi_algorithm_digests(
+    aibom_validator: Draft202012Validator,
+    base_valid_aibom: dict[str, Any],
+    algorithm: str,
+    sample_digest: str,
+):
+    """Verify AI-BOM supports multi-algorithm digest patterns: sha256, sha384, sha512, blake3."""
+    payload = copy.deepcopy(base_valid_aibom)
+    payload["weights_digest"]["algorithm"] = algorithm
+    payload["weights_digest"]["digest"] = sample_digest
+    payload["weights_digest"]["layer_manifest_digests"] = [sample_digest]
+    payload["prompt_registry_digests"][0]["digest"] = sample_digest
+    payload["prompt_registry_digests"][0]["system_prompt_digest"] = sample_digest
+    payload["data_lineage"]["curated_datasets"][0]["digest"] = sample_digest
+    payload["supply_chain_security"]["certificate_fingerprint"] = sample_digest
+    payload["digest"] = sample_digest
+    aibom_validator.validate(payload)
+
+
+@pytest.mark.parametrize("bad_digest", [
+    "md5:d41d8cd98f00b204e9800998ecf8427e",
+    "crc32:12345678",
+    "sha1:2fd4e1c67a2d28fced849ee1bb76e7391b93eb12",
+    "plain_hex_without_prefix_11111111111111111111111111111111",
+])
+def test_aibom_invalid_unsupported_digest_algorithm(
+    aibom_validator: Draft202012Validator,
+    base_valid_aibom: dict[str, Any],
+    bad_digest: str,
+):
+    """Negative test: unsupported digest algorithms are strictly rejected."""
+    payload = copy.deepcopy(base_valid_aibom)
+    payload["weights_digest"]["digest"] = bad_digest
+    with pytest.raises(ValidationError):
+        aibom_validator.validate(payload)
+
+
+def test_aibom_data_lineage_definition_constraints(registry: Registry):
+    """Verify specific constraints of dataLineage subschema."""
+    dl_validator = get_subschema_validator("cybrik.ai-bom.v1.schema.json", "dataLineage", registry)
+    valid_dl = {
+        "training_cutoff_date": "2024-09-01",
+        "curated_datasets": [
+            {
+                "name": "MITRE-ATT&CK-Corpus-v15",
+                "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+                "license": "CC-BY-4.0",
+                "purpose": "Threat knowledge alignment"
+            }
+        ],
+        "fine_tuning_recipes": [
+            {
+                "technique": "lora",
+                "base_checkpoint_digest": "blake3:1111111111111111111111111111111111111111111111111111111111111111",
+                "adapter_digest": "sha384:222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+                "learning_rate": 0.0002,
+                "epochs": 3
+            }
+        ]
+    }
+    dl_validator.validate(valid_dl)
+
+    # Invalid technique enum
+    invalid_tech = copy.deepcopy(valid_dl)
+    invalid_tech["fine_tuning_recipes"][0]["technique"] = "magic_tune"
+    with pytest.raises(ValidationError):
+        dl_validator.validate(invalid_tech)
+
+
+def test_aibom_supply_chain_security_definition_constraints(registry: Registry):
+    """Verify specific constraints of supplyChainSecurity subschema."""
+    sc_validator = get_subschema_validator("cybrik.ai-bom.v1.schema.json", "supplyChainSecurity", registry)
+    valid_sc = {
+        "signing_authority": "CYBRIK Release Security Authority",
+        "signature": "MEQCIF2DYQ==",
+        "signature_algorithm": "ECDSA-P256-SHA256",
+        "certificate_fingerprint": "sha512:77777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777"
+    }
+    sc_validator.validate(valid_sc)
+
+    # Invalid signature algorithm
+    invalid_algo = copy.deepcopy(valid_sc)
+    invalid_algo["signature_algorithm"] = "MD5-RSA"
+    with pytest.raises(ValidationError):
+        sc_validator.validate(invalid_algo)
 
 
 # ==============================================================================
