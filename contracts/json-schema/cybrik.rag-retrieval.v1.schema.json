@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.rag-retrieval.v1.schema.json",
+  "title": "CYBRIK RAG Retrieval & CTI Fusion Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining RAG retrieval requests, dense/sparse hybrid search parameters, Reciprocal Rank Fusion (RRF) constants, TLP marking filters (CLEAR, GREEN, AMBER, RED), classification clearance bounds, tenant isolation, and scored result chunks (Pillars 3, 4, 7, 10). Governs deterministic context augmentation and access-controlled retrieval across CYBRIK vector and keyword stores.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "tenant_id",
+    "actor",
+    "purpose",
+    "query",
+    "search_parameters",
+    "access_control",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Canonical RAG retrieval request identifier.",
+      "pattern": "^(rag|req)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing retrieval isolation."
+    },
+    "actor": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "Actor initiating the RAG retrieval operation."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Declared retrieval purpose (e.g. 'threat_intel_enrichment', 'alert_investigation', 'rule_generation').",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "query": {
+      "type": "object",
+      "description": "Multi-modal or hybrid text/vector search query specification.",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "dense_embedding": {
+          "type": "array",
+          "description": "Pre-computed query vector embedding.",
+          "items": { "type": "number" },
+          "minItems": 64,
+          "maxItems": 4096
+        },
+        "sparse_terms": {
+          "type": "array",
+          "description": "Weighted lexical terms for sparse retrieval.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["term", "weight"],
+            "properties": {
+              "term": { "type": "string", "minLength": 1 },
+              "weight": { "type": "number" }
+            }
+          }
+        },
+        "collections": {
+          "type": "array",
+          "description": "Target knowledge collections or namespaces to query.",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    },
+    "search_parameters": {
+      "$ref": "#/$defs/searchParameters"
+    },
+    "access_control": {
+      "$ref": "#/$defs/accessControl"
+    },
+    "results": {
+      "type": "array",
+      "description": "Scored and ranked retrieved result chunks.",
+      "items": { "$ref": "#/$defs/scoredResultChunk" },
+      "default": []
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "Cryptographic digest over canonical retrieval request and parameters."
+    }
+  },
+  "$defs": {
+    "searchParameters": {
+      "type": "object",
+      "description": "Hybrid dense and sparse retrieval configuration with Reciprocal Rank Fusion (RRF).",
+      "additionalProperties": false,
+      "required": ["dense", "sparse", "rrf"],
+      "properties": {
+        "dense": { "$ref": "#/$defs/denseParameters" },
+        "sparse": { "$ref": "#/$defs/sparseParameters" },
+        "rrf": { "$ref": "#/$defs/rrfParameters" }
+      }
+    },
+    "denseParameters": {
+      "type": "object",
+      "description": "Vector similarity search parameters.",
+      "additionalProperties": false,
+      "required": ["enabled", "model_id", "top_k", "similarity_metric"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "model_id": { "type": "string", "minLength": 1 },
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "similarity_metric": {
+          "type": "string",
+          "enum": ["cosine", "dot_product", "euclidean", "inner_product"]
+        },
+        "score_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+      }
+    },
+    "sparseParameters": {
+      "type": "object",
+      "description": "Lexical BM25/SPLADE keyword search parameters.",
+      "additionalProperties": false,
+      "required": ["enabled", "algorithm", "top_k"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "algorithm": { "type": "string", "enum": ["bm25", "splade", "tfidf"] },
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "k1": { "type": "number", "minimum": 0.0, "maximum": 5.0, "default": 1.2 },
+        "b": { "type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.75 }
+      }
+    },
+    "rrfParameters": {
+      "type": "object",
+      "description": "Reciprocal Rank Fusion (RRF) parameters for fusing dense and sparse search rankings.",
+      "additionalProperties": false,
+      "required": ["enabled", "k_constant", "top_k_final"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "k_constant": {
+          "type": "integer",
+          "description": "RRF ranking smoothing constant (standard default is 60; formula: 1 / (k + rank)).",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "dense_weight": { "type": "number", "minimum": 0.0, "maximum": 10.0, "default": 1.0 },
+        "sparse_weight": { "type": "number", "minimum": 0.0, "maximum": 10.0, "default": 1.0 },
+        "top_k_final": { "type": "integer", "minimum": 1, "maximum": 200 }
+      }
+    },
+    "accessControl": {
+      "type": "object",
+      "description": "Mandatory access control constraints, classification bounds, and tenant isolation for RAG retrieval.",
+      "additionalProperties": false,
+      "required": ["tlp_marking_filter", "classification_clearance_bound", "tenant_isolation"],
+      "properties": {
+        "tlp_marking_filter": {
+          "type": "array",
+          "description": "Allowed TLP marking levels (CLEAR, GREEN, AMBER, RED).",
+          "items": {
+            "type": "string",
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              "CLEAR",
+              "GREEN",
+              "AMBER",
+              "RED"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "classification_clearance_bound": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/classification",
+          "description": "Maximum security classification clearance of the querying actor."
+        },
+        "tenant_isolation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tenant_id", "enforce_strict_tenant_boundary"],
+          "properties": {
+            "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+            "enforce_strict_tenant_boundary": { "type": "boolean" },
+            "allowed_cross_tenant_shares": {
+              "type": "array",
+              "items": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" },
+              "default": []
+            }
+          }
+        },
+        "handling_caveats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "scoredResultChunk": {
+      "type": "object",
+      "description": "Ranked and scored result chunk retrieved from knowledge base.",
+      "additionalProperties": false,
+      "required": ["chunk_id", "document_id", "content", "score", "rank", "data_marking", "digest"],
+      "properties": {
+        "chunk_id": { "type": "string", "minLength": 1 },
+        "document_id": { "type": "string", "minLength": 1 },
+        "content": { "type": "string", "minLength": 1 },
+        "score": { "type": "number" },
+        "dense_score": { "type": "number" },
+        "sparse_score": { "type": "number" },
+        "rrf_score": { "type": "number" },
+        "rank": { "type": "integer", "minimum": 1 },
+        "data_marking": { "$ref": "cybrik.data-marking.v1.schema.json" },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "digest": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest" }
+      }
+    }
+  }
+}

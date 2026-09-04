@@ -1,0 +1,98 @@
+{
+  "execution_id": "sbx_s0_eval_a1b2c3d4e5f6",
+  "request_id": "req_eval_9876543210",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/triage-evaluator",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "script_eval",
+  "sandbox_tier": "S0",
+  "command": ["python3", "-c", "import json; print(json.dumps({'status': 'ok'}))"],
+  "code_payload": {
+    "runtime": "python3",
+    "code": "import json\nprint(json.dumps({'status': 'ok'}))\n",
+    "entrypoint": "main.py",
+    "dependencies": ["requests", "pydantic"]
+  },
+  "resource_limits": {
+    "cpu_cores": 1.0,
+    "memory_mb": 512,
+    "wall_clock_timeout_seconds": 30,
+    "max_output_bytes": 65536,
+    "max_disk_mb": 128,
+    "max_processes": 16
+  },
+  "decompression_bomb_guard": {
+    "max_ratio": 50.0,
+    "max_uncompressed_bytes": 10485760,
+    "max_file_count": 100,
+    "max_recursion_depth": 3,
+    "block_nested_archives": true
+  },
+  "network_egress": {
+    "policy": "loopback_only",
+    "allowed_destinations": [],
+    "dns_servers": []
+  },
+  "input_artifacts": [
+    {
+      "artifact_id": "art_in_001",
+      "name": "sample_input.json",
+      "path": "/workspace/input.json",
+      "size_bytes": 1024,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "media_type": "application/json",
+      "data_marking": {
+        "classification": "internal",
+        "tlp": "TLP:GREEN",
+        "handling": ["no-export"]
+      },
+      "storage_locator": "s3://cybrik-artifacts/tenant-enterprise-cyber/sample_input.json"
+    }
+  ],
+  "output_artifacts": [],
+  "execution_receipt": {
+    "receipt_id": "rcpt_sbx_001",
+    "execution_id": "sbx_s0_eval_a1b2c3d4e5f6",
+    "tenant_id": "tenant-enterprise-cyber",
+    "status": "completed",
+    "exit_code": 0,
+    "resource_usage": {
+      "cpu_time_ms": 120,
+      "peak_memory_mb": 64,
+      "wall_clock_duration_ms": 145,
+      "output_bytes": 24
+    },
+    "stdout_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "stderr_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "started_at": "2026-09-04T20:00:00Z",
+    "finished_at": "2026-09-04T20:00:01Z",
+    "receipt_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signature": "sig_ed25519_sample_signature_001"
+  },
+  "artifact_manifests": [
+    {
+      "artifact_id": "art_in_001",
+      "name": "sample_input.json",
+      "path": "/workspace/input.json",
+      "size_bytes": 1024,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "media_type": "application/json",
+      "data_marking": {
+        "classification": "internal",
+        "tlp": "TLP:GREEN",
+        "handling": ["no-export"]
+      },
+      "storage_locator": "s3://cybrik-artifacts/tenant-enterprise-cyber/sample_input.json"
+    }
+  ],
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN",
+    "handling": ["no-export"]
+  },
+  "created_at": "2026-09-04T20:00:00Z",
+  "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

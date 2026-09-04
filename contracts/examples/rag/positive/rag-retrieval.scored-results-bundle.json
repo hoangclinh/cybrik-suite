@@ -1,0 +1,92 @@
+{
+  "request_id": "rag_req_scored_003",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/rag-enricher",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "threat_intel_enrichment",
+  "query": {
+    "text": "CVE-2024-21413 Microsoft Outlook Remote Code Execution MonikerLink vulnerability",
+    "collections": ["cve-database", "cisa-kev", "security-advisories"]
+  },
+  "search_parameters": {
+    "dense": {
+      "enabled": true,
+      "model_id": "bge-m3",
+      "top_k": 5,
+      "similarity_metric": "cosine",
+      "score_threshold": 0.8
+    },
+    "sparse": {
+      "enabled": true,
+      "algorithm": "bm25",
+      "top_k": 5,
+      "k1": 1.2,
+      "b": 0.75
+    },
+    "rrf": {
+      "enabled": true,
+      "k_constant": 60,
+      "dense_weight": 1.5,
+      "sparse_weight": 1.0,
+      "top_k_final": 2
+    }
+  },
+  "access_control": {
+    "tlp_marking_filter": ["CLEAR", "GREEN", "AMBER"],
+    "classification_clearance_bound": "internal",
+    "tenant_isolation": {
+      "tenant_id": "tenant-enterprise-cyber",
+      "enforce_strict_tenant_boundary": true,
+      "allowed_cross_tenant_shares": []
+    },
+    "handling_caveats": []
+  },
+  "results": [
+    {
+      "chunk_id": "chk_cve_2024_21413_01",
+      "document_id": "doc_cve_2024_21413",
+      "content": "CVE-2024-21413 is a critical Remote Code Execution vulnerability in Microsoft Outlook dubbed MonikerLink. It allows an attacker to bypass Protected View when opening malicious links.",
+      "score": 0.0322,
+      "dense_score": 0.94,
+      "sparse_score": 18.2,
+      "rrf_score": 0.0322,
+      "rank": 1,
+      "data_marking": {
+        "classification": "public",
+        "tlp": "TLP:CLEAR",
+        "handling": []
+      },
+      "metadata": {
+        "cve_id": "CVE-2024-21413",
+        "cvss_score": 9.8,
+        "cisa_kev_listed": true
+      },
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "chunk_id": "chk_cisa_kev_2024_21413_02",
+      "document_id": "doc_cisa_kev_feed",
+      "content": "CISA added CVE-2024-21413 to its Known Exploited Vulnerabilities Catalog on February 15, 2024, noting active exploitation in the wild.",
+      "score": 0.0312,
+      "dense_score": 0.89,
+      "sparse_score": 16.1,
+      "rrf_score": 0.0312,
+      "rank": 2,
+      "data_marking": {
+        "classification": "public",
+        "tlp": "TLP:CLEAR",
+        "handling": []
+      },
+      "metadata": {
+        "source": "cisa-kev",
+        "due_date": "2024-03-07"
+      },
+      "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "created_at": "2026-09-04T20:40:00Z",
+  "digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+}

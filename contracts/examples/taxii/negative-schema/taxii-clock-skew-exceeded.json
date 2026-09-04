@@ -1,0 +1,40 @@
+{
+  "feed_id": "taxii_feed_excess_skew_001",
+  "tenant_id": "tenant-enterprise-cyber",
+  "collection": {
+    "id": "528e2091-95fc-497d-82d9-1149e64e0a9b",
+    "title": "CISA KEV Feed",
+    "can_read": true,
+    "can_write": false,
+    "media_types": ["application/taxii+json;version=2.1"]
+  },
+  "polling_parameters": {
+    "added_after": "2026-09-01T00:00:00Z",
+    "limit": 100
+  },
+  "clock_skew_bounds": {
+    "max_clock_skew_seconds": 9999,
+    "client_timestamp": "2026-09-04T20:50:00Z",
+    "server_timestamp": "2026-09-04T20:50:02Z"
+  },
+  "envelope_status": {
+    "status_id": "739f31a2-a6fd-4a8e-93ea-2250f75f1ba0",
+    "status": "complete",
+    "request_timestamp": "2026-09-04T20:50:00Z",
+    "total_count": 0,
+    "success_count": 0
+  },
+  "pagination": {
+    "limit": 100,
+    "page_size": 0,
+    "total_pages": 0,
+    "current_page": 1,
+    "has_more": false
+  },
+  "data_marking": {
+    "classification": "public",
+    "tlp": "TLP:CLEAR"
+  },
+  "created_at": "2026-09-04T20:50:00Z",
+  "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}

@@ -1,0 +1,28 @@
+{
+  "execution_id": "sbx_s99_invalid_tier_001",
+  "tenant_id": "tenant-enterprise-cyber",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/agent/test-runner",
+    "tenant_id": "tenant-enterprise-cyber"
+  },
+  "purpose": "test_tier",
+  "sandbox_tier": "S99",
+  "command": ["echo", "test"],
+  "resource_limits": {
+    "cpu_cores": 1.0,
+    "memory_mb": 512,
+    "wall_clock_timeout_seconds": 30,
+    "max_output_bytes": 65536
+  },
+  "decompression_bomb_guard": {
+    "max_ratio": 50.0,
+    "max_uncompressed_bytes": 10485760
+  },
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN"
+  },
+  "created_at": "2026-09-04T20:00:00Z",
+  "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}
