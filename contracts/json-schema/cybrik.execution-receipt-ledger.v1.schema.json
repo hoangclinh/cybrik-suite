@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.execution-receipt-ledger.v1.schema.json",
+  "title": "CYBRIK Tool Execution Receipt Ledger Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining the tamper-evident, append-only Execution Receipt Ledger for Tool Fabric actions (Pillars 5, 9, & 10). Cryptographically binds sequence numbers, caller identities, delegation chains, execution receipt digests, Merkle root hashes, and control-plane signatures. Status: ACCEPTED FOR IMPLEMENTATION (v1.0.0; Pillars 5 & 10 contract).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ledger_id",
+    "tenant_id",
+    "sequence_number",
+    "status",
+    "caller_identity",
+    "receipts",
+    "hashes",
+    "signatures",
+    "started_at",
+    "closed_at",
+    "receipt_count",
+    "digest"
+  ],
+  "properties": {
+    "ledger_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Unique UUID identifying this ledger block / segment."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing this execution ledger."
+    },
+    "sequence_number": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing sequence index within the tenant's ledger chain."
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 1,
+      "description": "Ledger rotation epoch or sealing period identifier."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "sealed", "archived", "reconciled", "compromised"],
+      "description": "Lifecycle state of the ledger block (active = receiving receipts; sealed = immutable hash closed)."
+    },
+    "caller_identity": {
+      "allOf": [
+        { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor" },
+        {
+          "type": "object",
+          "required": ["tenant_id"],
+          "properties": {
+            "tenant_id": { "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId" }
+          }
+        }
+      ],
+      "description": "Authenticated service or agent identity operating the ledger segment."
+    },
+    "receipts": {
+      "type": "array",
+      "description": "Ordered array of tool execution receipts included in this ledger block.",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receipt_id",
+          "action_id",
+          "capability_name",
+          "status",
+          "receipt_digest",
+          "recorded_at"
+        ],
+        "properties": {
+          "receipt_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique identifier of the execution receipt."
+          },
+          "action_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Correlation action ID assigned by the orchestrator or fabric."
+          },
+          "capability_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Canonical capability invoked (e.g. 'cybrik.siem.search_events.v1')."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "partial",
+              "denied",
+              "failed",
+              "timed_out",
+              "cancelled",
+              "rolled_back"
+            ],
+            "description": "Execution outcome."
+          },
+          "risk_class": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+            "description": "Assigned risk tier (R0 read-metadata to R3 side-effect)."
+          },
+          "delegation_ref": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+            "description": "Digest of the delegation chain granting authority for this execution."
+          },
+          "receipt_digest": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+            "description": "Cryptographic digest of the individual execution receipt."
+          },
+          "signature_ref": {
+            "type": "string",
+            "description": "Reference key to control-plane signature over the individual receipt."
+          },
+          "recorded_at": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+          },
+          "side_effect_performed": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "description": "Cryptographic hash chain linkage and Merkle tree root for tamper evidence.",
+      "additionalProperties": false,
+      "required": [
+        "previous_ledger_digest",
+        "merkle_root",
+        "receipts_aggregate_hash"
+      ],
+      "properties": {
+        "previous_ledger_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of sequence_number - 1 ledger block (or sha256:000... for genesis block)."
+        },
+        "merkle_root": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "Binary Merkle tree root calculated over all receipt_digest items in order."
+        },
+        "receipts_aggregate_hash": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "Cumulative rolling SHA-256 digest over receipts array."
+        },
+        "hash_algorithm": {
+          "type": "string",
+          "enum": ["sha256", "sha384", "sha512", "blake3"],
+          "default": "sha256"
+        }
+      }
+    },
+    "signatures": {
+      "type": "array",
+      "description": "Control-plane and auditor cryptographic signatures sealing this ledger block.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_id",
+          "key_id",
+          "algorithm",
+          "signature_value",
+          "signed_at"
+        ],
+        "properties": {
+          "authority_id": {
+            "type": "string",
+            "description": "Signing authority identifier (e.g. 'spiffe://cybrik.internal/tool-fabric/control-plane').",
+            "minLength": 1
+          },
+          "key_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": ["Ed25519", "ECDSA-P256-SHA256", "RSA-PSS-SHA256"]
+          },
+          "signature_value": {
+            "type": "string",
+            "description": "Base64-encoded cryptographic signature.",
+            "minLength": 1
+          },
+          "certificate_digest": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest"
+          },
+          "signed_at": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+          }
+        }
+      }
+    },
+    "started_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "Timestamp of the earliest receipt recorded in this block."
+    },
+    "closed_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "Timestamp when the ledger block was sealed and signed."
+    },
+    "receipt_count": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of execution receipts contained in this block."
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest of the complete canonical ledger block (excluding digest itself)."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional administrative audit tags and retention metadata.",
+      "default": {}
+    }
+  }
+}

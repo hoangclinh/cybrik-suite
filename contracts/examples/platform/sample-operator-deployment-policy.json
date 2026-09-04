@@ -4,7 +4,7 @@
   "operator_trust_root": {
     "key_id": "op-key-primary-2026",
     "algorithm": "Ed25519",
-    "public_key_hex": "6db43691ca5aedb81ff8fe169c2b3a463a3d8c62884462ab47c2d7df9f9fdcf8",
+    "public_key_hex": "eb3be332efff6927210d896fe031e65d4a559749d04195ce58aacb68960ebc6c",
     "issuer": "urn:cybrik:operator:trust-root:datacenter-01"
   },
   "envelope_intersection": {
@@ -28,5 +28,5 @@
     "s3-compliant-object-lock",
     "posix-filesystem"
   ],
-  "signature": "502b2f48919a7bd7169c73379d41190427e82e939e0654a02b950a846b0090ecea32259bc510235706ebc64004d0cd92e61c4bd3da67399f754be7df1ef39104"
+  "signature": "e6bf63b2eab3177e50d6d2491460f733e22f4a894e7587caba38bdfa47e84ebe717fa2796cef6bc4293ac2e92c4ee635f3a4b0faee6366b10b8883c6ec703f0c"
 }

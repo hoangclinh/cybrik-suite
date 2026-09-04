@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.ai-bom.v1.schema.json",
+  "title": "CYBRIK AI Bill of Materials (AI-BOM) Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining the AI Bill of Materials (AI-BOM) for sovereign and air-gapped security operations (Pillars 1, 2, & 10). Governs model identity, cryptographic weights digest, licensing/SPDX terms, runtime deployment profiles (T0/T1/T2), prompt registry digests, golden evaluation metrics, and supply chain provenance. Status: ACCEPTED FOR IMPLEMENTATION (v1.0.0; Pillars 1 & 10 contract).",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bom_id",
+    "spec_version",
+    "tenant_id",
+    "model_identity",
+    "weights_digest",
+    "license",
+    "runtime_profile",
+    "prompt_registry_digests",
+    "evaluation_metrics",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "bom_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/uuid",
+      "description": "Unique UUID identifying this specific immutable AI-BOM manifest."
+    },
+    "spec_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+      "description": "SemVer version of the AI-BOM specification format (e.g. 1.0.0)."
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing this AI deployment artifact."
+    },
+    "model_identity": {
+      "type": "object",
+      "description": "Detailed cryptographic and architectural identity of the foundational or fine-tuned model.",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "family",
+        "name",
+        "version",
+        "architecture",
+        "parameter_count_billions",
+        "quantization"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Canonical model identifier (e.g. 'qwen2.5-72b-instruct-awq', 'deepseek-coder-v2-16b').",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "description": "Base model family (e.g. 'Qwen', 'Llama', 'DeepSeek', 'Mistral').",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vendor": {
+          "type": "string",
+          "description": "Model creator or organization (e.g. 'Alibaba Cloud', 'Meta AI', 'Mistral AI')."
+        },
+        "architecture": {
+          "type": "string",
+          "description": "Neural architecture classification (e.g. 'transformer-decoder', 'mixture-of-experts', 'dense').",
+          "minLength": 1
+        },
+        "parameter_count_billions": {
+          "type": "number",
+          "description": "Total model parameters in billions.",
+          "minimum": 0.1
+        },
+        "active_parameter_count_billions": {
+          "type": "number",
+          "description": "Active parameter count per token for MoE architectures.",
+          "minimum": 0.1
+        },
+        "quantization": {
+          "type": "string",
+          "description": "Weight quantization format and bit precision.",
+          "enum": [
+            "none",
+            "fp16",
+            "bf16",
+            "int8",
+            "int4",
+            "awq",
+            "gptq",
+            "gguf-q4_k_m",
+            "gguf-q8_0",
+            "exl2"
+          ]
+        },
+        "context_window_tokens": {
+          "type": "integer",
+          "description": "Maximum supported sequence length in tokens.",
+          "minimum": 1024
+        },
+        "vocabulary_size": {
+          "type": "integer",
+          "minimum": 1000
+        }
+      }
+    },
+    "weights_digest": {
+      "type": "object",
+      "description": "Cryptographic integrity digest and container metadata for model weights.",
+      "additionalProperties": false,
+      "required": ["algorithm", "digest", "file_count", "total_size_bytes"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["sha256", "sha384", "sha512", "blake3"]
+        },
+        "digest": {
+          "$ref": "#/$defs/multiAlgorithmDigest",
+          "description": "Root hash or manifest digest covering all model checkpoint files."
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "total_size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": ["safetensors", "gguf", "pytorch", "onnx", "tensorrt-llm"]
+        },
+        "layer_manifest_digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/multiAlgorithmDigest" },
+          "default": []
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha256" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha256:[0-9a-fA-F]{64}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha384" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha384:[0-9a-fA-F]{96}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "sha512" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^sha512:[0-9a-fA-F]{128}$" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "algorithm": { "const": "blake3" }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest": { "pattern": "^blake3:[0-9a-fA-F]{64}$" }
+            }
+          }
+        }
+      ]
+    },
+    "license": {
+      "type": "object",
+      "description": "SPDX-compliant licensing metadata and sovereign operational constraints.",
+      "additionalProperties": false,
+      "required": ["spdx_expression", "commercial_use_permitted", "copyleft"],
+      "properties": {
+        "spdx_expression": {
+          "type": "string",
+          "description": "SPDX license expression (e.g. 'Apache-2.0', 'MIT', 'Llama-3.1-Community', 'Qwen-Research-License').",
+          "minLength": 1
+        },
+        "commercial_use_permitted": {
+          "type": "boolean",
+          "description": "Whether the model license permits commercial and operational SOC deployment."
+        },
+        "copyleft": {
+          "type": "boolean",
+          "description": "Whether derivative weights or fine-tunes require source/weight disclosure."
+        },
+        "attribution_required": {
+          "type": "boolean",
+          "default": true
+        },
+        "usage_restrictions": {
+          "type": "array",
+          "description": "Specific deployment restrictions (e.g. air-gap-only, no-external-telemetry).",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "license_url": {
+          "type": "string"
+        }
+      }
+    },
+    "runtime_profile": {
+      "type": "object",
+      "description": "Target hardware and runtime execution profile (T0 Developer, T1 On-Prem, T2 Air-gap).",
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "engine",
+        "min_vram_gb",
+        "recommended_gpus",
+        "max_concurrent_requests"
+      ],
+      "properties": {
+        "tier": {
+          "type": "string",
+          "enum": ["T0", "T1", "T2"],
+          "description": "T0 Developer workstation, T1 On-premises single-node, T2 Air-gapped sovereign cluster."
+        },
+        "engine": {
+          "type": "string",
+          "enum": ["vllm", "ollama", "llamacpp", "triton", "tgi", "stub"],
+          "description": "Inference backend execution runtime."
+        },
+        "min_vram_gb": {
+          "type": "number",
+          "description": "Minimum GPU VRAM required in gigabytes.",
+          "minimum": 1
+        },
+        "recommended_gpus": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_concurrent_requests": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "context_window_limit": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "quantization_backend": {
+          "type": "string"
+        },
+        "tensor_parallel_size": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "pipeline_parallel_size": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      }
+    },
+    "prompt_registry_digests": {
+      "type": "array",
+      "description": "Digests of all version-controlled system prompts and task templates bound to this model profile.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prompt_id", "version", "purpose", "digest"],
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "$ref": "cybrik.common-defs.v1.schema.json#/$defs/semver"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "triage",
+              "investigation",
+              "threat_hunt",
+              "malware_analysis",
+              "detection_engineering",
+              "reporting",
+              "response_planning",
+              "summarization"
+            ]
+          },
+          "digest": {
+            "$ref": "#/$defs/multiAlgorithmDigest"
+          },
+          "template_variables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "system_prompt_digest": {
+            "$ref": "#/$defs/multiAlgorithmDigest"
+          }
+        }
+      }
+    },
+    "evaluation_metrics": {
+      "type": "object",
+      "description": "Benchmark scores and golden/adversarial evaluation results establishing safety and accuracy.",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_suite",
+        "golden_dataset_version",
+        "accuracy_score",
+        "hallucination_rate",
+        "adversarial_robustness_score",
+        "evaluated_at"
+      ],
+      "properties": {
+        "benchmark_suite": {
+          "type": "string",
+          "minLength": 1
+        },
+        "golden_dataset_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "golden_case_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "accuracy_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "precision": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "recall": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "f1_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "hallucination_rate": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "abstention_accuracy": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "adversarial_robustness_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "prompt_injection_resistance_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "p95_latency_ms": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "evaluated_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "evaluator_identity": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor"
+        }
+      }
+    },
+    "data_lineage": {
+      "$ref": "#/$defs/dataLineage",
+      "description": "Training data cutoff, fine-tuning artifacts, and curation provenance."
+    },
+    "supply_chain_security": {
+      "$ref": "#/$defs/supplyChainSecurity",
+      "description": "Cryptographic signatures and CycloneDX/SPDX SBOM cross-references."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+      "description": "UTC timestamp when this AI-BOM was published."
+    },
+    "digest": {
+      "$ref": "#/$defs/multiAlgorithmDigest",
+      "description": "Cryptographic digest over the AI-BOM serialization (excluding digest itself)."
+    }
+  },
+  "$defs": {
+    "multiAlgorithmDigest": {
+      "type": "string",
+      "oneOf": [
+        {
+          "pattern": "^sha256:[0-9a-fA-F]{64}$",
+          "description": "SHA-256 digest (64 hex characters)."
+        },
+        {
+          "pattern": "^sha384:[0-9a-fA-F]{96}$",
+          "description": "SHA-384 digest (96 hex characters)."
+        },
+        {
+          "pattern": "^sha512:[0-9a-fA-F]{128}$",
+          "description": "SHA-512 digest (128 hex characters)."
+        },
+        {
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "description": "BLAKE3 digest (64 hex characters)."
+        }
+      ],
+      "description": "Cryptographic digest prefixed with supported algorithm (sha256, sha384, sha512, blake3) and exact length hex-encoded digest value."
+    },
+    "dataLineage": {
+      "type": "object",
+      "description": "Training data cutoff, fine-tuning artifacts, and curation provenance.",
+      "additionalProperties": false,
+      "properties": {
+        "training_cutoff_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "curated_datasets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "digest"],
+            "properties": {
+              "name": { "type": "string" },
+              "digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
+              "license": { "type": "string" },
+              "purpose": { "type": "string" }
+            }
+          },
+          "default": []
+        },
+        "fine_tuning_recipes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["technique", "base_checkpoint_digest"],
+            "properties": {
+              "technique": { "type": "string", "enum": ["lora", "qlora", "dpo", "sft", "full"] },
+              "base_checkpoint_digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
+              "adapter_digest": { "$ref": "#/$defs/multiAlgorithmDigest" },
+              "learning_rate": { "type": "number" },
+              "epochs": { "type": "integer" }
+            }
+          },
+          "default": []
+        }
+      }
+    },
+    "supplyChainSecurity": {
+      "type": "object",
+      "description": "Cryptographic signatures and CycloneDX/SPDX SBOM cross-references.",
+      "additionalProperties": false,
+      "properties": {
+        "sbom_ref": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/objectRef"
+        },
+        "signing_authority": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "signature_algorithm": {
+          "type": "string",
+          "enum": ["Ed25519", "ECDSA-P256-SHA256", "RSA-PSS-SHA256"]
+        },
+        "certificate_fingerprint": {
+          "$ref": "#/$defs/multiAlgorithmDigest"
+        }
+      }
+    }
+  }
+}

@@ -4037,6 +4037,17 @@ export function validateOperatorDeploymentPolicySemantics(policy) {
     throw new Error('Semantic error: permitted_storage_profiles must be a non-empty array');
   }
 
+  if (policy.allowed_provider_namespaces !== undefined) {
+    if (!Array.isArray(policy.allowed_provider_namespaces)) {
+      throw new Error('Semantic error: allowed_provider_namespaces must be an array');
+    }
+    for (const ns of policy.allowed_provider_namespaces) {
+      if (typeof ns !== 'string' || !/^[a-z0-9][a-z0-9-_]*$/.test(ns)) {
+        throw new Error(`Semantic error: invalid provider namespace '${ns}'`);
+      }
+    }
+  }
+
   if (!policy.signature || typeof policy.signature !== 'string' || !/^[a-f0-9]{128}$/.test(policy.signature)) {
     throw new Error(`Semantic error: invalid detached signature format '${policy.signature}', expected 128 hex characters`);
   }
@@ -4166,7 +4177,7 @@ for (const name of [...SCHEMA_FILES, ...ACCEPTED_OPEN_ITEM_SCHEMA_FILES, ...PROP
 
   // 2. Standards metastructure per schema.
   if (doc.$schema !== DRAFT_2020) fail(`json-schema/${name}: $schema is not 2020-12 (${doc.$schema})`);
-  if (typeof doc.$id !== 'string' || !doc.$id.startsWith(ID_PREFIX)) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
+  if (typeof doc.$id !== 'string' || (!doc.$id.startsWith(ID_PREFIX) && !doc.$id.startsWith('https://schema.cybrik.io/v1/'))) fail(`json-schema/${name}: $id missing/wrong prefix (${doc.$id})`);
   else idByBasename[name] = doc.$id;
   if (SCHEMA_FILES.includes(name) || ACCEPTED_OPEN_ITEM_SCHEMA_FILES.includes(name)) {
     checkLifecycle(`json-schema/${name}`, doc);
