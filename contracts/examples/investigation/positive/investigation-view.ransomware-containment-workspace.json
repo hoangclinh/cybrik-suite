@@ -1,0 +1,133 @@
+{
+  "view_id": "view_ransomware-containment-ws-002",
+  "investigation_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+  "tenant_id": "tenant-cybrik-secops-primary",
+  "title": "BlackCat/ALPHV Ransomware Pre-Encryption Containment Workspace",
+  "status": "RESOLVED",
+  "created_by": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/soc/agents/orchestrator-alpha",
+    "tenant_id": "tenant-cybrik-secops-primary"
+  },
+  "timeline_events": [
+    {
+      "event_id": "tl-evt-101",
+      "timestamp": "2026-09-05T01:00:10Z",
+      "event_type": "PRIVILEGE_ESCALATION",
+      "title": "PsExec Service Creation on Domain Controller",
+      "description": "PSEXESVC.exe created on DC01 originating from compromised backup server SRV-BCK01.",
+      "severity": "CRITICAL",
+      "source": "Windows-Event-Log-Security",
+      "entity_ids": ["srv-bck01", "dc01", "psexesvc"],
+      "evidence_citations": ["cit-101"]
+    },
+    {
+      "event_id": "tl-evt-102",
+      "timestamp": "2026-09-05T01:02:40Z",
+      "event_type": "CONTAINMENT_TRIGGERED",
+      "title": "Automated Four-Eyes Network Microsegmentation Applied",
+      "description": "DC01 and SRV-BCK01 segregated into containment VLAN, halting encryption rollout.",
+      "severity": "HIGH",
+      "source": "Cybrik-Containment-Fabric",
+      "entity_ids": ["srv-bck01", "dc01"],
+      "evidence_citations": ["cit-102"]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "node_id": "srv-bck01",
+        "node_type": "ENTITY_HOST",
+        "label": "SRV-BCK01 (Backup Server)",
+        "risk_score": 98.0,
+        "properties": {
+          "ip": "10.0.50.12",
+          "role": "Backup Infrastructure"
+        }
+      },
+      {
+        "node_id": "dc01",
+        "node_type": "ENTITY_HOST",
+        "label": "DC01 (Domain Controller)",
+        "risk_score": 100.0,
+        "properties": {
+          "ip": "10.0.1.10",
+          "role": "Active Directory Primary DC"
+        }
+      },
+      {
+        "node_id": "psexesvc",
+        "node_type": "ENTITY_PROCESS",
+        "label": "PSEXESVC.exe (Lateral Exec)",
+        "risk_score": 90.0,
+        "properties": {
+          "service_name": "PSEXESVC",
+          "binary_path": "C:\\Windows\\PSEXESVC.exe"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-101",
+        "source_id": "srv-bck01",
+        "target_id": "dc01",
+        "relation_type": "COMMUNICATED_WITH",
+        "weight": 1.0
+      },
+      {
+        "edge_id": "edge-102",
+        "source_id": "dc01",
+        "target_id": "psexesvc",
+        "relation_type": "SPAWNED",
+        "weight": 1.0
+      }
+    ]
+  },
+  "citations": [
+    {
+      "citation_id": "cit-101",
+      "source_type": "IDENTITY_AUDIT",
+      "source_uri": "cybrik://ad/audit/evt-dc01-security-7045",
+      "content_digest": "sha256:44556677889900112233aabbccddeeff44556677889900112233aabbccddeeff",
+      "raw_excerpt": "EventID 7045: A new service (PSEXESVC) was installed in the system by NT AUTHORITY\\SYSTEM.",
+      "verified": true
+    },
+    {
+      "citation_id": "cit-102",
+      "source_type": "EDR_TELEMETRY",
+      "source_uri": "cybrik://fabric/containment/receipt-seg-8819",
+      "content_digest": "sha256:55667788990011223344aabbccddeeff55667788990011223344aabbccddeeff",
+      "raw_excerpt": "Containment fabric successfully applied zero-trust host isolation on SRV-BCK01 and DC01 within 45 seconds of alert trigger.",
+      "verified": true
+    }
+  ],
+  "report_export": {
+    "export_id": "exp_ransomware-containment-002",
+    "export_format": "PDF",
+    "executive_summary": "High-velocity ransomware pre-encryption attack detected and contained before volume shadow copy destruction or data encryption commenced.",
+    "findings": [
+      "Attacker leveraged compromised credentials on backup server SRV-BCK01 to deploy PsExec against DC01.",
+      "Cybrik autonomous agent detected anomalous RPC/SMB service creation and initiated automated containment.",
+      "Zero files encrypted; all business operations restored after domain-wide credential cycle."
+    ],
+    "recommended_actions": [
+      "Retain hosts SRV-BCK01 and DC01 in containment for forensic memory extraction.",
+      "Deploy golden AD snapshot restore for Kerberos Krbtgt password rotation.",
+      "Audit SMBv1/v2 signing requirements across domain members."
+    ],
+    "analyst_notes": "Containment SLA satisfied in under 60 seconds. Incident classified as thwarted ransomware attempt.",
+    "exported_at": "2026-09-05T01:30:00Z",
+    "exported_by": {
+      "type": "agent",
+      "id": "spiffe://cybrik.io/soc/agents/orchestrator-alpha",
+      "tenant_id": "tenant-cybrik-secops-primary"
+    }
+  },
+  "data_marking": {
+    "classification": "restricted",
+    "tlp": "TLP:RED"
+  },
+  "created_at": "2026-09-05T01:05:00Z",
+  "updated_at": "2026-09-05T01:30:00Z",
+  "digest": "sha256:01a2b3c4d5e60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}

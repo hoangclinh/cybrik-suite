@@ -1,0 +1,62 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for SIEM & Log Query contract fixtures (Pillars 2, 3, 5, 7, 10).",
+  "fixtures": [
+    {
+      "file": "positive/siem-query.opensearch-auth-failure.json",
+      "kind": "positive",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "description": "OpenSearch failed authentication query with normalized SSH log events."
+    },
+    {
+      "file": "positive/siem-query.wazuh-rootcheck.json",
+      "kind": "positive",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "description": "Wazuh WQL rootcheck alert query with critical rootkit event payload."
+    },
+    {
+      "file": "positive/siem-query.elastic-network-beacon.json",
+      "kind": "positive",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "description": "Elasticsearch network flow query targeting C2 beaconing IP."
+    },
+    {
+      "file": "negative-schema/siem-invalid-target-system.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "target_system SPLUNK_ENTERPRISE_CLOUD is not a valid enum member."
+    },
+    {
+      "file": "negative-schema/siem-missing-tenant-id.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "Missing mandatory tenant_id violating multi-tenant isolation."
+    },
+    {
+      "file": "negative-schema/siem-invalid-log-severity.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "Log event severity is not a valid enum member."
+    },
+    {
+      "file": "negative-schema/siem-missing-log-fields.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "Normalized log event missing required fields (source_ip, raw_message, etc.)."
+    },
+    {
+      "file": "negative-semantic/siem-inverted-time-bounds.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "INVERTED TIME RANGE: start_time (09-05T12:00:00Z) is after end_time (09-05T08:00:00Z)."
+    },
+    {
+      "file": "negative-semantic/siem-cross-tenant-event.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.siem-query.v1.schema.json",
+      "invariant": "CROSS-TENANT VIOLATION: event tenant_id (tenant-foreign-competitor-corp) does not match query tenant_id (tenant-cybrik-secops-primary)."
+    }
+  ]
+}

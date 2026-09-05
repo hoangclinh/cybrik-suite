@@ -1,0 +1,81 @@
+{
+  "query_id": "siem_opensearch-auth-failed-query-001",
+  "tenant_id": "tenant-cybrik-secops-primary",
+  "actor": {
+    "type": "agent",
+    "id": "spiffe://cybrik.io/soc/agents/triage-hunter-01",
+    "tenant_id": "tenant-cybrik-secops-primary"
+  },
+  "target_system": "OPENSEARCH",
+  "query_expression": {
+    "query_string": "event.action: \"logon_failure\" AND source.ip: \"192.168.10.45\"",
+    "dsl_type": "OPENSEARCH_DSL",
+    "indices_or_sources": ["security-audit-events-2026.04"],
+    "fields": ["timestamp", "source.ip", "destination.ip", "user.name", "event.action"]
+  },
+  "time_range": {
+    "start_time": "2026-09-05T01:00:00Z",
+    "end_time": "2026-09-05T02:00:00Z",
+    "timezone": "UTC"
+  },
+  "limits": {
+    "limit": 50,
+    "offset": 0,
+    "timeout_ms": 15000
+  },
+  "status": "COMPLETED",
+  "events": [
+    {
+      "event_id": "evt-os-auth-9812401",
+      "timestamp": "2026-09-05T01:14:22Z",
+      "source_ip": "192.168.10.45",
+      "destination_ip": "10.0.0.15",
+      "event_type": "authentication_failed",
+      "raw_message": "Sep 05 01:14:22 auth-srv01 sshd[4102]: Failed password for invalid user admin from 192.168.10.45 port 54322 ssh2",
+      "severity": "HIGH",
+      "tenant_id": "tenant-cybrik-secops-primary",
+      "source_port": 54322,
+      "destination_port": 22,
+      "protocol": "SSH",
+      "host": {
+        "hostname": "auth-srv01.corp.local",
+        "ip": "10.0.0.15",
+        "os": "Linux"
+      },
+      "user": {
+        "name": "admin",
+        "domain": "corp.local"
+      }
+    },
+    {
+      "event_id": "evt-os-auth-9812402",
+      "timestamp": "2026-09-05T01:14:25Z",
+      "source_ip": "192.168.10.45",
+      "destination_ip": "10.0.0.15",
+      "event_type": "authentication_failed",
+      "raw_message": "Sep 05 01:14:25 auth-srv01 sshd[4105]: Failed password for invalid user root from 192.168.10.45 port 54326 ssh2",
+      "severity": "HIGH",
+      "tenant_id": "tenant-cybrik-secops-primary",
+      "source_port": 54326,
+      "destination_port": 22,
+      "protocol": "SSH",
+      "host": {
+        "hostname": "auth-srv01.corp.local",
+        "ip": "10.0.0.15",
+        "os": "Linux"
+      },
+      "user": {
+        "name": "root",
+        "domain": "corp.local"
+      }
+    }
+  ],
+  "total_hits": 2,
+  "execution_time_ms": 42.6,
+  "data_marking": {
+    "classification": "internal",
+    "tlp": "TLP:GREEN"
+  },
+  "created_at": "2026-09-05T02:00:10Z",
+  "digest": "sha256:c1d2e3f4a5b60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}

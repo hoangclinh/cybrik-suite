@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.siem-query.v1.schema.json",
+  "title": "CYBRIK SIEM & Log Query Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining standardized SIEM and Log Query requests, target systems (OPENSEARCH, WAZUH, ELASTIC, SYSLOG_CEF), search expressions/DSL, tenant ID, time bounds (start_time, end_time), result limits, and normalized log event records (Pillars 2, 3, 5, 7, 10). Governs federated telemetry search, log retrieval, threat hunting pivots, and normalized security event extraction across heterogeneous SIEM backends.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "query_id",
+    "tenant_id",
+    "actor",
+    "target_system",
+    "query_expression",
+    "time_range",
+    "limits",
+    "status",
+    "events",
+    "total_hits",
+    "execution_time_ms",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "query_id": {
+      "type": "string",
+      "description": "Canonical SIEM query identifier.",
+      "pattern": "^(siem|query)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing SIEM query isolation and data scope."
+    },
+    "actor": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "Actor or agent requesting log query execution."
+    },
+    "target_system": {
+      "$ref": "#/$defs/targetSystem"
+    },
+    "query_expression": {
+      "$ref": "#/$defs/queryExpression"
+    },
+    "time_range": {
+      "$ref": "#/$defs/timeRange"
+    },
+    "limits": {
+      "$ref": "#/$defs/queryLimits"
+    },
+    "status": {
+      "type": "string",
+      "description": "Execution status of the SIEM query.",
+      "enum": ["SUBMITTED", "EXECUTING", "COMPLETED", "PARTIAL", "FAILED", "TIMED_OUT"]
+    },
+    "events": {
+      "type": "array",
+      "description": "List of normalized log event records matching the query expression.",
+      "items": {
+        "$ref": "#/$defs/normalizedLogEvent"
+      }
+    },
+    "total_hits": {
+      "type": "integer",
+      "description": "Total count of matching log records in the target SIEM.",
+      "minimum": 0
+    },
+    "execution_time_ms": {
+      "type": "number",
+      "description": "Execution time in milliseconds taken by the backend SIEM.",
+      "minimum": 0.0
+    },
+    "error_details": {
+      "type": "object",
+      "description": "Error details if query execution failed or timed out.",
+      "additionalProperties": false,
+      "properties": {
+        "error_code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "backend_response": { "type": "string" }
+      }
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative data marking and TLP classification."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest over the canonical JSON representation of the SIEM query and results."
+    }
+  },
+  "$defs": {
+    "targetSystem": {
+      "type": "string",
+      "description": "Supported target SIEM and log storage engine.",
+      "enum": ["OPENSEARCH", "WAZUH", "ELASTIC", "SYSLOG_CEF"]
+    },
+    "queryExpression": {
+      "type": "object",
+      "description": "Search expression and DSL payload targeting the SIEM engine.",
+      "additionalProperties": false,
+      "required": ["query_string", "dsl_type"],
+      "properties": {
+        "query_string": {
+          "type": "string",
+          "description": "Raw or structured query search expression.",
+          "minLength": 1
+        },
+        "dsl_type": {
+          "type": "string",
+          "description": "Query syntax or DSL dialect.",
+          "enum": [
+            "LUCENE",
+            "KQL",
+            "OPENSEARCH_DSL",
+            "ELASTIC_DSL",
+            "WAZUH_WQL",
+            "CEF_FILTER",
+            "SQL"
+          ]
+        },
+        "filter_dsl": {
+          "type": "object",
+          "description": "Optional structured AST or JSON query filter tree.",
+          "additionalProperties": true
+        },
+        "indices_or_sources": {
+          "type": "array",
+          "description": "Target indices, streams, or log sources.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "fields": {
+          "type": "array",
+          "description": "Field projection list to return in normalized events.",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "timeRange": {
+      "type": "object",
+      "description": "Temporal boundary constraints for log query execution.",
+      "additionalProperties": false,
+      "required": ["start_time", "end_time"],
+      "properties": {
+        "start_time": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+          "description": "Lower time bound (inclusive) in UTC RFC 3339 format."
+        },
+        "end_time": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+          "description": "Upper time bound (inclusive) in UTC RFC 3339 format."
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Timezone identifier (default UTC).",
+          "default": "UTC"
+        }
+      }
+    },
+    "queryLimits": {
+      "type": "object",
+      "description": "Resource and result size caps for log query execution.",
+      "additionalProperties": false,
+      "required": ["limit", "offset"],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of event records to return.",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 1000
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Pagination offset index.",
+          "minimum": 0,
+          "default": 0
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "description": "Query execution timeout ceiling in milliseconds.",
+          "minimum": 100,
+          "maximum": 120000,
+          "default": 30000
+        },
+        "scroll_id": {
+          "type": "string",
+          "description": "Cursor or scroll identifier for subsequent result batches."
+        }
+      }
+    },
+    "normalizedLogEvent": {
+      "type": "object",
+      "description": "Standardized normalized security log event record.",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "timestamp",
+        "source_ip",
+        "destination_ip",
+        "event_type",
+        "raw_message",
+        "severity",
+        "tenant_id"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "description": "Unique identifier of the log event.",
+          "minLength": 1
+        },
+        "timestamp": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc",
+          "description": "Event occurrence timestamp in UTC RFC 3339 format."
+        },
+        "source_ip": {
+          "type": "string",
+          "description": "Source IPv4 or IPv6 address.",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$"
+        },
+        "destination_ip": {
+          "type": "string",
+          "description": "Destination IPv4 or IPv6 address.",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$"
+        },
+        "event_type": {
+          "type": "string",
+          "description": "Normalized category or event taxonomy token (e.g. authentication_failed, process_created).",
+          "minLength": 1
+        },
+        "raw_message": {
+          "type": "string",
+          "description": "Raw unparsed log message line or syslog payload.",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "description": "Normalized event severity level.",
+          "enum": ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "tenant_id": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+          "description": "Tenant ownership identifier for the log event."
+        },
+        "source_port": {
+          "type": "integer",
+          "description": "Source transport port number.",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "destination_port": {
+          "type": "integer",
+          "description": "Destination transport port number.",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "protocol": {
+          "type": "string",
+          "description": "Transport or application protocol (e.g. TCP, UDP, TLS, HTTP, DNS)."
+        },
+        "host": {
+          "type": "object",
+          "description": "Host entity metadata associated with the event.",
+          "additionalProperties": false,
+          "properties": {
+            "hostname": { "type": "string" },
+            "ip": { "type": "string" },
+            "os": { "type": "string" },
+            "agent_id": { "type": "string" }
+          }
+        },
+        "user": {
+          "type": "object",
+          "description": "User entity metadata associated with the event.",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "domain": { "type": "string" },
+            "id": { "type": "string" },
+            "email": { "type": "string" }
+          }
+        },
+        "enrichment": {
+          "type": "object",
+          "description": "GeoIP, threat intelligence, or asset lookup enrichments.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

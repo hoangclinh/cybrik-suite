@@ -1,0 +1,483 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.cybrik.example/json-schema/cybrik.eval-benchmark.v1.schema.json",
+  "title": "CYBRIK AI Evaluation & Benchmark Contract Schema v1",
+  "description": "JSON Schema Draft 2020-12 defining Golden & Adversarial Evaluation suites, evaluation categories (TRIAGE_ACCURACY, PROMPT_INJECTION_RESILIENCE, CONTRADICTION_DETECTION, TLP_LEAKAGE_RESISTANCE, HALLUCINATION_BOUNDS), scenario inputs, ground truth expectations, benchmark metrics (precision, recall, f1_score, refusal_rate, hallucination_index, latency_p95_ms), and signed evaluation summary reports (Pillars 1, 4, 5, 8, 10). Governs autonomous SOC model qualification, prompt injection defense verification, contradiction handling, and safe autonomous operation bounds.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_id",
+    "name",
+    "version",
+    "suite_type",
+    "tenant_id",
+    "evaluator",
+    "target_model",
+    "categories",
+    "scenarios",
+    "benchmark_metrics",
+    "report",
+    "data_marking",
+    "created_at",
+    "digest"
+  ],
+  "properties": {
+    "suite_id": {
+      "type": "string",
+      "description": "Canonical evaluation suite identifier.",
+      "pattern": "^(eval|bench)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the evaluation suite.",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "version": {
+      "type": "string",
+      "description": "SemVer version of the evaluation suite definition.",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-.]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Operational description of the evaluation suite and objectives."
+    },
+    "suite_type": {
+      "type": "string",
+      "description": "Type of evaluation suite execution.",
+      "enum": ["GOLDEN", "ADVERSARIAL", "REGRESSION", "HYBRID"]
+    },
+    "tenant_id": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tenantId",
+      "description": "Authoritative tenant identifier governing evaluation execution."
+    },
+    "evaluator": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/actor",
+      "description": "Actor or test harness entity executing the evaluation."
+    },
+    "target_model": {
+      "type": "object",
+      "description": "Model, agent, or reasoning engine under evaluation.",
+      "additionalProperties": false,
+      "required": ["model_id", "provider"],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_version": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Inference hyperparameters (temperature, top_p, etc.) used during benchmark.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "categories": {
+      "type": "array",
+      "description": "Evaluation categories tested within this suite run.",
+      "items": {
+        "$ref": "#/$defs/evaluationCategory"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "scenarios": {
+      "type": "array",
+      "description": "List of evaluation scenarios with inputs and ground truth expectations.",
+      "items": {
+        "$ref": "#/$defs/evaluationScenario"
+      },
+      "minItems": 1
+    },
+    "benchmark_metrics": {
+      "$ref": "#/$defs/benchmarkMetrics",
+      "description": "Aggregated benchmark metrics across all executed scenarios."
+    },
+    "report": {
+      "$ref": "#/$defs/signedEvaluationReport",
+      "description": "Cryptographically signed evaluation summary report and qualification verdict."
+    },
+    "data_marking": {
+      "$ref": "cybrik.data-marking.v1.schema.json",
+      "description": "Authoritative data marking and TLP classification."
+    },
+    "created_at": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+    },
+    "digest": {
+      "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+      "description": "SHA-256 digest over the canonical JSON representation of the evaluation benchmark."
+    }
+  },
+  "$defs": {
+    "evaluationCategory": {
+      "type": "string",
+      "description": "Standardized evaluation category domain.",
+      "enum": [
+        "TRIAGE_ACCURACY",
+        "PROMPT_INJECTION_RESILIENCE",
+        "CONTRADICTION_DETECTION",
+        "TLP_LEAKAGE_RESISTANCE",
+        "HALLUCINATION_BOUNDS"
+      ]
+    },
+    "scenarioInput": {
+      "type": "object",
+      "description": "Input scenario parameters, prompt, and contextual telemetry.",
+      "additionalProperties": false,
+      "required": ["scenario_id", "name", "category", "prompt"],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "$ref": "#/$defs/evaluationCategory"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_payload": {
+          "type": "object",
+          "description": "Structured sensory input, alert data, or telemetry logs provided to the model.",
+          "additionalProperties": true
+        },
+        "injection_vector": {
+          "type": "string",
+          "description": "Optional adversarial injection payload or jailbreak vector."
+        },
+        "contradiction_markers": {
+          "type": "array",
+          "description": "Conflicting evidence or contradictory telemetry facts injected into the scenario context.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "tlp_constraints": {
+          "type": "object",
+          "description": "Information barrier and TLP containment constraints for leakage testing.",
+          "additionalProperties": false,
+          "properties": {
+            "max_allowed_tlp": {
+              "$ref": "cybrik.common-defs.v1.schema.json#/$defs/tlpMarking"
+            },
+            "disallow_unmarked": {
+              "type": "boolean",
+              "default": true
+            },
+            "quarantine_identifiers": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            }
+          }
+        },
+        "risk_class": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/riskClass",
+          "description": "Risk tier of the scenario input."
+        }
+      }
+    },
+    "groundTruthExpectation": {
+      "type": "object",
+      "description": "Expected ground-truth outcome, allowed/disallowed actions, and citation requirements.",
+      "additionalProperties": false,
+      "required": ["expected_verdict", "expected_actions", "disallowed_actions"],
+      "properties": {
+        "expected_verdict": {
+          "type": "string",
+          "enum": [
+            "TRUE_POSITIVE",
+            "FALSE_POSITIVE",
+            "BENIGN",
+            "MALICIOUS",
+            "REFUSAL",
+            "ESCALATE",
+            "ABSTAIN"
+          ]
+        },
+        "expected_actions": {
+          "type": "array",
+          "description": "Actions or tool invocations that MUST be recommended/taken.",
+          "items": { "type": "string" }
+        },
+        "disallowed_actions": {
+          "type": "array",
+          "description": "Actions or tool invocations that MUST NOT be recommended/taken (e.g. uncontained destructive steps).",
+          "items": { "type": "string" }
+        },
+        "ground_truth_citations": {
+          "type": "array",
+          "description": "Required grounding citations or SHA-256 evidence digests.",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "should_refuse": {
+          "type": "boolean",
+          "description": "Whether the scenario requires a security refusal (e.g. prompt injection attack).",
+          "default": false
+        },
+        "max_allowed_hallucination_index": {
+          "type": "number",
+          "description": "Maximum allowable hallucination index for passing (0.0 = zero ungrounded claims).",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.05
+        }
+      }
+    },
+    "scenarioExecutionResult": {
+      "type": "object",
+      "description": "Observed execution outcome of an evaluation scenario.",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "passed",
+        "actual_verdict",
+        "actual_actions",
+        "hallucination_score",
+        "refusal_detected",
+        "latency_ms"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether the scenario satisfied all ground-truth constraints."
+        },
+        "actual_verdict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actual_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "hallucination_score": {
+          "type": "number",
+          "description": "Computed hallucination score for the scenario (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "refusal_detected": {
+          "type": "boolean",
+          "description": "Whether model explicitly refused the prompt or hostile command."
+        },
+        "latency_ms": {
+          "type": "number",
+          "description": "Wall-clock inference latency in milliseconds.",
+          "minimum": 0.0
+        },
+        "output_text": {
+          "type": "string",
+          "description": "Raw or structured output text generated by the model."
+        },
+        "error_message": {
+          "type": "string",
+          "description": "Error details if execution encountered an unhandled failure."
+        }
+      }
+    },
+    "evaluationScenario": {
+      "type": "object",
+      "description": "Individual test scenario in the evaluation suite.",
+      "additionalProperties": false,
+      "required": ["scenario_id", "name", "category", "input", "ground_truth"],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/evaluationCategory"
+        },
+        "input": {
+          "$ref": "#/$defs/scenarioInput"
+        },
+        "ground_truth": {
+          "$ref": "#/$defs/groundTruthExpectation"
+        },
+        "execution_result": {
+          "$ref": "#/$defs/scenarioExecutionResult"
+        }
+      }
+    },
+    "benchmarkMetrics": {
+      "type": "object",
+      "description": "Comprehensive benchmark evaluation metrics across all scenario categories.",
+      "additionalProperties": false,
+      "required": [
+        "precision",
+        "recall",
+        "f1_score",
+        "refusal_rate",
+        "hallucination_index",
+        "latency_p95_ms",
+        "total_scenarios",
+        "passed_scenarios",
+        "failed_scenarios"
+      ],
+      "properties": {
+        "precision": {
+          "type": "number",
+          "description": "Precision score (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "recall": {
+          "type": "number",
+          "description": "Recall score (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "f1_score": {
+          "type": "number",
+          "description": "F1 score harmonic mean (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "refusal_rate": {
+          "type": "number",
+          "description": "Rate of appropriate security refusals on hostile/adversarial prompts (0.0 to 1.0).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "hallucination_index": {
+          "type": "number",
+          "description": "Aggregate rate of ungrounded or fabricated factual claims (0.0 = zero hallucination, 1.0 = total hallucination).",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "latency_p95_ms": {
+          "type": "number",
+          "description": "95th percentile inference latency in milliseconds.",
+          "minimum": 0.0
+        },
+        "total_scenarios": {
+          "type": "integer",
+          "description": "Total number of evaluation scenarios executed.",
+          "minimum": 1
+        },
+        "passed_scenarios": {
+          "type": "integer",
+          "description": "Number of scenarios that satisfied all assertions.",
+          "minimum": 0
+        },
+        "failed_scenarios": {
+          "type": "integer",
+          "description": "Number of scenarios that failed one or more assertions.",
+          "minimum": 0
+        },
+        "category_metrics": {
+          "type": "object",
+          "description": "Per-category metric breakdown.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["total", "passed", "pass_rate"],
+            "properties": {
+              "total": { "type": "integer", "minimum": 1 },
+              "passed": { "type": "integer", "minimum": 0 },
+              "pass_rate": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+              "precision": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+              "recall": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+              "f1_score": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+            }
+          }
+        }
+      }
+    },
+    "signedEvaluationReport": {
+      "type": "object",
+      "description": "Verifiable evaluation summary report signed by the benchmark notary.",
+      "additionalProperties": false,
+      "required": ["report_id", "summary", "verdict", "completed_at", "signature_envelope"],
+      "properties": {
+        "report_id": {
+          "type": "string",
+          "pattern": "^(rep|eval_rep)_[a-zA-Z0-9._:-]{8,64}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "verdict": {
+          "type": "string",
+          "description": "Overall qualification decision.",
+          "enum": ["PASS", "FAIL", "CONDITIONAL_PASS", "BLOCKED"]
+        },
+        "completed_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        },
+        "signature_envelope": {
+          "$ref": "#/$defs/signatureEnvelope"
+        }
+      }
+    },
+    "signatureEnvelope": {
+      "type": "object",
+      "description": "Asymmetric digital signature envelope for audit verification.",
+      "additionalProperties": false,
+      "required": [
+        "signer_id",
+        "algorithm",
+        "public_key_hex",
+        "signature_hex",
+        "signed_digest",
+        "signed_at"
+      ],
+      "properties": {
+        "signer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": ["Ed25519", "ECDSA_P256", "RSA_PSS_SHA256"]
+        },
+        "public_key_hex": {
+          "type": "string",
+          "description": "Hex-encoded public verification key.",
+          "pattern": "^[0-9a-fA-F]{64}$|^[0-9a-fA-F]{66}$|^[0-9a-fA-F]{130}$"
+        },
+        "signature_hex": {
+          "type": "string",
+          "description": "Hex-encoded digital signature over signed_digest.",
+          "pattern": "^[0-9a-fA-F]{128}$|^[0-9a-fA-F]{130,512}$"
+        },
+        "signed_digest": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/sha256Digest",
+          "description": "SHA-256 digest of the evaluation metrics and scenario results."
+        },
+        "signed_at": {
+          "$ref": "cybrik.common-defs.v1.schema.json#/$defs/timestampUtc"
+        }
+      }
+    }
+  }
+}

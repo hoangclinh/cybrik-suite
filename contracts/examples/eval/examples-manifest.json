@@ -1,0 +1,50 @@
+{
+  "status": "ACCEPTED FOR IMPLEMENTATION",
+  "not_accepted": false,
+  "contract_version": "1.0.0",
+  "description": "Conformance manifest for Evaluation & Benchmark contract fixtures (Pillars 1, 4, 5, 8, 10).",
+  "fixtures": [
+    {
+      "file": "positive/eval-benchmark.triage-injection-suite.json",
+      "kind": "positive",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "description": "Golden evaluation suite for triage accuracy and prompt injection defense with signed qualification report."
+    },
+    {
+      "file": "positive/eval-benchmark.contradiction-tlp-suite.json",
+      "kind": "positive",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "description": "Adversarial evaluation suite testing conflicting evidence reasoning and strict TLP information barriers."
+    },
+    {
+      "file": "negative-schema/eval-invalid-f1-range.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "invariant": "F1 score (1.45) exceeds allowable schema ceiling (1.0)."
+    },
+    {
+      "file": "negative-schema/eval-negative-f1-score.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "invariant": "F1 score (-0.2) is below allowable schema floor (0.0)."
+    },
+    {
+      "file": "negative-schema/eval-invalid-category.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "invariant": "Evaluation category is not a valid enum member."
+    },
+    {
+      "file": "negative-schema/eval-missing-metrics.json",
+      "kind": "negative-schema",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "invariant": "Missing mandatory benchmark_metrics property."
+    },
+    {
+      "file": "negative-semantic/eval-metric-contradiction.json",
+      "kind": "negative-semantic",
+      "schema": "cybrik.eval-benchmark.v1.schema.json",
+      "invariant": "METRIC CONTRADICTION: passed_scenarios (5) + failed_scenarios (2) != total_scenarios (10)."
+    }
+  ]
+}
