@@ -16,6 +16,9 @@ from typing import Any
 
 import httpx
 import pytest
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
+
 from cybrik_sdk import (
     CircuitBreaker,
     CircuitBreakerConfig,
@@ -26,8 +29,6 @@ from cybrik_sdk import (
     ResiliencePolicy,
     SyncCybrikClient,
 )
-from jsonschema import Draft202012Validator
-from jsonschema.exceptions import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "contracts" / "json-schema" / "cybrik.resilience-policy.v1.schema.json"
@@ -106,48 +107,58 @@ def test_resilience_policy_schema_rejects_invalid_instances() -> None:
 
     # Missing required circuit_breaker
     with pytest.raises(ValidationError, match="'circuit_breaker' is a required property"):
-        validator.validate({
-            "max_retries": 3,
-            "initial_backoff_seconds": 0.5,
-            "max_backoff_seconds": 30.0,
-        })
+        validator.validate(
+            {
+                "max_retries": 3,
+                "initial_backoff_seconds": 0.5,
+                "max_backoff_seconds": 30.0,
+            }
+        )
 
     # max_retries > 10
     with pytest.raises(ValidationError, match="11 is greater than the maximum of 10"):
-        validator.validate({
-            "max_retries": 11,
-            "initial_backoff_seconds": 0.5,
-            "max_backoff_seconds": 30.0,
-            "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-        })
+        validator.validate(
+            {
+                "max_retries": 11,
+                "initial_backoff_seconds": 0.5,
+                "max_backoff_seconds": 30.0,
+                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
+            }
+        )
 
     # initial_backoff_seconds < 0.01
     with pytest.raises(ValidationError, match="is less than the minimum of 0.01"):
-        validator.validate({
-            "max_retries": 3,
-            "initial_backoff_seconds": 0.005,
-            "max_backoff_seconds": 30.0,
-            "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-        })
+        validator.validate(
+            {
+                "max_retries": 3,
+                "initial_backoff_seconds": 0.005,
+                "max_backoff_seconds": 30.0,
+                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
+            }
+        )
 
     # failure_threshold < 1
     with pytest.raises(ValidationError, match="0 is less than the minimum of 1"):
-        validator.validate({
-            "max_retries": 3,
-            "initial_backoff_seconds": 0.5,
-            "max_backoff_seconds": 30.0,
-            "circuit_breaker": {"failure_threshold": 0, "recovery_timeout_seconds": 30.0},
-        })
+        validator.validate(
+            {
+                "max_retries": 3,
+                "initial_backoff_seconds": 0.5,
+                "max_backoff_seconds": 30.0,
+                "circuit_breaker": {"failure_threshold": 0, "recovery_timeout_seconds": 30.0},
+            }
+        )
 
     # Disallowed additional property
     with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-        validator.validate({
-            "max_retries": 3,
-            "initial_backoff_seconds": 0.5,
-            "max_backoff_seconds": 30.0,
-            "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-            "unauthorized_field": "disallowed",
-        })
+        validator.validate(
+            {
+                "max_retries": 3,
+                "initial_backoff_seconds": 0.5,
+                "max_backoff_seconds": 30.0,
+                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
+                "unauthorized_field": "disallowed",
+            }
+        )
 
 
 def test_resilience_policy_dataclass_parity() -> None:
