@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from cybrik_sdk.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+    CircuitState,
+    ResiliencePolicy,
+)
 from cybrik_sdk.client import (
     AiClient,
+    AsyncCybrikClient,
     CybrikClient,
     FabricClient,
     SocClient,
@@ -18,6 +26,7 @@ from cybrik_sdk.exceptions import (
     CybrikError,
     CybrikNotFoundError,
     CybrikRateLimitError,
+    CybrikSDKError,
     CybrikValidationError,
 )
 from cybrik_sdk.models import (
@@ -48,9 +57,14 @@ __version__ = "0.1.0"
 
 __all__ = [
     "AiClient",
+    "AsyncCybrikClient",
     "BenchmarkReport",
     "BuildResult",
     "Case",
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitBreakerOpenError",
+    "CircuitState",
     "ContainmentReceipt",
     "ContainmentRequest",
     "ContentItemEntry",
@@ -66,6 +80,7 @@ __all__ = [
     "CybrikError",
     "CybrikNotFoundError",
     "CybrikRateLimitError",
+    "CybrikSDKError",
     "CybrikValidationError",
     "DecompressionBombError",
     "DisallowedFileTypeError",
@@ -73,6 +88,7 @@ __all__ = [
     "FabricClient",
     "InspectionResult",
     "PathTraversalError",
+    "ResiliencePolicy",
     "SocClient",
     "SyncAiClient",
     "SyncCybrikClient",

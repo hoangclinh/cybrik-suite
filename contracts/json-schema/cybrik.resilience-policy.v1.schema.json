@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.cybrik.dev/contracts/json-schema/cybrik.resilience-policy.v1.schema.json",
+  "title": "CYBRIK Resilience Policy Contract Schema",
+  "description": "JSON Schema Draft 2020-12 defining cross-product resilience policy contracts, exponential backoff parameters, circuit breaker thresholds, and fault-injection qualification bounds.",
+  "x-cybrik-status": "ACCEPTED FOR IMPLEMENTATION",
+  "x-cybrik-not-accepted": false,
+  "x-cybrik-contract-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "max_retries",
+    "initial_backoff_seconds",
+    "max_backoff_seconds",
+    "circuit_breaker"
+  ],
+  "properties": {
+    "max_retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "default": 3,
+      "description": "Maximum number of retry attempts for transient errors."
+    },
+    "initial_backoff_seconds": {
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 60.0,
+      "default": 0.5,
+      "description": "Initial backoff duration in seconds."
+    },
+    "max_backoff_seconds": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 300.0,
+      "default": 30.0,
+      "description": "Maximum backoff duration cap in seconds."
+    },
+    "backoff_multiplier": {
+      "type": "number",
+      "minimum": 1.0,
+      "maximum": 5.0,
+      "default": 2.0,
+      "description": "Exponential multiplier applied to backoff interval."
+    },
+    "jitter": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to apply pseudo-random jitter to backoff delay."
+    },
+    "circuit_breaker": {
+      "type": "object",
+      "description": "Circuit breaker policy parameters governing state transitions and recovery probing.",
+      "additionalProperties": false,
+      "required": [
+        "failure_threshold",
+        "recovery_timeout_seconds"
+      ],
+      "properties": {
+        "failure_threshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5,
+          "description": "Number of consecutive failures required to trip circuit breaker from CLOSED to OPEN."
+        },
+        "recovery_timeout_seconds": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 600.0,
+          "default": 30.0,
+          "description": "Cooldown period in seconds before probing downstream health in HALF_OPEN state."
+        },
+        "half_open_max_calls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 3,
+          "description": "Maximum trial calls permitted during HALF_OPEN probe state."
+        },
+        "consecutive_successes_to_close": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 2,
+          "description": "Number of consecutive successful trial calls needed to reset circuit breaker to CLOSED."
+        }
+      }
+    },
+    "retryable_status_codes": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "default": [429, 502, 503, 504],
+      "description": "HTTP status codes considered transient and eligible for retry."
+    },
+    "retryable_exceptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": ["TimeoutError", "ConnectionError", "ServiceUnavailableError"],
+      "description": "Exception type names considered transient and eligible for retry."
+    }
+  },
+  "$defs": {
+    "ResiliencePolicy": {
+      "title": "ResiliencePolicy",
+      "description": "Resilience policy contract definition.",
+      "$ref": "#"
+    }
+  }
+}
