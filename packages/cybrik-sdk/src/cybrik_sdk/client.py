@@ -8,6 +8,11 @@ from typing import Any, Callable, Coroutine
 
 import httpx
 
+from cybrik_sdk.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+)
 from cybrik_sdk.config import CybrikConfig
 from cybrik_sdk.exceptions import (
     CybrikError,
@@ -226,6 +231,8 @@ class CybrikClient:
         transport: httpx.AsyncBaseTransport | None = None,
         http_client: httpx.AsyncClient | None = None,
         backoff_factor: float = 0.1,
+        circuit_breaker: CircuitBreaker | None = None,
+        enable_circuit_breaker: bool = True,
     ) -> None:
         self.config = config or CybrikConfig()
         self._backoff_factor = backoff_factor
@@ -239,18 +246,39 @@ class CybrikClient:
         assert self.config.fabric_url is not None
         assert self.config.ai_url is not None
 
+        if circuit_breaker is not None:
+            self.circuit_breaker: CircuitBreaker | None = circuit_breaker
+        elif enable_circuit_breaker and getattr(self.config, "circuit_breaker_enabled", True):
+            cb_config = (
+                getattr(self.config, "circuit_breaker_config", None) or CircuitBreakerConfig()
+            )
+            self.circuit_breaker = CircuitBreaker(name="cybrik-client", config=cb_config)
+        else:
+            self.circuit_breaker = None
+
         self.soc = SocClient(self.config.soc_url, self._request)
         self.fabric = FabricClient(self.config.fabric_url, self._request)
         self.ai = AiClient(self.config.ai_url, self._request)
 
-    async def _request(
+    async def arequest(
         self,
         method: str,
         url: str,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
-        """Execute async HTTP request with authentication and backoff retry on 429/503."""
+        """Execute async HTTP request with circuit breaker, authentication, and retries."""
+        if self.circuit_breaker is not None and not self.circuit_breaker.can_execute():
+            recovery_timeout = self.circuit_breaker.config.recovery_timeout_seconds
+            elapsed = time.time() - self.circuit_breaker.last_failure_time
+            remaining = max(0.0, recovery_timeout - elapsed)
+            retry_after = remaining if remaining > 0 else recovery_timeout
+            raise CircuitBreakerOpenError(
+                service_name=self.circuit_breaker.name,
+                recovery_timeout=recovery_timeout,
+                retry_after=retry_after,
+            )
+
         req_headers = _build_auth_headers(self.config)
         if headers:
             req_headers.update(headers)
@@ -259,12 +287,18 @@ class CybrikClient:
         max_attempts = self.config.max_retries
 
         for attempt in range(max_attempts + 1):
-            resp = await self._client.request(
-                method=method,
-                url=url,
-                headers=req_headers,
-                **kwargs,
-            )
+            try:
+                resp = await self._client.request(
+                    method=method,
+                    url=url,
+                    headers=req_headers,
+                    **kwargs,
+                )
+            except (httpx.RequestError, TimeoutError, ConnectionError):
+                if self.circuit_breaker is not None:
+                    self.circuit_breaker.record_failure()
+                raise
+
             last_resp = resp
 
             if resp.status_code in (429, 503):
@@ -279,6 +313,12 @@ class CybrikClient:
                     continue
 
                 # Retries exhausted
+                if self.circuit_breaker is not None:
+                    if resp.status_code in (502, 503, 504):
+                        self.circuit_breaker.record_failure()
+                    elif 200 <= resp.status_code < 500:
+                        self.circuit_breaker.record_success()
+
                 retry_after = _parse_retry_after(resp)
                 if resp.status_code == 429:
                     raise CybrikRateLimitError(
@@ -294,16 +334,44 @@ class CybrikClient:
                 )
 
             if resp.is_error:
+                if self.circuit_breaker is not None:
+                    if resp.status_code in (502, 503, 504):
+                        self.circuit_breaker.record_failure()
+                    elif 200 <= resp.status_code < 500:
+                        self.circuit_breaker.record_success()
+
                 raise_for_status_code(
                     status_code=resp.status_code,
                     message=f"Request failed with status {resp.status_code}: {resp.text}",
                     response_body=resp.text,
                 )
 
+            if self.circuit_breaker is not None:
+                self.circuit_breaker.record_success()
+
             return resp
 
         assert last_resp is not None
         return last_resp
+
+    async def request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Alias for arequest."""
+        return await self.arequest(method, url, headers=headers, **kwargs)
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return await self.arequest(method, url, headers=headers, **kwargs)
 
     async def get_health(self) -> dict[str, Any]:
         """Aggregate health check across SOC, Fabric, and AI services."""
@@ -344,6 +412,9 @@ class CybrikClient:
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         await self.close()
+
+
+AsyncCybrikClient = CybrikClient
 
 
 # -----------------------------------------------------------------------------
@@ -518,6 +589,8 @@ class SyncCybrikClient:
         transport: httpx.BaseTransport | None = None,
         http_client: httpx.Client | None = None,
         backoff_factor: float = 0.1,
+        circuit_breaker: CircuitBreaker | None = None,
+        enable_circuit_breaker: bool = True,
     ) -> None:
         self.config = config or CybrikConfig()
         self._backoff_factor = backoff_factor
@@ -531,18 +604,39 @@ class SyncCybrikClient:
         assert self.config.fabric_url is not None
         assert self.config.ai_url is not None
 
+        if circuit_breaker is not None:
+            self.circuit_breaker: CircuitBreaker | None = circuit_breaker
+        elif enable_circuit_breaker and getattr(self.config, "circuit_breaker_enabled", True):
+            cb_config = (
+                getattr(self.config, "circuit_breaker_config", None) or CircuitBreakerConfig()
+            )
+            self.circuit_breaker = CircuitBreaker(name="sync-cybrik-client", config=cb_config)
+        else:
+            self.circuit_breaker = None
+
         self.soc = SyncSocClient(self.config.soc_url, self._request)
         self.fabric = SyncFabricClient(self.config.fabric_url, self._request)
         self.ai = SyncAiClient(self.config.ai_url, self._request)
 
-    def _request(
+    def request(
         self,
         method: str,
         url: str,
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
-        """Execute sync HTTP request with authentication and backoff retry on 429/503."""
+        """Execute sync HTTP request with circuit breaker, authentication, and retries."""
+        if self.circuit_breaker is not None and not self.circuit_breaker.can_execute():
+            recovery_timeout = self.circuit_breaker.config.recovery_timeout_seconds
+            elapsed = time.time() - self.circuit_breaker.last_failure_time
+            remaining = max(0.0, recovery_timeout - elapsed)
+            retry_after = remaining if remaining > 0 else recovery_timeout
+            raise CircuitBreakerOpenError(
+                service_name=self.circuit_breaker.name,
+                recovery_timeout=recovery_timeout,
+                retry_after=retry_after,
+            )
+
         req_headers = _build_auth_headers(self.config)
         if headers:
             req_headers.update(headers)
@@ -551,12 +645,18 @@ class SyncCybrikClient:
         max_attempts = self.config.max_retries
 
         for attempt in range(max_attempts + 1):
-            resp = self._client.request(
-                method=method,
-                url=url,
-                headers=req_headers,
-                **kwargs,
-            )
+            try:
+                resp = self._client.request(
+                    method=method,
+                    url=url,
+                    headers=req_headers,
+                    **kwargs,
+                )
+            except (httpx.RequestError, TimeoutError, ConnectionError):
+                if self.circuit_breaker is not None:
+                    self.circuit_breaker.record_failure()
+                raise
+
             last_resp = resp
 
             if resp.status_code in (429, 503):
@@ -571,6 +671,12 @@ class SyncCybrikClient:
                     continue
 
                 # Retries exhausted
+                if self.circuit_breaker is not None:
+                    if resp.status_code in (502, 503, 504):
+                        self.circuit_breaker.record_failure()
+                    elif 200 <= resp.status_code < 500:
+                        self.circuit_breaker.record_success()
+
                 retry_after = _parse_retry_after(resp)
                 if resp.status_code == 429:
                     raise CybrikRateLimitError(
@@ -586,16 +692,34 @@ class SyncCybrikClient:
                 )
 
             if resp.is_error:
+                if self.circuit_breaker is not None:
+                    if resp.status_code in (502, 503, 504):
+                        self.circuit_breaker.record_failure()
+                    elif 200 <= resp.status_code < 500:
+                        self.circuit_breaker.record_success()
+
                 raise_for_status_code(
                     status_code=resp.status_code,
                     message=f"Request failed with status {resp.status_code}: {resp.text}",
                     response_body=resp.text,
                 )
 
+            if self.circuit_breaker is not None:
+                self.circuit_breaker.record_success()
+
             return resp
 
         assert last_resp is not None
         return last_resp
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return self.request(method, url, headers=headers, **kwargs)
 
     def get_health(self) -> dict[str, Any]:
         """Aggregate health check across SOC, Fabric, and AI services."""

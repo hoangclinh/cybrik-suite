@@ -23,6 +23,10 @@ class CybrikError(Exception):
         return self.message
 
 
+class CybrikSDKError(CybrikError):
+    """Base exception class for CYBRIK SDK errors."""
+
+
 class CybrikAuthError(CybrikError):
     """Authentication or authorization failure (HTTP 401, 403)."""
 
