@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
 
 import typer
 
 from cybrik_sdk.client import SyncCybrikClient
 from cybrik_sdk.config import CybrikConfig
+from cybrik_sdk.pack import ContentPackBuilder, ContentPackVerifier
 
 __version__ = "0.1.0"
 
@@ -31,6 +33,13 @@ containment_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(containment_app, name="containment")
+
+pack_app = typer.Typer(
+    name="pack",
+    help="Build, validate, and inspect CYBRIK content packs",
+    no_args_is_help=True,
+)
+app.add_typer(pack_app, name="pack")
 
 
 CANONICAL_CONTAINMENT_CATALOG: list[dict[str, str]] = [
@@ -254,6 +263,114 @@ def containment_list(
         rev = item["reversible"]
         desc = item["description"]
         typer.echo(f"{act:<22} | {risk:<9} | {rev:<10} | {desc}")
+
+
+@pack_app.command("build")
+def pack_build(
+    directory: Path = typer.Argument(
+        ...,
+        help="Path to content pack source directory containing manifest and rules/playbooks",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        resolve_path=True,
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Destination path for .cybrik-pack archive file",
+    ),
+) -> None:
+    """Build and package a canonical CYBRIK content pack archive (.cybrik-pack)."""
+    try:
+        builder = ContentPackBuilder()
+        result = builder.build_from_directory(source_dir=directory, output_path=output)
+        typer.echo("Successfully built CYBRIK Content Pack:")
+        typer.echo(f"  Pack ID:     {result.manifest.pack_id}")
+        typer.echo(f"  Version:     {result.manifest.version}")
+        typer.echo(f"  Archive:     {result.archive_path}")
+        typer.echo(f"  Pack Digest: sha256:{result.pack_digest}")
+        typer.echo(f"  Files:       {result.file_count}")
+        typer.echo(f"  Total Size:  {result.total_unpacked_size} bytes")
+    except Exception as err:
+        typer.echo(f"Error building content pack: {err}", err=True)
+        sys.exit(1)
+
+
+@pack_app.command("validate")
+def pack_validate(
+    pack_path: Path = typer.Argument(
+        ...,
+        help="Path to .cybrik-pack archive file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        resolve_path=True,
+    ),
+) -> None:
+    """Validate security invariants, guardrails, and cryptographic integrity of a content pack."""
+    try:
+        verifier = ContentPackVerifier()
+        result = verifier.verify(pack_path)
+        typer.echo("[PASS] Content Pack validation succeeded:")
+        typer.echo(f"  Pack ID:     {result.pack_id}")
+        typer.echo(f"  Version:     {result.version}")
+        typer.echo(f"  Pack Digest: sha256:{result.pack_digest}")
+        typer.echo(f"  Files:       {result.file_count} verified")
+        typer.echo(f"  Total Size:  {result.unpacked_size_bytes} bytes unpacked")
+    except Exception as err:
+        typer.echo(f"[FAIL] Content Pack validation failed: {err}", err=True)
+        sys.exit(1)
+
+
+@pack_app.command("inspect")
+def pack_inspect(
+    pack_path: Path = typer.Argument(
+        ...,
+        help="Path to .cybrik-pack archive file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        resolve_path=True,
+    ),
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Format output as canonical JSON",
+    ),
+) -> None:
+    """Display metadata, content inventory, and cryptographic digests of a content pack."""
+    try:
+        verifier = ContentPackVerifier()
+        info = verifier.inspect(pack_path)
+        if as_json:
+            typer.echo(info.model_dump_json(indent=2))
+            return
+
+        typer.echo(f"CYBRIK Content Pack: {info.name} ({info.pack_id})")
+        typer.echo("=" * 80)
+        typer.echo(f"  Version:            {info.version}")
+        typer.echo(f"  Author:             {info.author}")
+        typer.echo(f"  License:            {info.license}")
+        typer.echo(f"  Min CYBRIK Version: {info.min_cybrik_version}")
+        typer.echo(f"  Created At:         {info.created_at}")
+        typer.echo(f"  Content Types:      {', '.join(info.content_types)}")
+        typer.echo(f"  Pack SHA-256:       {info.pack_digest}")
+        typer.echo(f"  Description:        {info.description}")
+        typer.echo("-" * 80)
+        typer.echo(f"{'CONTENT PATH':<40} | {'TYPE':<16} | {'SHA-256 (PREFIX)'}")
+        typer.echo("-" * 80)
+        for item in info.contents:
+            prefix = item.sha256_hash[:16] + "..."
+            typer.echo(f"{item.path:<40} | {item.item_type:<16} | {prefix}")
+        typer.echo("-" * 80)
+        typer.echo(
+            f"Summary: {info.file_count} file(s), {info.total_size_bytes} uncompressed bytes"
+        )
+    except Exception as err:
+        typer.echo(f"Error inspecting content pack: {err}", err=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

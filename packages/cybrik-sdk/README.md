@@ -69,4 +69,33 @@ cybrik cases list
 
 # List available containment actions
 cybrik containment list
+
+# Content Pack Distribution Engine
+# Build a content pack from directory
+cybrik pack build ./my-pack -o my-pack-1.0.0.cybrik-pack
+
+# Validate security invariants and checksum integrity
+cybrik pack validate my-pack-1.0.0.cybrik-pack
+
+# Inspect content pack metadata, inventory, and checksums
+cybrik pack inspect my-pack-1.0.0.cybrik-pack
 ```
+
+## Content Packs (`cybrik_sdk.pack`)
+
+CYBRIK Content Packs (`.cybrik-pack`) provide a secure, canonical distribution format for declarative security artifacts:
+- **Sigma Detection Rules** (`sigma_rules`)
+- **SOAR Playbooks** (`soar_playbooks`)
+- **SIEM Parsers** (`siem_parsers`)
+- **Documentation** (`documentation`)
+
+### Security Guardrails
+
+The Content Pack distribution engine strictly enforces seven security invariants:
+1. **Path Traversal Defense**: Rejects parent references (`..`), absolute paths (`/`), and Windows drive letters (`C:`).
+2. **Symlink & Hardlink Rejection**: Rejects symlinks, hardlinks, FIFOs, and special devices.
+3. **Archive Bomb Defense**: Enforces maximum unpacked size (50 MB), file count (500), and compression ratio (20:1).
+4. **Content-Type Allowlist & Executable Blocklist**: Rejects binaries, scripts (`.sh`, `.exe`, `.so`, `.dylib`, `.py`), and inspects magic byte headers.
+5. **Cryptographic SHA-256 Verification**: Verifies SHA-256 integrity of all constituent files.
+6. **Tamper Detection**: Rejects any archive or manifest modification.
+7. **No Arbitrary Code Execution**: Content packs contain strictly declarative data.
