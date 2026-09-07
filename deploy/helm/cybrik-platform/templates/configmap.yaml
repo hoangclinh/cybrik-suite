@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-config
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.global.environment | quote }}
+  SOC_PORT: {{ .Values.soc.port | quote }}
+  FABRIC_PORT: {{ .Values.fabric.port | quote }}
+  CYBER_AI_PORT: {{ .Values.cyberAi.port | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.port | quote }}
+  VALKEY_PORT: {{ .Values.valkey.port | quote }}

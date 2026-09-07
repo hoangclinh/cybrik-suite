@@ -1,0 +1,60 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-isolation
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cybrik-platform.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow intra-chart communication between components
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "cybrik-platform.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.soc.port }}
+        - protocol: TCP
+          port: {{ .Values.fabric.port }}
+        - protocol: TCP
+          port: {{ .Values.cyberAi.port }}
+        - protocol: TCP
+          port: {{ .Values.postgres.port }}
+        - protocol: TCP
+          port: {{ .Values.valkey.port }}
+  egress:
+    # Allow intra-chart egress between components
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "cybrik-platform.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.soc.port }}
+        - protocol: TCP
+          port: {{ .Values.fabric.port }}
+        - protocol: TCP
+          port: {{ .Values.cyberAi.port }}
+        - protocol: TCP
+          port: {{ .Values.postgres.port }}
+        - protocol: TCP
+          port: {{ .Values.valkey.port }}
+    # Allow DNS egress (kube-system / CoreDNS)
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}

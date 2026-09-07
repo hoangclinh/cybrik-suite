@@ -1,0 +1,82 @@
+{{- if .Values.fabric.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-fabric
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fabric
+spec:
+  replicas: {{ .Values.fabric.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cybrik-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: fabric
+  template:
+    metadata:
+      labels:
+        {{- include "cybrik-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: fabric
+    spec:
+      serviceAccountName: {{ include "cybrik-platform.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: fabric
+          image: "{{ .Values.fabric.image.repository }}:{{ .Values.fabric.image.tag }}"
+          imagePullPolicy: {{ .Values.fabric.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.fabric.port }}
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+                {{- toYaml .Values.securityContext.capabilities.drop | nindent 16 }}
+          resources:
+            limits:
+              cpu: {{ .Values.fabric.resources.limits.cpu }}
+              memory: {{ .Values.fabric.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.fabric.resources.requests.cpu }}
+              memory: {{ .Values.fabric.resources.requests.memory }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.fabric.probes.liveness.path }}
+              port: {{ .Values.fabric.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.fabric.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.fabric.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.fabric.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.fabric.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.fabric.probes.readiness.path }}
+              port: {{ .Values.fabric.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.fabric.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.fabric.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.fabric.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.fabric.probes.readiness.failureThreshold }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.fabric.probes.startup.path }}
+              port: {{ .Values.fabric.probes.startup.port }}
+            initialDelaySeconds: {{ .Values.fabric.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.fabric.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.fabric.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.fabric.probes.startup.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
