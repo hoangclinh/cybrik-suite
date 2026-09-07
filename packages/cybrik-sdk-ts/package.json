@@ -1,0 +1,26 @@
+{
+  "name": "@cybrik/sdk-ts",
+  "version": "0.1.0",
+  "description": "Official TypeScript / Node.js Client SDK for the CYBRIK Autonomous Cyber Defense Platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "keywords": [
+    "cybrik",
+    "cybersecurity",
+    "soc",
+    "soar",
+    "sdk",
+    "typescript",
+    "autonomous-defense"
+  ],
+  "author": "CYBRIK Engineering <engineering@cybrik.dev>",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

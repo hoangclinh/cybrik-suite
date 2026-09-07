@@ -1,0 +1,188 @@
+openapi: 3.1.0
+info:
+  title: CYBRIK Autonomous Cyber Defense Platform SOC API
+  version: 0.1.0
+  description: Official OpenAPI 3.1 specification for the CYBRIK SOC API v1 and Client SDK contracts.
+paths:
+  /health:
+    get:
+      summary: Retrieve system health status
+      operationId: getHealth
+      responses:
+        '200':
+          description: System health status report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealth'
+  /events:
+    post:
+      summary: Ingest security event batch
+      operationId: ingestEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertBatch'
+      responses:
+        '200':
+          description: Event ingestion result receipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+  /alerts:
+    get:
+      summary: List security alerts with optional filtering and pagination
+      operationId: listAlerts
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AlertStatus'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of alert records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+  /alerts/{alert_id}:
+    get:
+      summary: Retrieve an authoritative alert by ID
+      operationId: getAlert
+      parameters:
+        - name: alert_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authoritative alert record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '404':
+          description: Alert not found
+components:
+  schemas:
+    AlertSeverity:
+      type: string
+      enum:
+        - CRITICAL
+        - HIGH
+        - MEDIUM
+        - LOW
+        - INFORMATIONAL
+    AlertStatus:
+      type: string
+      enum:
+        - NEW
+        - TRIAGED
+        - INVESTIGATING
+        - CONTAINED
+        - RESOLVED
+        - CLOSED
+    Alert:
+      type: object
+      required:
+        - alert_id
+        - title
+        - severity
+        - status
+        - created_at
+      properties:
+        alert_id:
+          type: string
+        title:
+          type: string
+        severity:
+          $ref: '#/components/schemas/AlertSeverity'
+        status:
+          $ref: '#/components/schemas/AlertStatus'
+        created_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        source:
+          type: string
+        tenant_id:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    AlertBatch:
+      type: object
+      required:
+        - events
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        tenant_id:
+          type: string
+    IngestResponse:
+      type: object
+      required:
+        - accepted
+        - count
+        - batch_id
+      properties:
+        accepted:
+          type: boolean
+        count:
+          type: integer
+        batch_id:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+    SystemHealth:
+      type: object
+      required:
+        - status
+        - version
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        details:
+          type: object
+          additionalProperties: true
