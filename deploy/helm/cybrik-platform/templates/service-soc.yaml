@@ -1,0 +1,19 @@
+{{- if .Values.soc.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-soc
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: soc
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.soc.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "cybrik-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: soc
+{{- end }}

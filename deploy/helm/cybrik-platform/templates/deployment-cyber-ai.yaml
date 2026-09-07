@@ -1,0 +1,82 @@
+{{- if .Values.cyberAi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-cyber-ai
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cyber-ai
+spec:
+  replicas: {{ .Values.cyberAi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cybrik-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: cyber-ai
+  template:
+    metadata:
+      labels:
+        {{- include "cybrik-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cyber-ai
+    spec:
+      serviceAccountName: {{ include "cybrik-platform.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: cyber-ai
+          image: "{{ .Values.cyberAi.image.repository }}:{{ .Values.cyberAi.image.tag }}"
+          imagePullPolicy: {{ .Values.cyberAi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.cyberAi.port }}
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+                {{- toYaml .Values.securityContext.capabilities.drop | nindent 16 }}
+          resources:
+            limits:
+              cpu: {{ .Values.cyberAi.resources.limits.cpu }}
+              memory: {{ .Values.cyberAi.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.cyberAi.resources.requests.cpu }}
+              memory: {{ .Values.cyberAi.resources.requests.memory }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.cyberAi.probes.liveness.path }}
+              port: {{ .Values.cyberAi.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.cyberAi.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.cyberAi.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.cyberAi.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.cyberAi.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.cyberAi.probes.readiness.path }}
+              port: {{ .Values.cyberAi.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.cyberAi.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.cyberAi.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.cyberAi.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.cyberAi.probes.readiness.failureThreshold }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.cyberAi.probes.startup.path }}
+              port: {{ .Values.cyberAi.probes.startup.port }}
+            initialDelaySeconds: {{ .Values.cyberAi.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.cyberAi.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.cyberAi.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.cyberAi.probes.startup.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

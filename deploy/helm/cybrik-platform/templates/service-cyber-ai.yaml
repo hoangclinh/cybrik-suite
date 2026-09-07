@@ -1,0 +1,19 @@
+{{- if .Values.cyberAi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-cyber-ai
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cyber-ai
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.cyberAi.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "cybrik-platform.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: cyber-ai
+{{- end }}

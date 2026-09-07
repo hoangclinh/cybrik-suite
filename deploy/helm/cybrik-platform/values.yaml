@@ -1,0 +1,152 @@
+# Production Helm values for cybrik-platform with rootless pod security standards.
+
+global:
+  environment: "production"
+  registry: "ghcr.io/hoangclinh"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - "ALL"
+
+soc:
+  enabled: true
+  replicaCount: 2
+  port: 8000
+  image:
+    repository: "ghcr.io/hoangclinh/cybrik-soc-command-center"
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+  probes:
+    liveness:
+      path: "/livez"
+      port: 8000
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: "/readyz"
+      port: 8000
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    startup:
+      path: "/readyz"
+      port: 8000
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 30
+
+fabric:
+  enabled: true
+  replicaCount: 2
+  port: 8080
+  image:
+    repository: "ghcr.io/hoangclinh/cybrik-security-tool-fabric"
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+  probes:
+    liveness:
+      path: "/health/liveness"
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: "/health/readiness"
+      port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    startup:
+      path: "/health/readiness"
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 30
+
+cyberAi:
+  enabled: true
+  replicaCount: 2
+  port: 8090
+  image:
+    repository: "ghcr.io/hoangclinh/cybrik-cyber-ai-platform"
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+  probes:
+    liveness:
+      path: "/health"
+      port: 8090
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: "/health"
+      port: 8090
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+    startup:
+      path: "/health"
+      port: 8090
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 30
+
+postgres:
+  enabled: true
+  port: 5432
+  persistence:
+    enabled: true
+    size: "10Gi"
+
+valkey:
+  enabled: true
+  port: 6379
+  persistence:
+    enabled: true
+    size: "5Gi"
+
+networkPolicy:
+  enabled: true
+
+serviceAccount:
+  create: true
+  name: "cybrik-platform-sa"
+  automountServiceAccountToken: false

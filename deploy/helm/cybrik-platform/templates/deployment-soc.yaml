@@ -1,0 +1,82 @@
+{{- if .Values.soc.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cybrik-platform.fullname" . }}-soc
+  labels:
+    {{- include "cybrik-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: soc
+spec:
+  replicas: {{ .Values.soc.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cybrik-platform.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: soc
+  template:
+    metadata:
+      labels:
+        {{- include "cybrik-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: soc
+    spec:
+      serviceAccountName: {{ include "cybrik-platform.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: soc
+          image: "{{ .Values.soc.image.repository }}:{{ .Values.soc.image.tag }}"
+          imagePullPolicy: {{ .Values.soc.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.soc.port }}
+              protocol: TCP
+          securityContext:
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+            capabilities:
+              drop:
+                {{- toYaml .Values.securityContext.capabilities.drop | nindent 16 }}
+          resources:
+            limits:
+              cpu: {{ .Values.soc.resources.limits.cpu }}
+              memory: {{ .Values.soc.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.soc.resources.requests.cpu }}
+              memory: {{ .Values.soc.resources.requests.memory }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.soc.probes.liveness.path }}
+              port: {{ .Values.soc.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.soc.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.soc.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.soc.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.soc.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.soc.probes.readiness.path }}
+              port: {{ .Values.soc.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.soc.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.soc.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.soc.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.soc.probes.readiness.failureThreshold }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.soc.probes.startup.path }}
+              port: {{ .Values.soc.probes.startup.port }}
+            initialDelaySeconds: {{ .Values.soc.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.soc.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.soc.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.soc.probes.startup.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
