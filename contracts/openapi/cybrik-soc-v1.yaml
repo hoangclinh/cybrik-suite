@@ -3,6 +3,8 @@ info:
   title: CYBRIK Autonomous Cyber Defense Platform SOC API
   version: 0.1.0
   description: Official OpenAPI 3.1 specification for the CYBRIK SOC API v1 and Client SDK contracts.
+  x-cybrik-status: ACCEPTED FOR IMPLEMENTATION
+  x-cybrik-lifecycle-role: CURRENT
 paths:
   /health:
     get:
