@@ -26,11 +26,18 @@ Do NOT make these pass by loosening a schema. The schemas are the contract.
 
 POSITIVE CONTROLS
 -----------------
-``test_contract_schemas_are_well_formed`` and
-``test_cross_file_refs_resolve_through_registry`` must PASS. Without them, a
-harness fault (wrong path, unresolvable ``$ref``, unreadable schema) would
-present identically to a genuine fixture divergence -- which is the same
-can't-distinguish problem this file was written to fix.
+Three functions, four collected instances (the first is parametrized over both
+schemas), all of which must PASS:
+
+- ``test_contract_schemas_are_well_formed``
+- ``test_cross_file_refs_resolve_through_registry``
+- ``test_non_conforming_instance_is_actually_rejected``
+
+Without them, a harness fault would be indistinguishable from a real result: a
+wrong path, unresolvable ``$ref`` or unreadable schema would look like a fixture
+divergence, and a validator permissive enough to accept anything would look
+like a corrected fixture. That is the same can't-distinguish problem this file
+was written to fix, so none of the three may be removed in a cleanup.
 """
 
 from __future__ import annotations
@@ -66,7 +73,12 @@ CAPABILITIES_XFAIL_REASON = (
     "RED BY DESIGN -- recorded divergence, not a broken test. "
     "conftest.MOCK_CAPABILITIES does not conform to "
     "contracts/json-schema/cybrik.capability.v1.schema.json "
-    "(x-cybrik-status: ACCEPTED FOR IMPLEMENTATION, v0.1.1). The fixture supplies 5 fields "
+    "(x-cybrik-status: ACCEPTED FOR IMPLEMENTATION, v0.1.1). "
+    "Status for this schema is established by "
+    "contracts/compatibility/cybrik-suite-contract-packet.v1.manifest.json and its recorded "
+    "sha256 7858dc758e078a0507096cfa742eb61a1cdf1531de89e76b48e1e22649cc6155, not by prose in "
+    "any README. "
+    "The fixture supplies 5 fields "
     "(name, action, risk_tier, description, reversible) against 16 required by the contract. "
     "It uses 'risk_tier' where the contract declares 'risk_class', and 'action'/'reversible' are "
     "not contract fields at all -- the schema is additionalProperties:false, so they are rejected "
@@ -85,7 +97,12 @@ RECEIPT_XFAIL_REASON = (
     "RED BY DESIGN -- recorded divergence, not a broken test. "
     "conftest.MOCK_RECEIPT does not conform to "
     "contracts/json-schema/cybrik.execution-receipt.v1.schema.json "
-    "(x-cybrik-status: ACCEPTED FOR IMPLEMENTATION). The fixture overlaps the contract's 12 "
+    "(x-cybrik-status: ACCEPTED FOR IMPLEMENTATION). "
+    "Status for this schema is established by "
+    "contracts/compatibility/cybrik-suite-contract-packet.v1.manifest.json and its recorded "
+    "sha256 423ce118ae1ddabb0b3d1f13a65526e761356b9f14aa9974555976812cc0839d, not by prose in "
+    "any README. "
+    "The fixture overlaps the contract's 12 "
     "required fields on 4 (receipt_id, tenant_id, status, signature) and omits action_id, "
     "capability, executor, delegation_ref, resolved_arguments_digest, started_at, finished_at "
     "and receipt_digest. "
