@@ -22,8 +22,8 @@ test('brace-expansion exposes both legacy-callable and patched named APIs', () =
 
   assert.equal(typeof braceExpansion, 'function');
   assert.equal(typeof braceExpansion.expand, 'function');
-  assert.equal(adapterManifest.version, '5.0.9-cybrik.1');
-  assert.equal(upstreamManifest.version, '5.0.9');
+  assert.equal(adapterManifest.version, '5.0.12-cybrik.1');
+  assert.equal(upstreamManifest.version, '5.0.12');
   assert.equal(braceExpansion.EXPANSION_MAX, 100_000);
   assert.equal(braceExpansion.EXPANSION_MAX_LENGTH, 4_000_000);
   assert.deepEqual(braceExpansion('{alpha,beta}'), ['alpha', 'beta']);
