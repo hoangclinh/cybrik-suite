@@ -277,3 +277,29 @@ jobs:
                   print(f"::error::{problem}")
               sys.exit(1)
           PY
+
+  sdk-tests:
+    name: cybrik-sdk tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Python SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node 24 action runtime)
+
+      - name: Setup uv 0.11.16
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.11.16"
+
+      # The locked check, not the frozen mode the job above uses: frozen installs
+      # uv.lock as committed without comparing it to pyproject.toml, so a dependency
+      # the manifest declares but the lock lacks would surface only as an ImportError
+      # inside a test. The locked check fails here instead, and never rewrites uv.lock.
+      - name: Install the SDK from its lock (fails on a lock that does not match pyproject.toml)
+        working-directory: packages/cybrik-sdk
+        run: uv sync --locked --extra dev
+
+      # Offline: uv resolves and downloads nothing at test time; the run uses only
+      # what the install step materialised from the lock.
+      - name: Run the SDK test suite
+        working-directory: packages/cybrik-sdk
+        run: uv run --locked --offline --extra dev python -m pytest -q
