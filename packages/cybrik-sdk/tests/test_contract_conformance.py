@@ -22,27 +22,39 @@ They are marked ``strict=True`` deliberately: if a fixture is corrected, or a
 schema moves such that the fixture starts conforming, the unexpected pass fails
 the suite and forces someone to retire the xfail rather than let it rot.
 
+They are also marked ``raises=ContractDivergenceError``, which only
+``_assert_conforms`` raises, and only for a non-empty validation result. Any other
+exception -- an unreadable schema, an unresolvable ``$ref``, a fault while
+rendering errors, even a bare ``AssertionError`` -- is a harness fault, and fails
+the test instead of being counted as the recorded divergence.
+
 Do NOT make these pass by loosening a schema. The schemas are the contract.
 
 POSITIVE CONTROLS
 -----------------
-Three functions, four collected instances (the first is parametrized over both
-schemas), all of which must PASS:
+All of these must PASS:
 
 - ``test_contract_schemas_are_well_formed``
 - ``test_cross_file_refs_resolve_through_registry``
+- ``test_every_contract_ref_resolves_through_registry``
 - ``test_non_conforming_instance_is_actually_rejected``
+- ``test_conforming_receipt_is_accepted``
+- ``test_divergence_raises_contract_divergence_error``
+- ``test_divergence_markers_fail_harness_faults``
+- ``test_harness_fault_in_a_conformance_check_is_not_a_divergence``
 
 Without them, a harness fault would be indistinguishable from a real result: a
 wrong path, unresolvable ``$ref`` or unreadable schema would look like a fixture
 divergence, and a validator permissive enough to accept anything would look
 like a corrected fixture. That is the same can't-distinguish problem this file
-was written to fix, so none of the three may be removed in a cleanup.
+was written to fix, so none of them may be removed in a cleanup.
 """
 
 from __future__ import annotations
 
 import json
+import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +68,10 @@ from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
 from .conftest import MOCK_CAPABILITIES, MOCK_RECEIPT
+
+# Ships with pytest itself. test_divergence_markers_fail_harness_faults runs an
+# inner session so that pytest, not this file, classifies each outcome.
+pytest_plugins = ["pytester"]
 
 # <repo>/packages/cybrik-sdk/tests/ -> <repo>/
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -119,6 +135,71 @@ RECEIPT_XFAIL_REASON = (
 )
 
 
+class ContractDivergenceError(AssertionError):
+    """A fixture violates its contract: the one failure the xfails below accept.
+
+    It subclasses ``AssertionError`` so an un-xfailed divergence still reads as a
+    failed assertion. The restriction does not widen to the parent:
+    ``xfail(raises=...)`` is an isinstance check, so a bare ``AssertionError``
+    is not accepted, as test_divergence_markers_fail_harness_faults shows.
+    """
+
+
+CAPABILITIES_DIVERGENCE = pytest.mark.xfail(
+    strict=True, raises=ContractDivergenceError, reason=CAPABILITIES_XFAIL_REASON
+)
+RECEIPT_DIVERGENCE = pytest.mark.xfail(
+    strict=True, raises=ContractDivergenceError, reason=RECEIPT_XFAIL_REASON
+)
+
+
+def _digest(fill: str) -> str:
+    """A syntactically valid ``sha256Digest`` built from one repeated hex digit."""
+    return "sha256:" + fill * 64
+
+
+# Every property the execution receipt contract declares, each with a conforming
+# value. Validating it evaluates every $ref the receipt schema makes -- optional
+# properties included, which a minimal receipt would never reach.
+CONFORMING_RECEIPT: dict[str, Any] = {
+    "receipt_id": "rcpt-control-0001",
+    "action_id": "act-control-0001",
+    "tenant_id": "tenant-control",
+    "status": "completed",
+    "capability": {"name": "vendor.isolate_host", "version": "1.2.3", "digest": _digest("1")},
+    "executor": {
+        "id": "spiffe://cybrik.example/executor/control",
+        "version": "1.0.0",
+        "isolation_profile": "S2",
+    },
+    "policy_decision_id": "pdec-control-0001",
+    "approval_id": "appr-control-0001",
+    "delegation_ref": _digest("2"),
+    "credential_lease_id_hash": _digest("3"),
+    "resolved_arguments_digest": _digest("4"),
+    "started_at": "2026-10-02T06:28:31Z",
+    "finished_at": "2026-10-02T06:28:32.250Z",
+    "input_artifact_digests": [_digest("5")],
+    "output_artifacts": [
+        {
+            "locator": "artifact://control/output-1",
+            "digest": _digest("6"),
+            "media_type": "application/json",
+        }
+    ],
+    "side_effect": {
+        "performed": True,
+        "target_digest": _digest("7"),
+        "verification": {},
+        "expires_at": "2026-10-03T06:28:31Z",
+        "rollback_handle": "rbh-control-0001",
+    },
+    "logs_digest": _digest("8"),
+    "receipt_digest": _digest("9"),
+    "signature": "control-signature-ref",
+}
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     """Parse one JSON document from disk."""
     document: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
@@ -169,6 +250,30 @@ def _format_errors(validator: Draft202012Validator, instance: Any) -> str:
         f"  - {'/'.join(str(p) for p in error.absolute_path) or '<root>'}: {error.message}"
         for error in errors
     )
+
+
+def _assert_conforms(validator: Draft202012Validator, instance: Any, label: str) -> None:
+    """Raise ContractDivergenceError naming every divergence, if there are any.
+
+    Only a non-empty validation result raises it. An exception from validation
+    or from rendering propagates unchanged, so the xfails cannot absorb it.
+    """
+    errors = _format_errors(validator, instance)
+    if errors:
+        raise ContractDivergenceError(f"{label}:\n{errors}")
+
+
+def _iter_refs(node: Any) -> Iterator[str]:
+    """Yield every ``$ref`` value in a schema document, depth first."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            yield ref
+        for value in node.values():
+            yield from _iter_refs(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _iter_refs(item)
 
 
 # --------------------------------------------------------------------------
@@ -222,12 +327,62 @@ def test_non_conforming_instance_is_actually_rejected() -> None:
     assert errors, "empty object was accepted against a schema with 16 required fields"
 
 
+@pytest.mark.parametrize("filename", [CAPABILITY_SCHEMA, EXECUTION_RECEIPT_SCHEMA])
+def test_every_contract_ref_resolves_through_registry(filename: str) -> None:
+    """Every $ref each contract makes resolves, not only the capability's riskClass.
+
+    The receipt's refs (tenantId, semver, sha256Digest, isolationProfile,
+    timestampUtc) are its own, so the riskClass check above does not cover them.
+    """
+    # Arrange
+    schema = _load_schema(filename)
+    resolver = _build_registry().resolver(base_uri=schema["$id"])
+    refs = sorted(set(_iter_refs(schema)))
+
+    # Act -- lookup raises referencing.exceptions.Unresolvable on a dangling ref
+    resolved = {ref: resolver.lookup(ref).contents for ref in refs}
+
+    # Assert
+    assert refs, f"{filename} declares no $ref, so this control would be vacuous"
+    empty = [
+        ref for ref, contents in resolved.items() if not isinstance(contents, dict) or not contents
+    ]
+    assert not empty, f"{filename}: refs resolved to an empty schema: {empty}"
+
+
+def test_conforming_receipt_is_accepted() -> None:
+    """A receipt that conforms in every declared property validates cleanly.
+
+    The positive half of the receipt xfail: if a receipt ref resolved to the
+    wrong definition, a conforming receipt would be rejected, and the fixture's
+    expected failure would be red for the wrong reason.
+    """
+    # Arrange
+    declared = set(_load_schema(EXECUTION_RECEIPT_SCHEMA)["properties"])
+    validator = _validator(EXECUTION_RECEIPT_SCHEMA)
+
+    # Act / Assert -- raises ContractDivergenceError naming each error otherwise
+    assert set(CONFORMING_RECEIPT) == declared, "the control must populate every property"
+    _assert_conforms(validator, CONFORMING_RECEIPT, "CONFORMING_RECEIPT")
+
+
+def test_divergence_raises_contract_divergence_error() -> None:
+    """A divergence raises the one type the xfails accept, naming the field."""
+    # Arrange
+    validator = _validator(EXECUTION_RECEIPT_SCHEMA)
+    receipt = {key: value for key, value in CONFORMING_RECEIPT.items() if key != "action_id"}
+
+    # Act / Assert -- exercises _format_errors on a real validation result
+    with pytest.raises(ContractDivergenceError, match="'action_id' is a required property"):
+        _assert_conforms(validator, receipt, "receipt without action_id")
+
+
 # --------------------------------------------------------------------------
 # Recorded divergences -- RED BY DESIGN. See module docstring.
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=CAPABILITIES_XFAIL_REASON)
+@CAPABILITIES_DIVERGENCE
 def test_mock_capabilities_conform_to_capability_contract() -> None:
     """Every MOCK_CAPABILITIES entry validates against the capability contract."""
     # Arrange
@@ -235,21 +390,110 @@ def test_mock_capabilities_conform_to_capability_contract() -> None:
 
     # Act / Assert
     for index, capability in enumerate(MOCK_CAPABILITIES):
-        errors = _format_errors(validator, capability)
-        assert not errors, (
+        _assert_conforms(
+            validator,
+            capability,
             f"MOCK_CAPABILITIES[{index}] ({capability.get('name', '<unnamed>')}) "
-            f"violates {CAPABILITY_SCHEMA}:\n{errors}"
+            f"violates {CAPABILITY_SCHEMA}",
         )
 
 
-@pytest.mark.xfail(strict=True, reason=RECEIPT_XFAIL_REASON)
+@RECEIPT_DIVERGENCE
 def test_mock_receipt_conforms_to_execution_receipt_contract() -> None:
     """MOCK_RECEIPT validates against the execution receipt contract."""
     # Arrange
     validator = _validator(EXECUTION_RECEIPT_SCHEMA)
 
-    # Act
-    errors = _format_errors(validator, MOCK_RECEIPT)
+    # Act / Assert
+    _assert_conforms(validator, MOCK_RECEIPT, f"MOCK_RECEIPT violates {EXECUTION_RECEIPT_SCHEMA}")
 
-    # Assert
-    assert not errors, f"MOCK_RECEIPT violates {EXECUTION_RECEIPT_SCHEMA}:\n{errors}"
+
+# --------------------------------------------------------------------------
+# Controls on the recorded divergences: they must fail for the right reason.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("marker_name", ["CAPABILITIES_DIVERGENCE", "RECEIPT_DIVERGENCE"])
+def test_divergence_markers_fail_harness_faults(
+    pytester: pytest.Pytester, marker_name: str
+) -> None:
+    """Under the real marker, only ContractDivergenceError is an expected failure.
+
+    An inner pytest session applies the marker object this module uses, so
+    pytest itself classifies each outcome. A bare AssertionError is included
+    because ContractDivergenceError subclasses it.
+    """
+    # Arrange
+    pytester.makepyfile(
+        f"""
+        import sys
+
+        from referencing.exceptions import Unresolvable
+
+        conformance = sys.modules[{__name__!r}]
+        divergence = conformance.{marker_name}
+
+        @divergence
+        def test_recorded_divergence():
+            raise conformance.ContractDivergenceError("fixture violates its contract")
+
+        @divergence
+        def test_bare_assertion_error():
+            raise AssertionError("a harness assert, not a contract divergence")
+
+        @divergence
+        def test_unresolvable_ref():
+            raise Unresolvable("cybrik.common-defs.v1.schema.json#/$defs/missing")
+
+        @divergence
+        def test_unreadable_schema():
+            raise FileNotFoundError("contracts/json-schema/missing.schema.json")
+
+        @divergence
+        def test_fault_while_rendering_errors():
+            raise TypeError("'<' not supported between instances of 'int' and 'str'")
+
+        @divergence
+        def test_fixture_corrected():
+            pass
+        """
+    )
+
+    # Act -- the inner tests are synchronous, so pytest-asyncio is not loaded
+    result = pytester.runpytest_inprocess("-p", "no:cacheprovider", "-p", "no:asyncio", "-rx")
+
+    # Assert -- five failures, and the single expected failure is the divergence
+    result.assert_outcomes(failed=5, xfailed=1)
+    result.stdout.fnmatch_lines(["XFAIL *::test_recorded_divergence*"])
+
+
+class _InjectedHarnessFault(Exception):
+    """Stands in for any exception the conformance harness itself might raise."""
+
+
+@pytest.mark.parametrize(
+    "conformance_check",
+    [
+        test_mock_capabilities_conform_to_capability_contract,
+        test_mock_receipt_conforms_to_execution_receipt_contract,
+    ],
+    ids=lambda check: check.__name__,
+)
+def test_harness_fault_in_a_conformance_check_is_not_a_divergence(
+    monkeypatch: pytest.MonkeyPatch, conformance_check: Callable[[], None]
+) -> None:
+    """A fault inside the real conformance check propagates as itself.
+
+    This is Codex Batch C's scenario: ``_format_errors`` raising. The fault must
+    surface unchanged, never as the ContractDivergenceError the xfail accepts.
+    """
+
+    # Arrange
+    def _faulty_format_errors(*_args: Any) -> str:
+        raise _InjectedHarnessFault("injected fault in _format_errors")
+
+    monkeypatch.setattr(sys.modules[__name__], "_format_errors", _faulty_format_errors)
+
+    # Act / Assert
+    with pytest.raises(_InjectedHarnessFault):
+        conformance_check()
