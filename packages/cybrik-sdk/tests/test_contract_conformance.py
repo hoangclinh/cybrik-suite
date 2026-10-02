@@ -30,6 +30,13 @@ the test instead of being counted as the recorded divergence.
 
 Do NOT make these pass by loosening a schema. The schemas are the contract.
 
+FORMATS ARE ASSERTED
+--------------------
+The validator asserts ``format``, as the suite's own contract validator does
+(ajv-formats). ``date-time`` is checked against RFC 3339 by a standard-library
+checker in this file. jsonschema registers its own only when the optional
+rfc3339-validator package is installed, and the SDK lock does not carry it.
+
 POSITIVE CONTROLS
 -----------------
 All of these must PASS:
@@ -40,6 +47,8 @@ All of these must PASS:
 - ``test_non_conforming_instance_is_actually_rejected``
 - ``test_conforming_receipt_is_accepted``
 - ``test_divergence_raises_contract_divergence_error``
+- ``test_malformed_receipt_timestamp_is_a_divergence``
+- ``test_well_formed_rfc3339_timestamp_is_accepted``
 - ``test_divergence_markers_fail_harness_faults``
 - ``test_harness_fault_in_a_conformance_check_is_not_a_divergence``
 
@@ -52,7 +61,9 @@ was written to fix, so none of them may be removed in a cleanup.
 
 from __future__ import annotations
 
+import calendar
 import json
+import re
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -63,7 +74,7 @@ import pytest
 # jsonschema ships no inline types and types-jsonschema is not in the dev set.
 # Targeted rather than a config-wide relaxation; mypy's warn_unused_ignores will
 # flag this line if stubs are ever added, which is the cleanup signal.
-from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
+from jsonschema import Draft202012Validator, FormatChecker  # type: ignore[import-untyped]
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
@@ -199,6 +210,40 @@ CONFORMING_RECEIPT: dict[str, Any] = {
     "signature": "control-signature-ref",
 }
 
+# Every receipt property typed timestampUtc (format: date-time), as a key path.
+_RECEIPT_TIMESTAMP_FIELDS = (("started_at",), ("finished_at",), ("side_effect", "expires_at"))
+
+# Each must fail as an RFC 3339 date-time. Python 3.12's datetime.fromisoformat
+# accepts the first six, which is why the checker does not rely on it.
+MALFORMED_DATE_TIMES = {
+    "date-only": "2026-10-02",
+    "no-offset": "2026-10-02T06:28:31",
+    "space-separator": "2026-10-02 06:28:31Z",
+    "offset-without-colon": "2026-10-02T06:28:31+0000",
+    "no-seconds": "2026-10-02T06:28Z",
+    "iso8601-basic-format": "20261002T062831Z",
+    "impossible-day": "2026-02-30T06:28:31Z",
+    "hour-24": "2026-10-02T24:00:00Z",
+    "offset-hour-24": "2026-10-02T06:28:31+24:00",
+    "leap-second-not-at-2359-utc": "2026-10-02T06:28:60Z",
+    "non-ascii-digit": "2026-10-02T06:28:3\u0661Z",  # ARABIC-INDIC DIGIT ONE
+    "trailing-newline": "2026-10-02T06:28:31Z\n",
+    "not-a-timestamp": "not-a-timestamp",
+}
+
+# Each must pass, so the checker cannot invent a divergence. fromisoformat
+# rejects the last three, though RFC 3339 section 5.6 allows them.
+WELL_FORMED_DATE_TIMES = {
+    "utc": "2026-10-02T06:28:31Z",
+    "fractional-seconds": "2026-10-02T06:28:31.123456Z",
+    "positive-offset": "2026-10-02T12:28:31+06:00",
+    "negative-offset": "2026-10-02T01:28:31-05:00",
+    "leap-day": "2024-02-29T00:00:00Z",
+    "leap-second-utc": "2016-12-31T23:59:60Z",
+    "leap-second-via-offset": "2016-12-31T18:59:60-05:00",
+    "lower-case-t-and-z": "2026-10-02t06:28:31z",
+}
+
 
 def _read_json(path: Path) -> dict[str, Any]:
     """Parse one JSON document from disk."""
@@ -238,9 +283,65 @@ def _build_registry() -> Registry:
     return Registry().with_resources(resources)
 
 
+# RFC 3339 section 5.6 ``date-time``: the production JSON Schema's ``date-time``
+# format names, and the meaning of the contract's timestampUtc. This matches the
+# structure only; calendar days and leap seconds are checked after the match.
+# re.ASCII keeps \d to 0-9, and fullmatch, unlike ``$``, refuses a trailing newline.
+_RFC3339_DATE_TIME = re.compile(
+    r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"
+    r"[Tt]"
+    r"(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(?:\.\d+)?"
+    r"(?:[Zz]|(?P<sign>[+-])(?P<offset_hour>\d{2}):(?P<offset_minute>\d{2}))",
+    re.ASCII,
+)
+_MINUTES_PER_DAY = 24 * 60
+_LEAP_SECOND_UTC_MINUTE = 23 * 60 + 59  # a leap second can only be 23:59:60 UTC
+
+
+def _is_rfc3339_date_time(instance: object) -> bool:
+    """Check RFC 3339 ``date-time`` with the standard library only.
+
+    Requires the ``T`` separator, seconds, and an explicit ``Z`` or ``+hh:mm``
+    or ``-hh:mm`` offset. ``datetime.fromisoformat`` does not require these, so
+    it is not used. RFC 3339 section 5.6 allows lower-case ``t`` and ``z``, so
+    they pass. A leap second (``:60``) passes only at 23:59 UTC.
+    """
+    if not isinstance(instance, str):
+        return True  # format constrains strings only; "type" judges the rest
+    match = _RFC3339_DATE_TIME.fullmatch(instance)
+    if match is None:
+        return False
+    year, month, day = int(match["year"]), int(match["month"]), int(match["day"])
+    hour, minute, second = int(match["hour"]), int(match["minute"]), int(match["second"])
+    offset_hour, offset_minute = int(match["offset_hour"] or 0), int(match["offset_minute"] or 0)
+    if not 1 <= month <= 12 or not 1 <= day <= calendar.monthrange(year, month)[1]:
+        return False
+    if hour > 23 or minute > 59 or second > 60 or offset_hour > 23 or offset_minute > 59:
+        return False
+    if second < 60:
+        return True
+    offset = (offset_hour * 60 + offset_minute) * (-1 if match["sign"] == "-" else 1)
+    return (hour * 60 + minute - offset) % _MINUTES_PER_DAY == _LEAP_SECOND_UTC_MINUTE
+
+
+def _format_checker() -> FormatChecker:
+    """Return a new FormatChecker whose ``date-time`` check is RFC 3339.
+
+    jsonschema registers ``date-time`` only when the optional rfc3339-validator
+    package is importable. The SDK lock does not carry it, so the default
+    checker would skip ``date-time`` silently. Registering on a new instance
+    leaves jsonschema's shared default checker untouched.
+    """
+    checker = FormatChecker()
+    checker.checks("date-time")(_is_rfc3339_date_time)
+    return checker
+
+
 def _validator(filename: str) -> Draft202012Validator:
-    """Build a validator for one contract schema with cross-file refs wired up."""
-    return Draft202012Validator(_load_schema(filename), registry=_build_registry())
+    """Build a validator for one contract schema, with cross-file refs and formats wired up."""
+    return Draft202012Validator(
+        _load_schema(filename), registry=_build_registry(), format_checker=_format_checker()
+    )
 
 
 def _format_errors(validator: Draft202012Validator, instance: Any) -> str:
@@ -274,6 +375,13 @@ def _iter_refs(node: Any) -> Iterator[str]:
     elif isinstance(node, list):
         for item in node:
             yield from _iter_refs(item)
+
+
+def _with_value(document: dict[str, Any], path: tuple[str, ...], value: Any) -> dict[str, Any]:
+    """Return a copy of ``document`` with ``value`` at ``path``; the original is unchanged."""
+    head, *rest = path
+    replacement = _with_value(document[head], tuple(rest), value) if rest else value
+    return {**document, head: replacement}
 
 
 # --------------------------------------------------------------------------
@@ -375,6 +483,44 @@ def test_divergence_raises_contract_divergence_error() -> None:
     # Act / Assert -- exercises _format_errors on a real validation result
     with pytest.raises(ContractDivergenceError, match="'action_id' is a required property"):
         _assert_conforms(validator, receipt, "receipt without action_id")
+
+
+@pytest.mark.parametrize("field", _RECEIPT_TIMESTAMP_FIELDS, ids="/".join)
+@pytest.mark.parametrize(
+    "value", list(MALFORMED_DATE_TIMES.values()), ids=list(MALFORMED_DATE_TIMES)
+)
+def test_malformed_receipt_timestamp_is_a_divergence(field: tuple[str, ...], value: str) -> None:
+    """A malformed date-time is a divergence even when every other field conforms.
+
+    Without format checking it was not, so a fixture with all 12 required fields
+    and malformed timestamps would have retired the receipt xfail early.
+    """
+    # Arrange
+    validator = _validator(EXECUTION_RECEIPT_SCHEMA)
+    receipt = _with_value(CONFORMING_RECEIPT, field, value)
+
+    # Act
+    errors = [
+        (tuple(error.absolute_path), error.validator) for error in validator.iter_errors(receipt)
+    ]
+
+    # Assert -- the only divergence is the format, at that field
+    assert errors == [(field, "format")]
+    with pytest.raises(ContractDivergenceError, match="is not a 'date-time'"):
+        _assert_conforms(validator, receipt, "receipt with a malformed timestamp")
+
+
+@pytest.mark.parametrize(
+    "value", list(WELL_FORMED_DATE_TIMES.values()), ids=list(WELL_FORMED_DATE_TIMES)
+)
+def test_well_formed_rfc3339_timestamp_is_accepted(value: str) -> None:
+    """A valid RFC 3339 date-time passes, so format checking cannot invent a divergence."""
+    # Arrange
+    validator = _validator(EXECUTION_RECEIPT_SCHEMA)
+    receipt = _with_value(CONFORMING_RECEIPT, ("started_at",), value)
+
+    # Act / Assert
+    _assert_conforms(validator, receipt, f"receipt with started_at={value!r}")
 
 
 # --------------------------------------------------------------------------
