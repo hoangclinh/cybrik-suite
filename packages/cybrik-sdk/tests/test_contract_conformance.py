@@ -226,13 +226,19 @@ MALFORMED_DATE_TIMES = {
     "hour-24": "2026-10-02T24:00:00Z",
     "offset-hour-24": "2026-10-02T06:28:31+24:00",
     "leap-second-not-at-2359-utc": "2026-10-02T06:28:60Z",
+    # A leap second is the last second of a UTC month, so the UTC date counts too.
+    "leap-second-mid-month-utc": "2016-12-15T23:59:60Z",
+    "leap-second-mid-month-positive-offset": "2016-12-16T00:59:60+01:00",
+    "leap-second-mid-month-negative-offset": "2016-12-15T18:59:60-05:00",
+    "leap-second-month-end-local-not-utc": "2016-12-31T23:59:60+01:00",
     "non-ascii-digit": "2026-10-02T06:28:3\u0661Z",  # ARABIC-INDIC DIGIT ONE
     "trailing-newline": "2026-10-02T06:28:31Z\n",
     "not-a-timestamp": "not-a-timestamp",
 }
 
 # Each must pass, so the checker cannot invent a divergence. fromisoformat
-# rejects the last three, though RFC 3339 section 5.6 allows them.
+# rejects every leap-second and lower-case entry, though RFC 3339 section 5.6
+# allows them.
 WELL_FORMED_DATE_TIMES = {
     "utc": "2026-10-02T06:28:31Z",
     "fractional-seconds": "2026-10-02T06:28:31.123456Z",
@@ -241,6 +247,9 @@ WELL_FORMED_DATE_TIMES = {
     "leap-day": "2024-02-29T00:00:00Z",
     "leap-second-utc": "2016-12-31T23:59:60Z",
     "leap-second-via-offset": "2016-12-31T18:59:60-05:00",
+    "leap-second-rolls-back-to-month-end": "2017-01-01T00:59:60+01:00",
+    "leap-second-30-june": "2015-06-30T23:59:60Z",
+    "fractional-leap-second": "2016-12-31T23:59:60.5Z",
     "lower-case-t-and-z": "2026-10-02t06:28:31z",
 }
 
@@ -298,13 +307,32 @@ _MINUTES_PER_DAY = 24 * 60
 _LEAP_SECOND_UTC_MINUTE = 23 * 60 + 59  # a leap second can only be 23:59:60 UTC
 
 
+def _is_utc_month_end_leap_second(year: int, month: int, day: int, utc_minutes: int) -> bool:
+    """Whether a ``:60`` second is 23:59:60 UTC on the last day of a month.
+
+    A leap second is only ever the last second of a UTC month. ``utc_minutes``
+    is the local minute of the day minus the offset, so the UTC date can be
+    the local date or one day either side of it. This uses calendar fields
+    rather than ``datetime``, so years 0000 and 9999 cannot overflow.
+    """
+    day_shift, utc_minute_of_day = divmod(utc_minutes, _MINUTES_PER_DAY)
+    if utc_minute_of_day != _LEAP_SECOND_UTC_MINUTE:
+        return False
+    last_day = calendar.monthrange(year, month)[1]
+    # Shifting back from day 1 lands on the previous month's last day. Shifting
+    # forward reaches a last day only from the day before it; with offsets
+    # under 24 hours it cannot also reach 23:59 UTC, but is kept total.
+    return {-1: day == 1, 0: day == last_day, 1: day + 1 == last_day}[day_shift]
+
+
 def _is_rfc3339_date_time(instance: object) -> bool:
     """Check RFC 3339 ``date-time`` with the standard library only.
 
     Requires the ``T`` separator, seconds, and an explicit ``Z`` or ``+hh:mm``
     or ``-hh:mm`` offset. ``datetime.fromisoformat`` does not require these, so
     it is not used. RFC 3339 section 5.6 allows lower-case ``t`` and ``z``, so
-    they pass. A leap second (``:60``) passes only at 23:59 UTC.
+    they pass. A leap second (``:60``) passes only as 23:59:60 UTC on the last
+    day of a month, with the offset applied across any change of day.
     """
     if not isinstance(instance, str):
         return True  # format constrains strings only; "type" judges the rest
@@ -321,7 +349,7 @@ def _is_rfc3339_date_time(instance: object) -> bool:
     if second < 60:
         return True
     offset = (offset_hour * 60 + offset_minute) * (-1 if match["sign"] == "-" else 1)
-    return (hour * 60 + minute - offset) % _MINUTES_PER_DAY == _LEAP_SECOND_UTC_MINUTE
+    return _is_utc_month_end_leap_second(year, month, day, hour * 60 + minute - offset)
 
 
 def _format_checker() -> FormatChecker:
