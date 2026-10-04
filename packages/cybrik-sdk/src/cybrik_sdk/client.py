@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import AsyncIterator, Iterator
 from typing import Any, Callable, Coroutine
 
 import httpx
@@ -26,6 +27,7 @@ from cybrik_sdk.models import (
     ContainmentReceipt,
     ContainmentRequest,
 )
+from cybrik_sdk.streaming import EventStreamClient, StreamEvent
 
 AsyncRequester = Callable[..., Coroutine[Any, Any, httpx.Response]]
 SyncRequester = Callable[..., httpx.Response]
@@ -402,6 +404,88 @@ class CybrikClient:
             ),
         }
 
+    def stream_reasoning_deltas(
+        self,
+        investigation_id: str,
+        timeout: float = 30.0,
+    ) -> Iterator[StreamEvent]:
+        """Stream real-time reasoning deltas for an investigation.
+
+        Args:
+            investigation_id: UUID of the investigation.
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Synchronous iterator yielding StreamEvent instances.
+        """
+        base_ai = self.config.ai_url.rstrip("/")
+        url = f"{base_ai}/api/v1/investigations/{investigation_id}/reasoning/stream"
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient()
+        return client.stream(url, headers=headers, timeout=timeout)
+
+    def stream_alert_events(
+        self,
+        status: str | None = None,
+        timeout: float = 30.0,
+    ) -> Iterator[StreamEvent]:
+        """Stream real-time security alert events with optional status filtering.
+
+        Args:
+            status: Optional alert status filter (e.g. NEW, TRIAGED).
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Synchronous iterator yielding StreamEvent instances.
+        """
+        base_url = f"{self.config.soc_url.rstrip('/')}/api/v1/alerts/stream"
+        url = f"{base_url}?status={status}" if status else base_url
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient()
+        return client.stream(url, headers=headers, timeout=timeout)
+
+    async def stream_reasoning_deltas_async(
+        self,
+        investigation_id: str,
+        timeout: float = 30.0,
+    ) -> AsyncIterator[StreamEvent]:
+        """Stream real-time reasoning deltas asynchronously.
+
+        Args:
+            investigation_id: UUID of the investigation.
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Asynchronous iterator yielding StreamEvent instances.
+        """
+        base_ai = self.config.ai_url.rstrip("/")
+        url = f"{base_ai}/api/v1/investigations/{investigation_id}/reasoning/stream"
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient(async_client=self._client)
+        async for event in client.stream_async(url, headers=headers, timeout=timeout):
+            yield event
+
+    async def stream_alert_events_async(
+        self,
+        status: str | None = None,
+        timeout: float = 30.0,
+    ) -> AsyncIterator[StreamEvent]:
+        """Stream real-time security alert events asynchronously.
+
+        Args:
+            status: Optional alert status filter (e.g. NEW, TRIAGED).
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Asynchronous iterator yielding StreamEvent instances.
+        """
+        base_url = f"{self.config.soc_url.rstrip('/')}/api/v1/alerts/stream"
+        url = f"{base_url}?status={status}" if status else base_url
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient(async_client=self._client)
+        async for event in client.stream_async(url, headers=headers, timeout=timeout):
+            yield event
+
     async def close(self) -> None:
         """Close client and release underlying connections."""
         if self._owns_client:
@@ -743,6 +827,46 @@ class SyncCybrikClient:
             "fabric": fabric_health,
             "ai": ai_health,
         }
+
+    def stream_reasoning_deltas(
+        self,
+        investigation_id: str,
+        timeout: float = 30.0,
+    ) -> Iterator[StreamEvent]:
+        """Stream real-time reasoning deltas for an investigation.
+
+        Args:
+            investigation_id: UUID of the investigation.
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Synchronous iterator yielding StreamEvent instances.
+        """
+        base_ai = self.config.ai_url.rstrip("/")
+        url = f"{base_ai}/api/v1/investigations/{investigation_id}/reasoning/stream"
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient(client=self._client)
+        return client.stream(url, headers=headers, timeout=timeout)
+
+    def stream_alert_events(
+        self,
+        status: str | None = None,
+        timeout: float = 30.0,
+    ) -> Iterator[StreamEvent]:
+        """Stream real-time security alert events with optional status filtering.
+
+        Args:
+            status: Optional alert status filter (e.g. NEW, TRIAGED).
+            timeout: Stream connection timeout in seconds.
+
+        Returns:
+            Synchronous iterator yielding StreamEvent instances.
+        """
+        base_url = f"{self.config.soc_url.rstrip('/')}/api/v1/alerts/stream"
+        url = f"{base_url}?status={status}" if status else base_url
+        headers = _build_auth_headers(self.config)
+        client = EventStreamClient(client=self._client)
+        return client.stream(url, headers=headers, timeout=timeout)
 
     def close(self) -> None:
         """Close client and release underlying connections."""

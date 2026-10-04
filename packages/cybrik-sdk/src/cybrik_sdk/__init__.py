@@ -52,6 +52,11 @@ from cybrik_sdk.pack import (
     TamperDetectionError,
     VerificationResult,
 )
+from cybrik_sdk.streaming import (
+    EventStreamClient,
+    SSEParser,
+    StreamEvent,
+)
 
 __version__ = "0.1.0"
 
@@ -85,11 +90,14 @@ __all__ = [
     "DecompressionBombError",
     "DisallowedFileTypeError",
     "DisallowedLinkError",
+    "EventStreamClient",
     "FabricClient",
     "InspectionResult",
     "PathTraversalError",
     "ResiliencePolicy",
+    "SSEParser",
     "SocClient",
+    "StreamEvent",
     "SyncAiClient",
     "SyncCybrikClient",
     "SyncFabricClient",

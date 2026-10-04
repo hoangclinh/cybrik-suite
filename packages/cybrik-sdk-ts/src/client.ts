@@ -15,6 +15,8 @@ import type {
   ListAlertsOptions,
   SystemHealth,
 } from './models.js';
+import { AlertStreamSubscription } from './streaming.js';
+import type { StreamSubscriptionOptions } from './streaming.js';
 
 export const SDK_VERSION = '0.1.0';
 export const DEFAULT_USER_AGENT = 'cybrik-sdk-ts/0.1.0';
@@ -263,5 +265,65 @@ export class CybrikClient {
     }
 
     return [];
+  }
+
+  /**
+   * Subscribe to real-time security alert events via Server-Sent Events (SSE).
+   */
+  subscribeAlerts(options?: StreamSubscriptionOptions): AlertStreamSubscription {
+    let url = `${this.endpoint}/api/v1/alerts/stream`;
+
+    if (options?.filter) {
+      const searchParams = new URLSearchParams();
+      if (options.filter.severity && options.filter.severity.length > 0) {
+        searchParams.set(
+          'severity',
+          Array.isArray(options.filter.severity)
+            ? options.filter.severity.join(',')
+            : String(options.filter.severity)
+        );
+      }
+      if (options.filter.status && options.filter.status.length > 0) {
+        searchParams.set(
+          'status',
+          Array.isArray(options.filter.status)
+            ? options.filter.status.join(',')
+            : String(options.filter.status)
+        );
+      }
+      if (options.filter.source && options.filter.source.length > 0) {
+        searchParams.set(
+          'source',
+          Array.isArray(options.filter.source)
+            ? options.filter.source.join(',')
+            : String(options.filter.source)
+        );
+      }
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
+
+    const headers: Record<string, string> = {
+      'User-Agent': DEFAULT_USER_AGENT,
+      Accept: 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      ...this.customHeaders,
+    };
+
+    if (this.apiToken) {
+      headers['Authorization'] = `Bearer ${this.apiToken}`;
+    }
+
+    if (this.tenantId) {
+      headers['X-Tenant-ID'] = this.tenantId;
+    }
+
+    return new AlertStreamSubscription(url, {
+      ...options,
+      headers: { ...headers, ...options?.headers },
+      fetch: options?.fetch ?? this.fetchFn,
+    });
   }
 }
