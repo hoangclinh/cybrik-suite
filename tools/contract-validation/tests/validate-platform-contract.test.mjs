@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, lstatSync, readlinkSync, mkdtempSync, cpSync, rmSync, realpathSync } from 'node:fs';
 import { createHash, generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
 import { join, dirname, posix } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import AjvModule from 'ajv/dist/2020.js';
 import addFormatsModule from 'ajv-formats';
-import { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateOfflineInstallSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, verifyPayloadSha256, verifyPayloadMd5, getTypedArrayByteLength, getTypedArrayByteOffset, isMalformedBase64Md5, isMalformedPayloadType, verifyDigestErrorDispatch, verifyMalformedHeaderDispatch, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors, isPureBufferOrUint8Array, canonicalizeJcs, validateOperatorDeploymentPolicySemantics, ALLOWED_OPEN6_SUBSTRATES, ALLOWED_OPEN7_K8S_DISTRIBUTIONS } from '../validate-schemas.mjs';
 
 
 const Ajv2020 = AjvModule.default || AjvModule;
@@ -22,108 +22,131 @@ const ROOT = join(HERE, '../../..');
 const JSON_SCHEMA_DIR = join(ROOT, 'contracts/json-schema');
 const EXAMPLES_DIR = join(ROOT, 'contracts/examples/platform');
 
-const reconcileProfileDigestsAndFixtures = () => {
-  const onpremStdPath = join(EXAMPLES_DIR, 'onprem-standard-v1.profile.json');
-  if (existsSync(onpremStdPath)) {
-    const stdDigest = createHash('sha256').update(readFileSync(onpremStdPath)).digest('hex');
-    const hsPath = join(EXAMPLES_DIR, 'sample-capability-negotiation-handshake.json');
-    if (existsSync(hsPath)) {
-      const hs = JSON.parse(readFileSync(hsPath, 'utf8'));
-      if (hs.target_profile_digest !== stdDigest) {
-        hs.target_profile_digest = stdDigest;
-        if (hs.advertisement_response) hs.advertisement_response.target_profile_digest = stdDigest;
-        if (hs.agreed_capability_lease) hs.agreed_capability_lease.target_profile_digest = stdDigest;
-        writeFileSync(hsPath, JSON.stringify(hs, null, 2) + '\n', 'utf8');
-      }
+// Committed platform fixtures are read-only inputs to this file. A fixture whose recorded profile
+// digest drifts from its profile fails the run (it used to be rewritten in place, so CI passed on
+// drifted fixtures), the operator policy sample must verify under its own committed key (it used to
+// be re-signed with a fresh key on every run), and the run must leave contracts/ byte-unchanged.
+const CONTRACTS_DIR = join(ROOT, 'contracts');
+const sha256File = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+// Each fixture field must equal the sha256 of the profile it targets.
+const PROFILE_DIGEST_BINDINGS = [
+  {
+    profile: 'onprem-standard-v1.profile.json',
+    fixture: 'sample-capability-negotiation-handshake.json',
+    fields: [
+      ['target_profile_digest'],
+      ['advertisement_response', 'target_profile_digest'],
+      ['agreed_capability_lease', 'target_profile_digest'],
+    ],
+  },
+  {
+    profile: 'onprem-standard-v1.profile.json',
+    fixture: 'sample-full-profile-conformance-declaration.json',
+    fields: [['target_profile_digest']],
+  },
+  {
+    profile: 'onprem-airgap-v1.profile.json',
+    fixture: 'sample-provider-capability-advertisement.json',
+    fields: [['target_profile_digest']],
+  },
+  ...[
+    'invalid-missing-evidence-advertisement.json',
+    'invalid-unauthenticated-advertisement.json',
+    'invalid-namespace-advertisement.json',
+  ].map((name) => ({
+    profile: 'onprem-airgap-v1.profile.json',
+    fixture: posix.join('negative', name),
+    fields: [['target_profile_digest']],
+  })),
+];
+
+// Returns one message per drifted fixture field; a missing profile, fixture or field is drift too.
+const findProfileDigestDrift = (examplesDir) => {
+  const drift = [];
+  for (const { profile, fixture, fields } of PROFILE_DIGEST_BINDINGS) {
+    const profilePath = join(examplesDir, profile);
+    const fixturePath = join(examplesDir, fixture);
+    if (!existsSync(profilePath) || !existsSync(fixturePath)) {
+      drift.push(`${fixture}: missing ${existsSync(profilePath) ? fixture : profile}`);
+      continue;
     }
-    const fdPath = join(EXAMPLES_DIR, 'sample-full-profile-conformance-declaration.json');
-    if (existsSync(fdPath)) {
-      const fd = JSON.parse(readFileSync(fdPath, 'utf8'));
-      if (fd.target_profile_digest !== stdDigest) {
-        fd.target_profile_digest = stdDigest;
-        writeFileSync(fdPath, JSON.stringify(fd, null, 2) + '\n', 'utf8');
+    const expected = sha256File(profilePath);
+    const doc = JSON.parse(readFileSync(fixturePath, 'utf8'));
+    for (const field of fields) {
+      const actual = field.reduce((value, key) => value?.[key], doc);
+      if (actual !== expected) {
+        drift.push(`${fixture}: ${field.join('.')} is ${actual}, expected sha256(${profile}) = ${expected}`);
       }
     }
   }
-
-  const onpremAirgapPath = join(EXAMPLES_DIR, 'onprem-airgap-v1.profile.json');
-  if (existsSync(onpremAirgapPath)) {
-    const airgapDigest = createHash('sha256').update(readFileSync(onpremAirgapPath)).digest('hex');
-    const advPath = join(EXAMPLES_DIR, 'sample-provider-capability-advertisement.json');
-    if (existsSync(advPath)) {
-      const adv = JSON.parse(readFileSync(advPath, 'utf8'));
-      if (adv.target_profile_digest !== airgapDigest) {
-        adv.target_profile_digest = airgapDigest;
-        writeFileSync(advPath, JSON.stringify(adv, null, 2) + '\n', 'utf8');
-      }
-    }
-    for (const negFile of [
-      'invalid-missing-evidence-advertisement.json',
-      'invalid-unauthenticated-advertisement.json',
-      'invalid-namespace-advertisement.json'
-    ]) {
-      const negPath = join(EXAMPLES_DIR, 'negative', negFile);
-      if (existsSync(negPath)) {
-        const neg = JSON.parse(readFileSync(negPath, 'utf8'));
-        if (neg.target_profile_digest !== airgapDigest) {
-          neg.target_profile_digest = airgapDigest;
-          writeFileSync(negPath, JSON.stringify(neg, null, 2) + '\n', 'utf8');
-        }
-      }
-    }
-  }
-
-  const policyPath = join(EXAMPLES_DIR, 'sample-operator-deployment-policy.json');
-  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
-  const pubJwk = publicKey.export({ format: 'jwk' });
-  const pubRaw = Buffer.from(pubJwk.x, 'base64url');
-  const publicKeyHex = pubRaw.toString('hex');
-
-  const policyData = {
-    policy_id: "operator-policy-onprem-primary-v1",
-    policy_version: "1.0.0",
-    operator_trust_root: {
-      key_id: "op-key-primary-2026",
-      algorithm: "Ed25519",
-      public_key_hex: publicKeyHex,
-      issuer: "urn:cybrik:operator:trust-root:datacenter-01"
-    },
-    envelope_intersection: {
-      tier1_envelope_reference: "FOUNDER_SOVEREIGN_ENVELOPE_V1",
-      sovereignty_class: "SOVEREIGN_CUSTOMER_CONTROLLED",
-      data_sovereignty_enforced: true,
-      telemetry_call_home_prohibited: true,
-      airgap_lifecycle_supported: true
-    },
-    permitted_virtualization_substrates: [
-      "linux-kvm-qemu",
-      "bare-metal",
-      "proxmox-ve"
-    ],
-    permitted_kubernetes_distributions: [
-      "k3s",
-      "rke2",
-      "none"
-    ],
-    permitted_storage_profiles: [
-      "s3-compliant-object-lock",
-      "posix-filesystem"
-    ]
-  };
-
-  const canonicalPayload = canonicalizeJcs(policyData);
-  const sigBuf = sign(null, Buffer.from(canonicalPayload, 'utf8'), privateKey);
-  const signatureHex = sigBuf.toString('hex');
-
-  const fullPolicy = {
-    ...policyData,
-    signature: signatureHex
-  };
-
-  writeFileSync(policyPath, JSON.stringify(fullPolicy, null, 2) + '\n', 'utf8');
+  return drift;
 };
 
-reconcileProfileDigestsAndFixtures();
+// The committed operator policy sample is signed by this key. Pinning it means a sample re-signed
+// with a fresh key fails even though it verifies under its own new public_key_hex.
+const OPERATOR_POLICY_SAMPLE = 'sample-operator-deployment-policy.json';
+const OPERATOR_POLICY_PUBLIC_KEY_HEX = 'eb3be332efff6927210d896fe031e65d4a559749d04195ce58aacb68960ebc6c';
+
+// Returns the reasons a policy is not the committed, validly signed sample (empty when it is).
+const operatorPolicyProblems = (policy) => {
+  const problems = [];
+  const { signature, ...unsigned } = policy;
+  const keyHex = policy?.operator_trust_root?.public_key_hex;
+  if (keyHex !== OPERATOR_POLICY_PUBLIC_KEY_HEX) {
+    problems.push('operator_trust_root.public_key_hex is not the committed operator key');
+  }
+  if (typeof signature !== 'string' || !/^[a-f0-9]{128}$/.test(signature)) {
+    problems.push('signature is not 128 lowercase hex characters');
+    return problems;
+  }
+  try {
+    const publicKey = createPublicKey({
+      key: { kty: 'OKP', crv: 'Ed25519', x: Buffer.from(keyHex, 'hex').toString('base64url') },
+      format: 'jwk',
+    });
+    const payload = Buffer.from(canonicalizeJcs(unsigned), 'utf8');
+    if (!verify(null, payload, publicKey, Buffer.from(signature, 'hex'))) {
+      problems.push('signature does not verify under operator_trust_root.public_key_hex');
+    }
+  } catch (error) {
+    problems.push(`signature could not be checked: ${error.message}`);
+  }
+  return problems;
+};
+
+// Every path under dir, '/'-separated; symbolic links are listed but never followed.
+const listTree = (dir, prefix = '') =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    return entry.isDirectory() ? [relative, ...listTree(join(dir, entry.name), relative)] : [relative];
+  });
+
+// Relative path -> content descriptor for every entry under dir (files by sha256, links by target).
+const snapshotTree = (dir) =>
+  new Map(
+    listTree(dir)
+      .sort()
+      .map((relative) => {
+        const absolute = join(dir, relative);
+        const stats = lstatSync(absolute);
+        if (stats.isFile()) return [relative, `file ${sha256File(absolute)}`];
+        if (stats.isSymbolicLink()) return [relative, `link ${readlinkSync(absolute)}`];
+        return [relative, stats.isDirectory() ? 'dir' : 'other'];
+      }),
+  );
+
+// Paths added, removed or changed under dir since the snapshot `before`.
+const treeChangesSince = (before, dir) => {
+  const after = snapshotTree(dir);
+  return [...new Set([...before.keys(), ...after.keys()])].sort().filter((path) => before.get(path) !== after.get(path));
+};
+
+// Taken before validate-schemas.mjs is evaluated (it is imported dynamically just below, because a
+// static import would run its import-time checks first) and before any test runs; the last test
+// in this file compares against it.
+const CONTRACTS_BEFORE_RUN = snapshotTree(CONTRACTS_DIR);
+const { validateOpenItemEffectMatrix, validateIJson, validatePlatformSemantics, validateOfflineInstallSemantics, validateS3ConformanceProfileSemantics, validateS3MultipartSemantics, dispatchS3Error, dispatchS3PutObject, dispatchS3CompleteMultipartUpload, computePayloadMd5, computePayloadSha256, verifyPayloadSha256, verifyPayloadMd5, getTypedArrayByteLength, getTypedArrayByteOffset, isMalformedBase64Md5, isMalformedPayloadType, verifyDigestErrorDispatch, verifyMalformedHeaderDispatch, S3_CANONICAL_ERROR_CODES, S3_15_BASELINE_OPS, S3_4_OBJECT_LOCK_OPS, S3_19_CLOSED_OPS, S3_15_OPERATIONS, S3_19_OPERATIONS, ALL_13_CONFORMANCE_SLOTS, hasOwnAccessors, hasOwnHeadersAccessors, hasOversizedDeclaredLength, getOwn, isPlainOrNull, hasPrototypeChainAccessor, hasAnyAccessorsOrProxy, getOwnDataValue, createSafePlainSnapshot, snapshotOwnDataDescriptors, isPureBufferOrUint8Array, canonicalizeJcs, validateOperatorDeploymentPolicySemantics, ALLOWED_OPEN6_SUBSTRATES, ALLOWED_OPEN7_K8S_DISTRIBUTIONS } = await import('../validate-schemas.mjs');
 
 const PLATFORM_SCHEMAS = [
   'cybrik.deployment-profile.v1.schema.json',
@@ -145,6 +168,119 @@ const loadSchemas = () => {
 };
 
 loadSchemas();
+
+const withTempCopy = (sourceDir, callback) => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'platform-contract-')));
+  try {
+    const copy = join(dir, 'copy');
+    cpSync(sourceDir, copy, { recursive: true });
+    return callback(copy);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+test('committed platform fixtures carry their target profiles\' current sha256 (drift fails, never repaired)', () => {
+  assert.deepEqual(findProfileDigestDrift(EXAMPLES_DIR), []);
+});
+
+test('a planted profile drift is reported for every bound fixture field and nothing is repaired', () => {
+  withTempCopy(EXAMPLES_DIR, (examples) => {
+    const before = snapshotTree(examples);
+    for (const profile of ['onprem-standard-v1.profile.json', 'onprem-airgap-v1.profile.json']) {
+      writeFileSync(join(examples, profile), `${readFileSync(join(examples, profile), 'utf8')}\n`);
+    }
+
+    const drift = findProfileDigestDrift(examples);
+
+    // The 8 fields the removed setup used to rewrite, as a literal list.
+    assert.deepEqual(drift.map((line) => line.slice(0, line.indexOf(' is '))), [
+      'sample-capability-negotiation-handshake.json: target_profile_digest',
+      'sample-capability-negotiation-handshake.json: advertisement_response.target_profile_digest',
+      'sample-capability-negotiation-handshake.json: agreed_capability_lease.target_profile_digest',
+      'sample-full-profile-conformance-declaration.json: target_profile_digest',
+      'sample-provider-capability-advertisement.json: target_profile_digest',
+      'negative/invalid-missing-evidence-advertisement.json: target_profile_digest',
+      'negative/invalid-unauthenticated-advertisement.json: target_profile_digest',
+      'negative/invalid-namespace-advertisement.json: target_profile_digest',
+    ]);
+    assert.deepEqual(treeChangesSince(before, examples), [
+      'onprem-airgap-v1.profile.json',
+      'onprem-standard-v1.profile.json',
+    ]);
+  });
+});
+
+test('a planted missing fixture or missing digest field is reported as drift', () => {
+  withTempCopy(EXAMPLES_DIR, (examples) => {
+    const baseline = new Set(findProfileDigestDrift(examples));
+    const handshakePath = join(examples, 'sample-capability-negotiation-handshake.json');
+    const handshake = JSON.parse(readFileSync(handshakePath, 'utf8'));
+    delete handshake.agreed_capability_lease.target_profile_digest;
+    writeFileSync(handshakePath, `${JSON.stringify(handshake, null, 2)}\n`);
+    rmSync(join(examples, 'negative', 'invalid-namespace-advertisement.json'));
+
+    const planted = findProfileDigestDrift(examples).filter((line) => !baseline.has(line));
+    assert.deepEqual(planted.map((line) => line.split(', expected')[0]), [
+      'sample-capability-negotiation-handshake.json: agreed_capability_lease.target_profile_digest is undefined',
+      'negative/invalid-namespace-advertisement.json: missing negative/invalid-namespace-advertisement.json',
+    ]);
+  });
+});
+
+test('the committed operator policy sample verifies under its own committed key (never re-signed)', () => {
+  const policy = JSON.parse(readFileSync(join(EXAMPLES_DIR, OPERATOR_POLICY_SAMPLE), 'utf8'));
+  assert.deepEqual(operatorPolicyProblems(policy), []);
+});
+
+test('a re-signed or altered operator policy sample fails the verify assertion', () => {
+  const committed = JSON.parse(readFileSync(join(EXAMPLES_DIR, OPERATOR_POLICY_SAMPLE), 'utf8'));
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const signWith = (doc) => {
+    const { signature, ...unsigned } = doc;
+    return { ...unsigned, signature: sign(null, Buffer.from(canonicalizeJcs(unsigned), 'utf8'), privateKey).toString('hex') };
+  };
+  const freshKeyHex = Buffer.from(publicKey.export({ format: 'jwk' }).x, 'base64url').toString('hex');
+  const NOT_COMMITTED_KEY = 'operator_trust_root.public_key_hex is not the committed operator key';
+  const BAD_SIGNATURE = 'signature does not verify under operator_trust_root.public_key_hex';
+
+  // What the removed setup wrote on every run: a fresh key and a matching signature.
+  const resigned = signWith({
+    ...committed,
+    operator_trust_root: { ...committed.operator_trust_root, public_key_hex: freshKeyHex },
+  });
+  assert.deepEqual(operatorPolicyProblems(resigned), [NOT_COMMITTED_KEY]);
+  assert.deepEqual(operatorPolicyProblems(signWith(committed)), [BAD_SIGNATURE]);
+  assert.deepEqual(operatorPolicyProblems({ ...committed, policy_version: '1.0.1' }), [BAD_SIGNATURE]);
+
+  const BAD_FORM = 'signature is not 128 lowercase hex characters';
+  const { signature, ...unsigned } = committed;
+  for (const badSignature of ['zz', `${signature}0`, signature.toUpperCase(), 5, [...Buffer.from(signature, 'hex')]]) {
+    assert.deepEqual(operatorPolicyProblems({ ...committed, signature: badSignature }), [BAD_FORM], String(badSignature));
+  }
+  assert.deepEqual(operatorPolicyProblems(unsigned), [BAD_FORM]);
+  const { operator_trust_root: _root, ...rootless } = committed;
+  const rootlessProblems = operatorPolicyProblems(rootless);
+  assert.equal(rootlessProblems.length, 2);
+  assert.equal(rootlessProblems[0], NOT_COMMITTED_KEY);
+  assert.match(rootlessProblems[1], /^signature could not be checked: /);
+});
+
+test('the contracts/ guard reports a planted change, a planted file and a planted deletion', () => {
+  withTempCopy(EXAMPLES_DIR, (examples) => {
+    const before = snapshotTree(examples);
+    const policyPath = join(examples, OPERATOR_POLICY_SAMPLE);
+    writeFileSync(policyPath, `${readFileSync(policyPath, 'utf8')} `);
+    writeFileSync(join(examples, 'planted.json'), '{}\n');
+    rmSync(join(examples, 'negative', 'invalid-unauthenticated-advertisement.json'));
+
+    assert.deepEqual(
+      treeChangesSince(before, examples),
+      [OPERATOR_POLICY_SAMPLE, 'planted.json', 'negative/invalid-unauthenticated-advertisement.json'].sort(),
+    );
+    assert.deepEqual(treeChangesSince(snapshotTree(examples), examples), []);
+  });
+});
 
 test('validate positive platform fixtures', () => {
   const positives = [
@@ -17546,3 +17682,7 @@ test('in-memory & adversarial validation: cybrik.operator-deployment-policy.v1.s
   assert.equal(ajv.validate(schemaId, duplicateNamespacesPolicy), false, 'Duplicate namespaces must fail schema');
 });
 
+// Keep this test last: it checks that nothing in this file wrote into contracts/.
+test('the platform contract run leaves contracts/ byte-unchanged', () => {
+  assert.deepEqual(treeChangesSince(CONTRACTS_BEFORE_RUN, CONTRACTS_DIR), []);
+});
