@@ -19,7 +19,7 @@ no product source code lives in this repository (see repository `CLAUDE.md`).
 | v0.1 packet: JSON Schema documents, examples, packet integrity, security hardenings | JSON Schema 2020-12 | `ajv` (`ajv/dist/2020`) + `ajv-formats` | `ajv` 8.20.0, `ajv-formats` 3.0.1 |
 | W2-D inference packet: JSON Schema documents, fixtures, packet integrity, trust invariants | JSON Schema 2020-12 | `ajv` (`ajv/dist/2020`) + `ajv-formats` | `ajv` 8.20.0, `ajv-formats` 3.0.1 |
 | W2-F service-delegation packet: JSON Schema documents, fixtures, packet integrity, trust invariants | JSON Schema 2020-12 | `ajv` (`ajv/dist/2020`) + `ajv-formats` | `ajv` 8.20.0, `ajv-formats` 3.0.1 |
-| Control-plane + inference-plane wire specs | OpenAPI 3.1.x | Stoplight **Spectral** CLI, built-in `oas` ruleset | `@stoplight/spectral-cli` 6.16.2 |
+| Control-plane + inference-plane wire specs | OpenAPI 3.1.x | Stoplight **Spectral**, built-in `oas` ruleset, linted in process through `vendor/spectral-lint-compat` | `@stoplight/spectral-core` 1.23.1, `@stoplight/spectral-rulesets` 1.22.6 |
 | Event specs (suite + inference lifecycle) | AsyncAPI 3.0.0 | Official **`@asyncapi/parser`** | `@asyncapi/parser` 3.6.0 |
 | Spectral/AsyncAPI glob compatibility | CommonJS compatibility adapter backed by the patched upstream implementation | adapter 5.0.12-cybrik.1; upstream 5.0.12 |
 | YAML parsing (ref resolution) | — | `yaml` | 2.9.0 |
