@@ -1,0 +1,15 @@
+{
+  "name": "spectral-lint-compat",
+  "version": "1.0.0-cybrik.1",
+  "private": true,
+  "description": "In-process Spectral oas lint replacing @stoplight/spectral-cli for this toolchain's single pinned invocation; the Spectral libraries resolve from the root manifest's exact pins.",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "bin": {
+    "spectral": "bin/spectral.cjs"
+  },
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "20 || >=22"
+  }
+}
