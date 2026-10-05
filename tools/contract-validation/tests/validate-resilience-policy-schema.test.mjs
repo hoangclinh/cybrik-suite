@@ -3,7 +3,8 @@
 // contracts/json-schema/cybrik.resilience-policy.v1.schema.json is checked here, under
 // the contract validators' Ajv, instead of by jsonschema in the SDK's pytest suite: the
 // SDK's locked test environment does not carry jsonschema. The cases are the ones the
-// SDK's three schema tests used, payload for payload.
+// SDK's three schema tests used, payload for payload, plus one negative case for each
+// other required member, property and item type, bound and additionalProperties.
 //
 // The Ajv instance is built exactly as validate-schemas.mjs builds its own. The first
 // test reads that file's source and fails if its setup and the copy below differ.
@@ -134,6 +135,79 @@ const NEGATIVES = [
   },
 ];
 
+// One row for each required member, property and item type, bound and additionalProperties
+// of the schema that the rows above do not already break. Each payload is the minimal
+// positive with one change, so it breaks exactly that constraint: deleting the constraint
+// from the schema turns exactly that row's test red.
+const MINIMAL = POSITIVES[0].payload;
+const omit = (object, key) => Object.fromEntries(Object.entries(object).filter(([name]) => name !== key));
+const withRoot = (change) => ({ ...MINIMAL, ...change });
+const withBreaker = (change) => withRoot({ circuit_breaker: { ...MINIMAL.circuit_breaker, ...change } });
+const withoutBreaker = (key) => withRoot({ circuit_breaker: omit(MINIMAL.circuit_breaker, key) });
+
+// Each helper takes the instancePath Ajv reports, and names the test after it.
+const dotted = (instancePath) => instancePath.slice(1).replaceAll('/', '.');
+const isRequired = (instancePath, missingProperty, payload) => ({
+  name: `missing ${[dotted(instancePath), missingProperty].filter(Boolean).join('.')}`,
+  payload, keyword: 'required', instancePath, params: { missingProperty },
+});
+const isType = (instancePath, payload, type) => ({
+  name: `${dotted(instancePath)} not of type ${type}`, payload, keyword: 'type', instancePath, params: { type },
+});
+const isBelow = (instancePath, payload, limit) => ({
+  name: `${dotted(instancePath)} below ${limit}`,
+  payload, keyword: 'minimum', instancePath, params: { comparison: '>=', limit },
+});
+const isAbove = (instancePath, payload, limit) => ({
+  name: `${dotted(instancePath)} above ${limit}`,
+  payload, keyword: 'maximum', instancePath, params: { comparison: '<=', limit },
+});
+
+const CONSTRAINT_NEGATIVES = [
+  isRequired('', 'max_retries', omit(MINIMAL, 'max_retries')),
+  isRequired('', 'initial_backoff_seconds', omit(MINIMAL, 'initial_backoff_seconds')),
+  isRequired('', 'max_backoff_seconds', omit(MINIMAL, 'max_backoff_seconds')),
+  isRequired('/circuit_breaker', 'failure_threshold', withoutBreaker('failure_threshold')),
+  isRequired('/circuit_breaker', 'recovery_timeout_seconds', withoutBreaker('recovery_timeout_seconds')),
+
+  isType('/max_retries', withRoot({ max_retries: 2.5 }), 'integer'),
+  isType('/initial_backoff_seconds', withRoot({ initial_backoff_seconds: '0.5' }), 'number'),
+  isType('/max_backoff_seconds', withRoot({ max_backoff_seconds: '30' }), 'number'),
+  isType('/backoff_multiplier', withRoot({ backoff_multiplier: '2' }), 'number'),
+  isType('/jitter', withRoot({ jitter: 'true' }), 'boolean'),
+  isType('/circuit_breaker', withRoot({ circuit_breaker: 'closed' }), 'object'),
+  isType('/retryable_status_codes', withRoot({ retryable_status_codes: 503 }), 'array'),
+  isType('/retryable_exceptions', withRoot({ retryable_exceptions: 'TimeoutError' }), 'array'),
+  isType('/circuit_breaker/failure_threshold', withBreaker({ failure_threshold: 2.5 }), 'integer'),
+  isType('/circuit_breaker/recovery_timeout_seconds', withBreaker({ recovery_timeout_seconds: '30' }), 'number'),
+  isType('/circuit_breaker/half_open_max_calls', withBreaker({ half_open_max_calls: 2.5 }), 'integer'),
+  isType('/circuit_breaker/consecutive_successes_to_close', withBreaker({ consecutive_successes_to_close: 1.5 }), 'integer'),
+  isType('/retryable_status_codes/0', withRoot({ retryable_status_codes: ['503'] }), 'integer'),
+  isType('/retryable_exceptions/0', withRoot({ retryable_exceptions: [503] }), 'string'),
+
+  isBelow('/max_retries', withRoot({ max_retries: -1 }), 0),
+  isAbove('/initial_backoff_seconds', withRoot({ initial_backoff_seconds: 60.5 }), 60),
+  isBelow('/max_backoff_seconds', withRoot({ max_backoff_seconds: 0.05 }), 0.1),
+  isAbove('/max_backoff_seconds', withRoot({ max_backoff_seconds: 300.5 }), 300),
+  isBelow('/backoff_multiplier', withRoot({ backoff_multiplier: 0.5 }), 1),
+  isAbove('/backoff_multiplier', withRoot({ backoff_multiplier: 5.5 }), 5),
+  isAbove('/circuit_breaker/failure_threshold', withBreaker({ failure_threshold: 101 }), 100),
+  isBelow('/circuit_breaker/recovery_timeout_seconds', withBreaker({ recovery_timeout_seconds: 0.5 }), 1),
+  isAbove('/circuit_breaker/recovery_timeout_seconds', withBreaker({ recovery_timeout_seconds: 600.5 }), 600),
+  isBelow('/circuit_breaker/half_open_max_calls', withBreaker({ half_open_max_calls: 0 }), 1),
+  isAbove('/circuit_breaker/half_open_max_calls', withBreaker({ half_open_max_calls: 21 }), 20),
+  isBelow('/circuit_breaker/consecutive_successes_to_close', withBreaker({ consecutive_successes_to_close: 0 }), 1),
+  isAbove('/circuit_breaker/consecutive_successes_to_close', withBreaker({ consecutive_successes_to_close: 21 }), 20),
+
+  {
+    name: 'an additional circuit_breaker property',
+    payload: withBreaker({ unauthorized_field: 'disallowed' }),
+    keyword: 'additionalProperties',
+    instancePath: '/circuit_breaker',
+    params: { additionalProperty: 'unauthorized_field' },
+  },
+];
+
 // Each element must occur exactly once: none means the setup moved, two means a second instance.
 const occurrences = (source, needle) => source.split(needle).length - 1;
 const onlyMatch = (source, pattern, label) => {
@@ -191,7 +265,7 @@ test('the resilience policy schema accepts the minimal and complete instances', 
   }
 });
 
-for (const negative of NEGATIVES) {
+for (const negative of [...NEGATIVES, ...CONSTRAINT_NEGATIVES]) {
   test(`the resilience policy schema rejects ${negative.name}`, () => {
     const validate = compileSchema();
 

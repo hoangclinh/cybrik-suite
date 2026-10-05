@@ -12,6 +12,11 @@ Validates:
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict, fields
+from pathlib import Path
+from typing import Any
+
 import httpx
 import pytest
 
@@ -26,9 +31,17 @@ from cybrik_sdk import (
     SyncCybrikClient,
 )
 
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+SCHEMA_PATH = REPO_ROOT / "contracts" / "json-schema" / "cybrik.resilience-policy.v1.schema.json"
+
 # -----------------------------------------------------------------------------
 # Part 1: Resilience Policy Dataclass Parity
 # -----------------------------------------------------------------------------
+
+
+def schema_defaults(properties: dict[str, Any]) -> dict[str, Any]:
+    """Return the default each schema property declares, by property name."""
+    return {name: spec["default"] for name, spec in properties.items() if "default" in spec}
 
 
 def test_resilience_policy_dataclass_parity() -> None:
@@ -51,6 +64,19 @@ def test_resilience_policy_dataclass_parity() -> None:
     assert cb_cfg.recovery_timeout_seconds == 30.0
     assert cb_cfg.half_open_max_calls == 3
     assert cb_cfg.consecutive_successes_to_close == 2
+
+    # The literals pin the SDK. These pin it to the schema: every default the schema
+    # declares equals the dataclass field of that name, and every field has one, except
+    # circuit_breaker, whose defaults are compared one level down.
+    with open(SCHEMA_PATH, encoding="utf-8") as f:
+        properties: dict[str, Any] = json.load(f)["properties"]
+    policy_defaults = {
+        item.name: getattr(policy, item.name)
+        for item in fields(policy)
+        if item.name != "circuit_breaker"
+    }
+    assert schema_defaults(properties) == policy_defaults
+    assert schema_defaults(properties["circuit_breaker"]["properties"]) == asdict(cb_cfg)
 
 
 # -----------------------------------------------------------------------------
