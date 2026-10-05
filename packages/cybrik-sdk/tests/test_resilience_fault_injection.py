@@ -1,8 +1,10 @@
-"""Fault-injection qualification harness and resilience policy contract tests.
+"""Fault-injection qualification harness and resilience policy dataclass tests.
 
 Validates:
-1. contracts/json-schema/cybrik.resilience-policy.v1.schema.json strictly conforms
-   to JSON Schema Draft 2020-12 and validates payload boundaries.
+1. ResiliencePolicy and CircuitBreakerConfig defaults match the defaults declared in
+   contracts/json-schema/cybrik.resilience-policy.v1.schema.json. The schema's own
+   Draft 2020-12 and payload-boundary tests run under Ajv in
+   tools/contract-validation/tests/validate-resilience-policy-schema.test.mjs.
 2. Fault injection scenarios simulating downstream service 503 outage,
    dynamic circuit breaker trip, fast-fail shedding, cooldown, probe recovery,
    and failed probe re-trip behind in-memory injected fakes (zero socket I/O).
@@ -11,13 +13,12 @@ Validates:
 from __future__ import annotations
 
 import json
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
-from jsonschema import Draft202012Validator
-from jsonschema.exceptions import ValidationError
 
 from cybrik_sdk import (
     CircuitBreaker,
@@ -33,132 +34,14 @@ from cybrik_sdk import (
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SCHEMA_PATH = REPO_ROOT / "contracts" / "json-schema" / "cybrik.resilience-policy.v1.schema.json"
 
-
 # -----------------------------------------------------------------------------
-# Part 1: Schema Draft 2020-12 Validation
+# Part 1: Resilience Policy Dataclass Parity
 # -----------------------------------------------------------------------------
 
 
-def load_resilience_schema() -> dict[str, Any]:
-    """Load and parse cybrik.resilience-policy.v1.schema.json."""
-    assert SCHEMA_PATH.exists(), f"Resilience schema not found at {SCHEMA_PATH}"
-    with open(SCHEMA_PATH, encoding="utf-8") as f:
-        schema: dict[str, Any] = json.load(f)
-    return schema
-
-
-def test_resilience_policy_schema_conforms_to_draft_2020_12() -> None:
-    """Validate that resilience policy schema conforms to Draft 2020-12 meta-schema."""
-    schema = load_resilience_schema()
-
-    # Meta-schema check
-    Draft202012Validator.check_schema(schema)
-
-    assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert schema["$id"] == (
-        "https://schema.cybrik.dev/contracts/json-schema/cybrik.resilience-policy.v1.schema.json"
-    )
-    assert schema["title"] == "CYBRIK Resilience Policy Contract Schema"
-    assert schema["x-cybrik-status"] == "ACCEPTED FOR IMPLEMENTATION"
-    assert schema["type"] == "object"
-    assert schema["additionalProperties"] is False
-
-
-def test_resilience_policy_schema_valid_instances() -> None:
-    """Verify minimal and complete valid resilience policy instances pass schema validation."""
-    schema = load_resilience_schema()
-    validator = Draft202012Validator(schema)
-
-    # Minimal valid payload (required fields only)
-    minimal_payload = {
-        "max_retries": 3,
-        "initial_backoff_seconds": 0.5,
-        "max_backoff_seconds": 30.0,
-        "circuit_breaker": {
-            "failure_threshold": 5,
-            "recovery_timeout_seconds": 30.0,
-        },
-    }
-    validator.validate(minimal_payload)
-
-    # Complete valid payload (all fields)
-    complete_payload = {
-        "max_retries": 5,
-        "initial_backoff_seconds": 1.0,
-        "max_backoff_seconds": 60.0,
-        "backoff_multiplier": 2.5,
-        "jitter": True,
-        "circuit_breaker": {
-            "failure_threshold": 10,
-            "recovery_timeout_seconds": 45.0,
-            "half_open_max_calls": 5,
-            "consecutive_successes_to_close": 3,
-        },
-        "retryable_status_codes": [429, 502, 503, 504],
-        "retryable_exceptions": ["TimeoutError", "ConnectionError", "ServiceUnavailableError"],
-    }
-    validator.validate(complete_payload)
-
-
-def test_resilience_policy_schema_rejects_invalid_instances() -> None:
-    """Verify schema rejects missing required fields and out-of-boundary values."""
-    schema = load_resilience_schema()
-    validator = Draft202012Validator(schema)
-
-    # Missing required circuit_breaker
-    with pytest.raises(ValidationError, match="'circuit_breaker' is a required property"):
-        validator.validate(
-            {
-                "max_retries": 3,
-                "initial_backoff_seconds": 0.5,
-                "max_backoff_seconds": 30.0,
-            }
-        )
-
-    # max_retries > 10
-    with pytest.raises(ValidationError, match="11 is greater than the maximum of 10"):
-        validator.validate(
-            {
-                "max_retries": 11,
-                "initial_backoff_seconds": 0.5,
-                "max_backoff_seconds": 30.0,
-                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-            }
-        )
-
-    # initial_backoff_seconds < 0.01
-    with pytest.raises(ValidationError, match="is less than the minimum of 0.01"):
-        validator.validate(
-            {
-                "max_retries": 3,
-                "initial_backoff_seconds": 0.005,
-                "max_backoff_seconds": 30.0,
-                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-            }
-        )
-
-    # failure_threshold < 1
-    with pytest.raises(ValidationError, match="0 is less than the minimum of 1"):
-        validator.validate(
-            {
-                "max_retries": 3,
-                "initial_backoff_seconds": 0.5,
-                "max_backoff_seconds": 30.0,
-                "circuit_breaker": {"failure_threshold": 0, "recovery_timeout_seconds": 30.0},
-            }
-        )
-
-    # Disallowed additional property
-    with pytest.raises(ValidationError, match="Additional properties are not allowed"):
-        validator.validate(
-            {
-                "max_retries": 3,
-                "initial_backoff_seconds": 0.5,
-                "max_backoff_seconds": 30.0,
-                "circuit_breaker": {"failure_threshold": 5, "recovery_timeout_seconds": 30.0},
-                "unauthorized_field": "disallowed",
-            }
-        )
+def schema_defaults(properties: dict[str, Any]) -> dict[str, Any]:
+    """Return the default each schema property declares, by property name."""
+    return {name: spec["default"] for name, spec in properties.items() if "default" in spec}
 
 
 def test_resilience_policy_dataclass_parity() -> None:
@@ -181,6 +64,19 @@ def test_resilience_policy_dataclass_parity() -> None:
     assert cb_cfg.recovery_timeout_seconds == 30.0
     assert cb_cfg.half_open_max_calls == 3
     assert cb_cfg.consecutive_successes_to_close == 2
+
+    # The literals pin the SDK. These pin it to the schema: every default the schema
+    # declares equals the dataclass field of that name, and every field has one, except
+    # circuit_breaker, whose defaults are compared one level down.
+    with open(SCHEMA_PATH, encoding="utf-8") as f:
+        properties: dict[str, Any] = json.load(f)["properties"]
+    policy_defaults = {
+        item.name: getattr(policy, item.name)
+        for item in fields(policy)
+        if item.name != "circuit_breaker"
+    }
+    assert schema_defaults(properties) == policy_defaults
+    assert schema_defaults(properties["circuit_breaker"]["properties"]) == asdict(cb_cfg)
 
 
 # -----------------------------------------------------------------------------
