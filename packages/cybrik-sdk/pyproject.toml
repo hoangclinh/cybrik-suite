@@ -23,6 +23,12 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "mypy>=1.9.0",
     "ruff>=0.4.0",
+    # Used by tests/test_contract_conformance.py to validate the SDK's mock
+    # payloads against contracts/json-schema/. Declared explicitly: both were
+    # already resolvable in the dev venv but undeclared, which is
+    # accidentally-working rather than a dependency.
+    "jsonschema>=4.26.0",
+    "referencing>=0.37.0",
 ]
 
 [tool.hatch.build.targets.wheel]
